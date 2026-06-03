@@ -1,0 +1,42 @@
+{
+  "workflow": [
+    {
+      "skill": "requirements-analysis",
+      "phase": "inception",
+      "unit": null,
+      "scope": null
+    },
+    {
+      "skill": "user-stories",
+      "phase": "inception",
+      "unit": null,
+      "scope": null
+    },
+    {
+      "skill": "wireframes",
+      "phase": "inception",
+      "unit": null,
+      "scope": null
+    },
+    {
+      "skill": "application-design",
+      "phase": "inception",
+      "unit": null,
+      "scope": null
+    }
+  ],
+  "intentDir": "org-ai-kb/aidlc-docs/intent-001-noshi-gift-service",
+  "rulesDir": "rules",
+  "current": {
+    "skill": "wireframes",
+    "phase": "inception",
+    "unit": null,
+    "scope": null,
+    "step": "skill-complete",
+    "status": "verified"
+  },
+  "next": {
+    "step": "clarification"
+  },
+  "error": null
+}

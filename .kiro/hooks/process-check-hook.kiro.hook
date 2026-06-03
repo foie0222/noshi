@@ -1,0 +1,13 @@
+{
+  "name": "aidlc-run-process-checker",
+  "version": "1.0.0",
+  "description": "After every builder or validator sub-agent invocation, reminds the orchestrator to run process_checker and read the checkpoint before proceeding.",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": [".*invokeSubAgent.*"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "MANDATORY: A sub-agent just completed. Before doing anything else, run process_checker and read the checkpoint:\n1. Run: node .kiro/aidlc-common/scripts/aidlc-process-checker.js --from-state <intent-dir>/state/process-checkpoint.json\n2. Read the checkpoint file.\n3. If 'error' is not null, follow the 'action' instruction to fix the issue.\n4. If 'error' is null, proceed with the step indicated in 'next'.\nDo NOT skip this. Do NOT proceed without completing these steps."
+  }
+}

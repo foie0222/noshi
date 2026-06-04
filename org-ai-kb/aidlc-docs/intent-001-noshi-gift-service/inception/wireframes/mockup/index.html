@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>noshi — インタラクティブモック（MVP ストーリー）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Yuji+Syuku&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#efe7d7;        /* 生成り washi */
+  --paper-2:#e6dcc7;
+  --card:#fbf7ee;
+  --ink:#23211c;          /* 墨 */
+  --ink-soft:#5e574a;
+  --line:#d8cdb6;
+  --ai:#1f3a5a;           /* 藍 indigo */
+  --shu:#b23a2e;          /* 朱 vermillion (mizuhiki) */
+  --kin:#a9863f;          /* 金 gold */
+  --moss:#5b6b4e;
+  --ok:#4e7a4a;
+  --warn:#b0852b;
+  --r:18px;
+  --serif:"Shippori Mincho B1",serif;
+  --sans:"Zen Kaku Gothic New",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--sans);color:var(--ink);
+  background:
+    radial-gradient(1200px 600px at 15% -10%, #f6efe1 0%, transparent 60%),
+    radial-gradient(900px 700px at 110% 10%, #e9dfca 0%, transparent 55%),
+    linear-gradient(160deg,var(--paper),var(--paper-2));
+  background-attachment:fixed;
+  min-height:100%;
+  display:flex;flex-direction:column;align-items:center;
+  padding:30px 16px 140px;
+  position:relative;
+}
+/* washi grain */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/></svg>");
+}
+.intro{max-width:560px;text-align:center;margin-bottom:18px;z-index:1}
+.brandmark{display:flex;align-items:center;justify-content:center;gap:12px}
+.brandmark h1{font-family:var(--serif);font-weight:800;font-size:40px;letter-spacing:.14em;margin:0;color:var(--ink)}
+.brandmark .en{font-family:var(--serif);letter-spacing:.45em;color:var(--shu);font-size:12px;margin-top:6px}
+.intro p{color:var(--ink-soft);font-size:13px;line-height:1.8;margin:10px 6px 0}
+.tag{display:inline-block;font-size:11px;color:var(--ink-soft);border:1px solid var(--line);background:#fcf8ef99;border-radius:999px;padding:4px 12px;margin-top:8px}
+
+/* mizuhiki divider */
+.mizuhiki{width:220px;height:26px;margin:14px auto 0}
+
+/* phone */
+.stage{display:flex;gap:34px;align-items:flex-start;z-index:1;flex-wrap:wrap;justify-content:center}
+.phone{
+  width:390px;height:steady;aspect-ratio:390/844;position:relative;
+  background:#0e0d0b;border-radius:46px;padding:11px;
+  box-shadow:0 40px 80px -30px rgba(40,30,10,.6),0 6px 16px rgba(0,0,0,.25), inset 0 0 0 2px #2c2722;
+}
+.screenwrap{position:relative;width:100%;height:100%;border-radius:36px;overflow:hidden;background:var(--paper)}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:140px;height:26px;background:#0e0d0b;border-radius:0 0 16px 16px;z-index:40}
+
+/* screens */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;background:
+   linear-gradient(180deg,#f4eee2,#efe7d7);}
+.screen.active{display:flex;animation:fade .45s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.statusbar{height:30px;display:flex;justify-content:space-between;align-items:flex-end;
+  padding:0 22px 2px;font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.appbar{height:50px;display:flex;align-items:center;padding:0 14px;gap:8px;position:relative}
+.appbar .back{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--ink);
+  font-size:20px;cursor:pointer;border:1px solid transparent}
+.appbar .back:hover{border-color:var(--line);background:#fff7e9}
+.appbar .title{font-family:var(--serif);font-weight:700;font-size:17px;letter-spacing:.06em;flex:1;text-align:center}
+.appbar .act{font-size:12px;color:var(--ai);min-width:30px;text-align:right;cursor:pointer}
+.body{flex:1;overflow:auto;padding:6px 18px 22px}
+.body::-webkit-scrollbar{width:0}
+
+.h{font-family:var(--serif);font-weight:700;font-size:20px;letter-spacing:.04em;margin:6px 0 2px}
+.muted{color:var(--ink-soft);font-size:12px;line-height:1.7}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px;
+  box-shadow:0 8px 20px -16px rgba(60,40,10,.5)}
+.card.tap{cursor:pointer;transition:transform .15s, box-shadow .15s}
+.card.tap:active{transform:scale(.99)}
+.card.tap:hover{box-shadow:0 14px 26px -16px rgba(60,40,10,.55)}
+.row{display:flex;gap:10px}
+.between{display:flex;justify-content:space-between;align-items:center}
+.label{font-size:11px;color:var(--ink-soft);letter-spacing:.04em}
+.val{font-family:var(--serif);font-weight:600}
+.amount{font-family:var(--serif);font-weight:800;letter-spacing:.02em}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:50px;border-radius:30px;
+  font-family:var(--sans);font-weight:700;font-size:14px;letter-spacing:.05em;cursor:pointer;border:1.5px solid var(--ink);
+  background:var(--ink);color:#f6efe1;margin-top:14px;transition:transform .12s, filter .2s}
+.btn:active{transform:translateY(1px) scale(.995)}
+.btn.primary{background:var(--ai);border-color:var(--ai)}
+.btn.shu{background:var(--shu);border-color:var(--shu)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.danger{background:transparent;color:var(--shu);border-color:var(--shu)}
+.btn .ico{font-size:17px}
+
+.field{margin-top:12px}
+.field label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;letter-spacing:.04em}
+.input{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:#fffdf8;
+  padding:0 12px;font-family:var(--serif);font-size:15px;color:var(--ink)}
+.input.warn{border-color:var(--warn);box-shadow:0 0 0 3px #b0852b22}
+.badge{font-size:10px;color:var(--warn);border:1px solid var(--warn);border-radius:999px;padding:1px 7px;margin-left:6px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:#fffdf8;cursor:pointer}
+.chip.on{background:var(--ai);color:#fff;border-color:var(--ai)}
+
+.summary{display:flex;gap:8px;margin-top:12px}
+.summary .s{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px}
+.summary .s .label{font-size:10px}
+.summary .s .amount{font-size:15px;margin-top:4px;display:block}
+.pos{color:var(--moss)}
+
+.stepbar{display:flex;gap:6px;padding:8px 18px 14px}
+.stepbar i{height:4px;flex:1;border-radius:3px;background:var(--line)}
+.stepbar i.on{background:var(--ai)}
+
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}
+.spinner{width:62px;height:62px;border-radius:50%;border:5px solid var(--line);border-top-color:var(--shu);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.check{width:74px;height:74px;border-radius:50%;background:#e9f0e4;border:1px solid #bcd0b2;display:grid;place-items:center;color:var(--ok);font-size:36px;
+  animation:pop .5s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+.dropzone{border:2px dashed var(--line);border-radius:18px;background:#fffdf833;aspect-ratio:1;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ink-soft);margin-top:6px;cursor:pointer}
+.dropzone .env{font-size:42px}
+.errbar{background:#f7ecdd;border:1px solid var(--warn);border-radius:14px;padding:12px 14px;margin-top:8px}
+.errbar b{font-family:var(--serif)}
+.thumb{width:64px;height:64px;border-radius:10px;border:1px solid var(--line);background:
+  repeating-linear-gradient(45deg,#efe6d4,#efe6d4 6px,#e7dcc4 6px,#e7dcc4 12px);display:grid;place-items:center;font-size:10px;color:var(--ink-soft)}
+
+.stepper{display:flex;align-items:center;margin:14px 2px}
+.stepper .dot{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;
+  border:1.5px solid var(--line);background:#fff;color:var(--ink-soft)}
+.stepper .dot.on{background:var(--ai);border-color:var(--ai);color:#fff}
+.stepper .seg{flex:1;height:2px;background:var(--line)}
+.stepper .seg.on{background:var(--ai)}
+.stepper .lab{font-size:10px;text-align:center;margin-top:4px;color:var(--ink-soft)}
+
+.listitem{display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid var(--line)}
+.dirpill{font-size:10px;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.dir-in{background:#e9f0e4;color:var(--ok)}
+.dir-out{background:#f3e7e3;color:var(--shu)}
+.searchbar{height:42px;border-radius:999px;border:1px solid var(--line);background:#fffdf8;display:flex;align-items:center;
+  gap:8px;padding:0 14px;color:var(--ink-soft);font-size:13px;margin-top:6px}
+.suggestcard{display:flex;gap:12px;align-items:center}
+.suggestimg{width:66px;height:66px;border-radius:10px;background:
+  radial-gradient(circle at 30% 30%,#f1e8d6,#e3d8bf);border:1px solid var(--line);display:grid;place-items:center;font-size:18px}
+.danger-zone{border:1px solid var(--shu);border-radius:14px;padding:14px;margin-top:16px;background:#fbf2ef}
+
+.idp{display:flex;align-items:center;justify-content:center;gap:10px;height:48px;border-radius:30px;border:1px solid var(--line);
+  background:#fffdf8;font-weight:500;font-size:13px;margin-top:10px;cursor:pointer}
+.letterpaper{background:
+  repeating-linear-gradient(#fffdf8,#fffdf8 31px,#efe7d7 31px,#efe7d7 32px);
+  border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;min-height:180px;
+  font-family:"Yuji Syuku",serif;font-size:14px;line-height:32px;color:#2c2820;white-space:pre-wrap}
+.fab-hint{position:absolute;bottom:20px;left:18px;right:18px}
+
+/* story controller */
+.story{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;
+  width:min(680px,92vw);background:#1c1a16ee;color:#f4ecdb;border-radius:18px;padding:12px 14px;
+  box-shadow:0 20px 50px -18px rgba(0,0,0,.6);backdrop-filter:blur(6px);display:flex;align-items:center;gap:12px}
+.story .nav{width:40px;height:40px;border-radius:50%;border:1px solid #4d473c;background:#2a2620;color:#f4ecdb;
+  font-size:18px;cursor:pointer;display:grid;place-items:center;flex:none}
+.story .nav:disabled{opacity:.3;cursor:default}
+.story .mid{flex:1;min-width:0}
+.story .stp{font-family:var(--serif);font-size:11px;letter-spacing:.18em;color:var(--kin);text-transform:uppercase}
+.story .cap{font-size:13.5px;line-height:1.55;margin-top:2px}
+.story .cap b{color:#fff}
+.story .count{font-size:11px;color:#b8ad97;margin-top:3px}
+.legend{position:fixed;right:16px;top:16px;z-index:60;display:flex;gap:8px}
+.legend button{font-family:var(--sans);font-size:11px;border:1px solid var(--line);background:#fcf8efcc;border-radius:999px;
+  padding:6px 12px;cursor:pointer;color:var(--ink)}
+.sidehint{max-width:230px;font-size:12px;color:var(--ink-soft);line-height:1.9;z-index:1}
+.sidehint h3{font-family:var(--serif);font-size:14px;color:var(--ink);margin:0 0 8px;letter-spacing:.06em}
+.sidehint ul{margin:0;padding-left:16px}
+.sidehint li{margin:4px 0}
+@media(max-width:860px){.sidehint{display:none}}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <div class="brandmark">
+    <svg class="logoknot" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M6 26 C 14 10, 26 10, 34 26" fill="none" stroke="#b23a2e" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M6 30 C 14 14, 26 14, 34 30" fill="none" stroke="#a9863f" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="20" cy="22" r="3" fill="#b23a2e"/>
+    </svg>
+    <div>
+      <h1>のし</h1>
+    </div>
+  </div>
+  <div class="en">N O S H I</div>
+  <p>贈答（もらった・あげた）を AI が一緒に憶えておく。<br>撮るだけで、半返し・お返し・礼状まで。「贈答を、ちゃんと続けられる」。</p>
+  <div><span class="tag">MVP インタラクティブモック</span> <span class="tag">▶ で物語が進みます</span></div>
+  <svg class="mizuhiki" viewBox="0 0 220 26" aria-hidden="true">
+    <path d="M2 13 H86" stroke="#d8cdb6" stroke-width="1.5"/>
+    <path d="M134 13 H218" stroke="#d8cdb6" stroke-width="1.5"/>
+    <path d="M92 13 C100 3,108 3,110 13 C112 23,120 23,128 13" fill="none" stroke="#b23a2e" stroke-width="2"/>
+    <path d="M92 17 C100 7,108 7,110 17 C112 27,120 27,128 17" fill="none" stroke="#a9863f" stroke-width="2"/>
+  </svg>
+</div>
+
+<div class="stage">
+  <div class="sidehint">
+    <h3>このモックの見かた</h3>
+    <ul>
+      <li>下の黒いバーの <b>▶</b> で、利用者の体験が順番に進みます。</li>
+      <li>画面内のボタンも実際に押せます（自由に行き来できます）。</li>
+      <li>撮影 → 抽出 → 記録 → 半返し → お返し → 礼状、が中核の流れ。</li>
+    </ul>
+    <h3 style="margin-top:18px">デザイン意図</h3>
+    <ul>
+      <li>生成り（washi）の地、墨の文字、<b style="color:#b23a2e">水引</b>の朱と金。</li>
+      <li>表題は明朝、礼状は筆書体。贈答の“あらたまり”を UI に。</li>
+    </ul>
+  </div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screenwrap" id="screens"><!-- screens injected --></div>
+  </div>
+</div>
+
+<div class="legend">
+  <button onclick="go('home')">ホーム</button>
+  <button onclick="go('ledger')">台帳</button>
+  <button onclick="go('settings')">設定</button>
+</div>
+
+<div class="story">
+  <button class="nav" id="prev" onclick="step(-1)">‹</button>
+  <div class="mid">
+    <div class="stp" id="stp">STORY</div>
+    <div class="cap" id="cap"></div>
+    <div class="count" id="cnt"></div>
+  </div>
+  <button class="nav" id="next" onclick="step(1)">›</button>
+</div>
+
+<script>
+const SB = (s,r=true,act='')=>`<div class="statusbar"><span>9:41</span><span>● ● ●　100%</span></div>`+
+  `<div class="appbar">${r?`<div class="back" onclick="back()">‹</div>`:'<div style="width:30px"></div>'}<div class="title">${s}</div><div class="act">${act}</div></div>`;
+const STEP = n => `<div class="stepbar">${[1,2,3,4].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</div>`;
+
+const screens = {
+login:`${SB('ようこそ',false)}
+<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+  <div style="text-align:center;margin-bottom:6px">
+    <svg width="56" height="56" viewBox="0 0 40 40"><path d="M6 26 C 14 10, 26 10, 34 26" fill="none" stroke="#b23a2e" stroke-width="2.4" stroke-linecap="round"/><path d="M6 30 C 14 14, 26 14, 34 30" fill="none" stroke="#a9863f" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="22" r="3" fill="#b23a2e"/></svg>
+    <div style="font-family:var(--serif);font-size:30px;font-weight:800;letter-spacing:.2em;margin-top:6px">のし</div>
+    <div class="muted" style="margin-top:6px">贈答を、ちゃんと続けられる。</div>
+  </div>
+  <div class="idp" onclick="go('consent')">  Google で続ける</div>
+  <div class="idp" onclick="go('consent')">  Apple で続ける</div>
+  <div class="muted" style="text-align:center;margin:12px 0 2px">または</div>
+  <div class="field"><label>メールアドレス</label><input class="input" value="hanako@example.jp"></div>
+  <div class="field"><label>パスワード</label><input class="input" type="password" value="········"></div>
+  <div class="btn primary" onclick="go('consent')">ログイン</div>
+  <div class="muted" style="text-align:center;margin-top:10px">連続失敗はレート制限・エラーは汎用文言（OWASP）</div>
+</div>`,
+
+consent:`${SB('ご利用にあたって',false)}
+<div class="body">
+  <div class="h">大切な情報を、丁寧に。</div>
+  <div class="muted">noshi は贈答の記録とお返しの支援に情報を使います。</div>
+  <div class="card"><b class="val">利用目的</b><div class="muted" style="margin-top:6px">贈答の記録・半返し計算・お返し提案・礼状の作成のために利用します。</div></div>
+  <div class="card"><b class="val">データの扱い</b><div class="muted" style="margin-top:6px">お相手の氏名・続柄・金額は機微情報として暗号化して保存します。</div></div>
+  <div class="card"><b class="val">贈り先（第三者）の情報</b><div class="muted" style="margin-top:6px">取り扱い方針と、削除の手段をご用意します。</div></div>
+  <div class="btn" onclick="go('home')">同意して始める</div>
+  <div class="muted" style="text-align:center;margin-top:8px">S-14 / 初回のみ表示</div>
+</div>`,
+
+home:`${SB('noshi',false,'⚙')}
+<div class="body">
+  <div class="between" style="margin-top:4px"><div class="h" style="margin:0">こんにちは、美和さん</div></div>
+  <div class="summary">
+    <div class="s"><span class="label">もらった</span><span class="amount">¥84,000</span></div>
+    <div class="s"><span class="label">あげた</span><span class="amount">¥39,000</span></div>
+    <div class="s"><span class="label">差分</span><span class="amount pos">+45,000</span></div>
+  </div>
+  <div class="between" style="margin-top:18px"><b class="val">未完了のお返し</b><span class="label">2件</span></div>
+  <div class="card tap" onclick="go('event')"><div class="between"><div><div class="val">佐藤 花子 様</div><div class="muted">出産祝い ¥30,000 ・ 検討中</div></div><div style="color:var(--shu)">›</div></div></div>
+  <div class="card tap" onclick="go('event')"><div class="between"><div><div class="val">田中 太郎 様</div><div class="muted">結婚祝い ¥50,000 ・ 検討中</div></div><div style="color:var(--shu)">›</div></div></div>
+  <div class="between" style="margin-top:18px"><b class="val">直近の記録</b><span class="label" onclick="go('ledger')" style="cursor:pointer;color:var(--ai)">台帳をみる ›</span></div>
+  <div class="card tap" onclick="go('ledger')"><div class="between"><div class="val">山田 一郎 様</div><div class="muted">お中元 ¥5,000</div></div></div>
+  <div class="fab-hint"><div class="btn shu" onclick="go('capture')"><span class="ico">＋</span>贈答を撮影して記録</div></div>
+</div>`,
+
+capture:`${SB('撮影')}
+<div class="body">
+  <div class="muted" style="margin-top:4px">ご祝儀袋・のし・送り状を撮ると、自動で読み取ります。</div>
+  <div class="dropzone" onclick="go('loading')"><div class="env">🧧</div><div>タップして撮影 / 画像を選ぶ</div><div class="muted">複数枚OK</div></div>
+  <div class="btn primary" onclick="go('loading')">この画像で読み取る</div>
+  <div class="muted" style="text-align:center;margin-top:10px">S-3 / 体験の入口</div>
+</div>${STEP(1)}`,
+
+loading:`${SB('読み取り中')}
+<div class="center">
+  <div class="spinner"></div>
+  <div class="h" style="margin-top:20px">読み取っています…</div>
+  <div class="muted">通常 10 秒以内（NFR-1.2）</div>
+  <div class="muted" style="margin-top:18px;color:var(--ai);cursor:pointer" onclick="go('capture')">キャンセル</div>
+</div>${STEP(2)}`,
+
+review:`${SB('内容を確認')}
+<div class="body">
+  <div class="between"><div class="muted">AI が読み取りました。確認・修正して保存します。</div><div class="thumb">画像</div></div>
+  <div class="field"><label>金額</label><input class="input" value="¥30,000"></div>
+  <div class="field"><label>お相手の氏名 <span class="badge">要確認</span></label><input class="input warn" value="佐藤 花子"></div>
+  <div class="row"><div class="field" style="flex:1"><label>続柄</label><input class="input" value="友人"></div><div class="field" style="flex:1"><label>用途</label><input class="input" value="出産祝い"></div></div>
+  <div class="field"><label>日付</label><input class="input" value="2026-05-20"></div>
+  <div style="margin-top:12px"><span class="label">方向</span>
+    <div class="chips"><span class="chip on">受領</span><span class="chip">贈与</span></div></div>
+  <div class="btn primary" onclick="go('saved')">確認して保存</div>
+  <div class="muted" style="text-align:center;margin-top:8px">低信頼の項目は<b>要確認</b>（S-3,S-9） ・ <span style="color:var(--shu);cursor:pointer" onclick="go('error')">読み取り失敗の例をみる</span></div>
+</div>${STEP(2)}`,
+
+error:`${SB('読み取れませんでした')}
+<div class="body">
+  <div class="errbar"><b>うまく読み取れませんでした</b><div class="muted" style="margin-top:4px">手入力で続けられます。（内部情報は出しません／OWASP）</div></div>
+  <div class="field"><label>金額</label><input class="input" placeholder="¥"></div>
+  <div class="field"><label>お相手の氏名</label><input class="input" placeholder="例）佐藤 花子"></div>
+  <div class="row"><div class="field" style="flex:1"><label>用途</label><input class="input" placeholder="出産祝い"></div><div class="field" style="flex:1"><label>日付</label><input class="input" placeholder="2026-05-20"></div></div>
+  <div class="btn" onclick="go('review')">手入力で続ける</div>
+  <div class="btn ghost" onclick="go('capture')">撮影し直す</div>
+</div>${STEP(2)}`,
+
+saved:`${SB('完了',false)}
+<div class="center">
+  <div class="check">✓</div>
+  <div class="h" style="margin-top:18px">記録しました</div>
+  <div class="card" style="width:100%;text-align:left"><div class="val">佐藤 花子 様 ／ 出産祝い</div><div class="muted">¥30,000 受領 ・ 2026-05-20</div></div>
+  <div class="btn shu" style="width:100%" onclick="go('half')">お返しを検討する</div>
+  <div class="btn ghost" style="width:100%" onclick="go('home')">ホームに戻る</div>
+</div>`,
+
+half:`${SB('半返し')}
+<div class="body">
+  <div class="card"><span class="label">もらった額</span><div class="between" style="margin-top:4px"><span class="val">出産祝い</span><span class="amount" style="font-size:18px">¥30,000</span></div></div>
+  <div class="card" style="text-align:center;background:linear-gradient(180deg,#fbf7ee,#f4ecda)">
+    <span class="label">推奨お返し額</span>
+    <div class="amount" style="font-size:30px;color:var(--ai);margin-top:6px">¥10,000 – 15,000</div>
+  </div>
+  <div class="card"><b class="val">根拠</b><div class="muted" style="margin-top:6px">・出産祝いは <b>1/3〜半返し</b> が目安<br>・地域の慣習を初期値に、上書きできます</div></div>
+  <div class="field"><label>上書き額（任意）</label><input class="input" placeholder="¥"></div>
+  <div class="btn primary" onclick="go('suggest')">次へ（お返し品）</div>
+  <div class="muted" style="text-align:center;margin-top:8px">S-5</div>
+</div>`,
+
+suggest:`${SB('お返し品の提案')}
+<div class="body">
+  <div class="between" style="margin-top:4px"><span class="label">予算</span><span class="chip on">¥10,000 – 15,000</span></div>
+  ${[['🍵','上質な和茶の詰合せ','¥12,000'],['🧺','今治タオルギフト','¥13,000'],['📖','選べるカタログギフト','¥11,000']].map(([e,n,p])=>`
+  <div class="card"><div class="suggestcard"><div class="suggestimg">${e}</div><div style="flex:1"><div class="val">${n}</div><div class="muted">${p} ・ 外部サイト ↗</div></div></div>
+    <div class="btn" style="height:40px;margin-top:10px" onclick="go('letter')">これにする</div></div>`).join('')}
+  <div class="muted" style="text-align:center;margin-top:6px">MVP は提案のみ・noshi 内決済なし（S-6）</div>
+</div>`,
+
+letter:`${SB('礼状の文面')}
+<div class="body">
+  <span class="label">トーン</span>
+  <div class="chips"><span class="chip on">丁寧</span><span class="chip">標準</span><span class="chip">親しみ</span></div>
+  <div class="letterpaper">この度は、心のこもったお祝いを頂戴し、誠にありがとうございました。おかげさまで母子ともに健やかに過ごしております。心ばかりの品をお送りいたします。今後とも変わらぬお付き合いのほど、よろしくお願い申し上げます。</div>
+  <div class="row"><div class="btn ghost" style="flex:1" onclick="toast('コピーしました')">コピー</div><div class="btn ghost" style="flex:1" onclick="toast('書き出しました')">書き出し</div></div>
+  <div class="btn primary" onclick="go('event')">このお礼で完了にする</div>
+  <div class="muted" style="text-align:center;margin-top:8px">生成時のLLM送信は最小化（S-7）</div>
+</div>`,
+
+event:`${SB('贈答の詳細','編集')}
+<div class="body">
+  <div class="card"><div class="val">佐藤 花子 様 ／ 出産祝い</div><div class="muted">¥30,000 受領 ・ 2026-05-20</div></div>
+  <b class="val" style="display:block;margin-top:16px">ステータス</b>
+  <div class="stepper">
+    <div><div class="dot on">✓</div><div class="lab">受領</div></div><div class="seg on"></div>
+    <div><div class="dot on">2</div><div class="lab">検討中</div></div><div class="seg"></div>
+    <div><div class="dot">3</div><div class="lab">完了</div></div>
+  </div>
+  <div class="card"><b class="val">紐付くお返し</b><div class="muted" style="margin-top:6px">上質な和茶の詰合せ ¥12,000（提案）＋ 礼状あり</div></div>
+  <div class="btn shu" onclick="go('half')">お返しの続き（半返し→提案→礼状）</div>
+  <div class="btn danger" onclick="toast('確認ダイアログ→監査記録')">このイベントを削除</div>
+  <div class="muted" style="text-align:center;margin-top:6px">削除は確認＋監査ログ（S-8,S-13）</div>
+</div>`,
+
+ledger:`${SB('贈答の台帳',false,'⚙')}
+<div class="body">
+  <div class="searchbar">🔍 相手・用途で検索</div>
+  <div class="chips"><span class="chip">相手 ▾</span><span class="chip">用途 ▾</span><span class="chip">期間 ▾</span></div>
+  ${[['in','受領','佐藤 花子','¥30,000','出産祝 5/20'],['out','贈与','田中 太郎','¥50,000','結婚祝 4/2'],['in','受領','山田 一郎','¥5,000','お中元 8/3'],['in','受領','鈴木 桜','¥10,000','入学祝 3/30']].map(([d,t,n,a,u])=>`
+  <div class="listitem" onclick="go('event')" style="cursor:pointer"><span class="dirpill dir-${d}">${t}</span><div style="flex:1"><div class="val" style="font-size:14px">${n}</div><div class="muted">${u}</div></div><div class="amount">${a}</div></div>`).join('')}
+  <div class="card"><span class="label">相手別サマリ</span><div class="muted" style="margin-top:4px">佐藤様：もらった ¥30,000 ／ 差分 +¥30,000</div></div>
+</div>`,
+
+settings:`${SB('設定')}
+<div class="body">
+  <span class="label">アカウント</span>
+  <div class="card tap">プロフィール</div>
+  <div class="card tap" onclick="go('login')">ログアウト</div>
+  <span class="label" style="display:block;margin-top:16px">プライバシー</span>
+  <div class="card tap">同意状況の確認</div>
+  <div class="card tap" onclick="toast('エクスポートを開始')">データをエクスポート</div>
+  <div class="danger-zone">
+    <b class="val" style="color:var(--shu)">Danger Zone</b>
+    <div class="muted" style="margin:6px 0 10px">アカウントと全データを削除します。元に戻せません。</div>
+    <div class="btn danger" onclick="toast('確認ダイアログ→削除→監査記録')">すべて削除する</div>
+  </div>
+  <div class="muted" style="text-align:center;margin-top:10px">削除は確認必須・監査ログ（S-2,S-13）</div>
+</div>`
+};
+
+// ---- routing + history ----
+const wrap = document.getElementById('screens');
+Object.entries(screens).forEach(([id,html])=>{
+  const d=document.createElement('div'); d.className='screen'; d.id='sc-'+id; d.innerHTML=html; wrap.appendChild(d);
+});
+let hist=[];
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById('sc-'+id); if(el)el.classList.add('active'); el.querySelector('.body,.center')?.scrollTo(0,0);}
+function go(id){if(current()&&id!==current())hist.push(current()); show(id); syncStory(id);}
+function back(){const p=hist.pop(); show(p||'home'); syncStory(p||'home');}
+function current(){return (document.querySelector('.screen.active')||{}).id?.replace('sc-','');}
+
+// ---- story mode ----
+const STORY=[
+ ['ログイン','美和さんが <b>noshi</b> を開く。Google などで安全にログイン。','login'],
+ ['同意','贈り先（第三者）の情報も扱うため、<b>利用目的と扱いに同意</b>。','consent'],
+ ['ホーム','収支サマリと <b>未完了のお返し</b> が一目で。主導線は「＋撮影」。','home'],
+ ['撮影','頂いた <b>ご祝儀袋を撮影</b>。手入力いらずで記録の入口へ。','capture'],
+ ['AI抽出','金額・氏名・関係・用途を <b>AIが読み取り中</b>（10秒以内）。','loading'],
+ ['確認','読み取り結果を確認・修正。低信頼は <b>要確認</b> で示す。','review'],
+ ['記録完了','贈答が台帳に記録された。そのまま <b>お返し検討</b> へ。','saved'],
+ ['半返し','金額と用途から <b>推奨お返し額</b> を根拠つきで提示。','half'],
+ ['お返し提案','予算に合う <b>お返し品候補</b> を提案（MVPは提案のみ）。','suggest'],
+ ['礼状','相手とトーンに合わせ <b>礼状の文面を生成</b>、編集できる。','letter'],
+ ['イベント管理','受領→検討中→<b>完了</b> へ。お返しのやり残しを防ぐ。','event'],
+ ['台帳','すべての贈答を <b>一覧・検索・相手別集計</b>。続けられる土台。','ledger'],
+];
+let si=0;
+function syncStory(id){const i=STORY.findIndex(s=>s[2]===id); if(i>=0)si=i; render();}
+function render(){const [t,c]=STORY[si];
+  document.getElementById('stp').textContent='STORY ・ '+t;
+  document.getElementById('cap').innerHTML=c;
+  document.getElementById('cnt').textContent=`${si+1} / ${STORY.length}`;
+  document.getElementById('prev').disabled=si===0;
+  document.getElementById('next').disabled=si===STORY.length-1;}
+function step(d){si=Math.max(0,Math.min(STORY.length-1,si+d)); const id=STORY[si][2];
+  if(current()&&id!==current())hist.push(current()); show(id); render();}
+
+// ---- toast ----
+function toast(msg){const t=document.createElement('div');t.textContent=msg;
+  t.style.cssText='position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#1c1a16;color:#f4ecdb;padding:10px 18px;border-radius:999px;font-size:13px;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:.25s';
+  document.body.appendChild(t);requestAnimationFrame(()=>t.style.opacity=1);
+  setTimeout(()=>{t.style.opacity=0;setTimeout(()=>t.remove(),300)},1400);}
+
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1);});
+const _init=new URLSearchParams(location.search).get('s')||'login';
+show(screens[_init]?_init:'login');syncStory(_init);
+</script>
+</body>
+</html>

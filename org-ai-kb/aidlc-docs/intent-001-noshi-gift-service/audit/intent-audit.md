@@ -23,3 +23,13 @@ Chronological audit log of orchestrator and sub-agent actions for this intent.
 | 2026-06-04T00:00:00+09:00 | user-stories-builder | user-stories | execution step (fix): added S-14 privacy/consent, FR-1.2 trace, coverage notes |
 | 2026-06-04T00:00:00+09:00 | user-stories-validator | user-stories | validation step: attempt 2 PASS (rules 1-7, owasp 1-6) |
 | 2026-06-04T00:00:00+09:00 | human | user-stories | Approved personas.md + stories.md at verification gate |
+| 2026-06-04T20:00:00+09:00 | wireframes-builder | wireframes | clarification step: Q1-Q4; human chose SVG / wizard-centric nav / all states / neutral style deferred |
+| 2026-06-04T20:00:00+09:00 | wireframes-builder | wireframes | plan step: approved 15-screen inventory + 3 markdown artifacts |
+| 2026-06-04T20:00:00+09:00 | wireframes-builder | wireframes | execution step: wrote screen-data-map/screen-structure/wireframe-guidance + 15 SVG screens; later added interactive HTML/CSS/JS mockup (mockup/index.html) on human request |
+| 2026-06-04T20:00:00+09:00 | wireframes-validator | wireframes | validation step: PASS (rules 1-12, owasp 1-4) |
+| 2026-06-04T20:00:00+09:00 | human | wireframes | Approved wireframes (SVG + markdown + HTML mockup) at verification gate |
+| 2026-06-04T20:30:00+09:00 | application-design-builder | application-design | clarification step: Q1-Q4; human chose capability/domain components / async extraction+events / BFF / internal ports |
+| 2026-06-04T20:30:00+09:00 | application-design-builder | application-design | plan step: approved 10 components + 9 design artifacts |
+| 2026-06-04T20:30:00+09:00 | application-design-builder | application-design | execution step: wrote components/methods/dependencies/services/cross-cutting + data-models/api-contracts/event-catalog/external-dependencies |
+| 2026-06-04T20:30:00+09:00 | application-design-validator | application-design | validation step: PASS (rules 1-12, owasp 1-8) |
+| 2026-06-04T20:30:00+09:00 | human | application-design | Approved application-design at verification gate — Inception phase complete |

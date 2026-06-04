@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" font-family="sans-serif">
+<rect x="0" y="0" width="375" height="812" fill="#fff" stroke="#222" stroke-width="2"/>
+<rect x="0" y="0" width="375" height="24" fill="#fafafa"/>
+<text x="12" y="16" font-size="10" fill="#888">9:41</text>
+<text x="363" y="16" font-size="10" fill="#888" text-anchor="end">100%</text>
+<!-- screen title chip -->
+<text x="365" y="804" font-size="9" fill="#ccc" text-anchor="end">capture</text><rect x="0" y="24" width="375" height="48" fill="#fafafa" stroke="#bbb"/><text x="14" y="54" font-size="18" fill="#333">‹</text><text x="187.5" y="54" font-size="15" fill="#333" text-anchor="middle" font-weight="bold">撮影</text><rect x="28" y="96" width="319" height="319" rx="8" fill="#eee" stroke="#bbb" stroke-dasharray="5 4"/><text x="40" y="118" font-size="12" fill="#333">カメラプレビュー / ドロップゾーン</text><text x="40" y="136" font-size="10" fill="#888">ご祝儀袋・のし・送り状を撮影</text><text x="28" y="445" font-size="9" fill="#888">複数枚アップロード可 (S-3)</text><rect x="28" y="465" width="319" height="44" rx="22" fill="#3b3b3b" stroke="#3b3b3b"/><text x="187.5" y="493" font-size="13" fill="#fff" text-anchor="middle">この画像で読み取る</text><rect x="0" y="768" width="375" height="44" fill="#fafafa" stroke="#bbb"/><rect x="10.0" y="788" width="73.75" height="4" rx="2" fill="#3b3b3b"/><rect x="103.75" y="788" width="73.75" height="4" rx="2" fill="#bbb"/><rect x="197.5" y="788" width="73.75" height="4" rx="2" fill="#bbb"/><rect x="291.25" y="788" width="73.75" height="4" rx="2" fill="#bbb"/><text x="187.5" y="783" font-size="9" fill="#888" text-anchor="middle">撮影ウィザード 1/4</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" font-family="sans-serif">
+<rect x="0" y="0" width="375" height="812" fill="#fff" stroke="#222" stroke-width="2"/>
+<rect x="0" y="0" width="375" height="24" fill="#fafafa"/>
+<text x="12" y="16" font-size="10" fill="#888">9:41</text>
+<text x="363" y="16" font-size="10" fill="#888" text-anchor="end">100%</text>
+<!-- screen title chip -->
+<text x="365" y="804" font-size="9" fill="#ccc" text-anchor="end">capture-loading</text><rect x="0" y="24" width="375" height="48" fill="#fafafa" stroke="#bbb"/><text x="14" y="54" font-size="18" fill="#333">‹</text><text x="187.5" y="54" font-size="15" fill="#333" text-anchor="middle" font-weight="bold">読み取り中</text><circle cx="187.5" cy="300" r="40" fill="none" stroke="#bbb" stroke-width="6"/><path d="M187.5 260 a40 40 0 0 1 40 40" fill="none" stroke="#3b3b3b" stroke-width="6"/><text x="187.5" y="380" font-size="14" fill="#333" text-anchor="middle">読み取り中…</text><text x="187.5" y="404" font-size="11" fill="#888" text-anchor="middle">通常 10 秒以内 (NFR-1.2)</text><text x="187.5" y="470" font-size="12" fill="#3b3b3b" text-anchor="middle">キャンセル</text><rect x="0" y="768" width="375" height="44" fill="#fafafa" stroke="#bbb"/><rect x="10.0" y="788" width="73.75" height="4" rx="2" fill="#3b3b3b"/><rect x="103.75" y="788" width="73.75" height="4" rx="2" fill="#3b3b3b"/><rect x="197.5" y="788" width="73.75" height="4" rx="2" fill="#bbb"/><rect x="291.25" y="788" width="73.75" height="4" rx="2" fill="#bbb"/><text x="187.5" y="783" font-size="9" fill="#888" text-anchor="middle">撮影ウィザード 2/4</text><text x="16" y="752" font-size="9" fill="#888">loading 状態の代表画面 (S-9)</text>
+</svg>

@@ -1,0 +1,56 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<style>
+  body{margin:0;background:#f0f0f2;font-family:sans-serif;width:1500px;padding:24px}
+  h1{font-size:22px;margin:4px 0 2px}
+  .sub{color:#777;font-size:13px;margin-bottom:18px}
+  .group{font-size:15px;font-weight:bold;color:#444;margin:18px 0 8px;border-left:5px solid #3b3b3b;padding-left:8px}
+  .row{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+  .cell{width:200px;text-align:center}
+  .cell img{width:200px;height:433px;border:1px solid #ccc;background:#fff;border-radius:6px}
+  .cap{font-size:12px;color:#333;margin-top:4px}
+  .step{display:inline-block;background:#3b3b3b;color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;font-size:11px;margin-right:4px}
+  .arrow{font-size:24px;color:#aaa;width:22px;text-align:center}
+  .alt{font-size:11px;color:#888}
+</style></head><body>
+<h1>noshi — 画面フロー ストーリーボード（MVP / 15画面）</h1>
+<div class="sub">モバイル 375×812・ウィザード中心ナビ・全状態網羅・中立スタイル（ブランド deferred）</div>
+
+<div class="group">① オンボーディング → ホーム</div>
+<div class="row">
+  <div class="cell"><img src="screens/login.svg"><div class="cap"><span class="step">1</span>login</div></div>
+  <div class="arrow">→</div>
+  <div class="cell"><img src="screens/consent.svg"><div class="cap"><span class="step">2</span>consent（同意）</div></div>
+  <div class="arrow">→</div>
+  <div class="cell"><img src="screens/home.svg"><div class="cap"><span class="step">3</span>home</div></div>
+  <div class="cell"><img src="screens/home-empty.svg"><div class="cap alt">home-empty（空状態）</div></div>
+</div>
+
+<div class="group">② 撮影ウィザード（中核の一本道）</div>
+<div class="row">
+  <div class="cell"><img src="screens/capture.svg"><div class="cap"><span class="step">4</span>capture（撮影）</div></div>
+  <div class="arrow">→</div>
+  <div class="cell"><img src="screens/capture-loading.svg"><div class="cap"><span class="step">5</span>loading（抽出中）</div></div>
+  <div class="arrow">→</div>
+  <div class="cell"><img src="screens/extract-review.svg"><div class="cap"><span class="step">6</span>extract-review（確認）</div></div>
+  <div class="cell"><img src="screens/extract-error.svg"><div class="cap alt">extract-error（失敗→手入力）</div></div>
+  <div class="arrow">→</div>
+  <div class="cell"><img src="screens/record-saved.svg"><div class="cap"><span class="step">7</span>record-saved</div></div>
+</div>
+
+<div class="group">③ お返しジャーニー</div>
+<div class="row">
+  <div class="cell"><img src="screens/half-return.svg"><div class="cap"><span class="step">8</span>half-return（半返し）</div></div>
+  <div class="arrow">→</div>
+  <div class="cell"><img src="screens/gift-suggest.svg"><div class="cap"><span class="step">9</span>gift-suggest（提案）</div></div>
+  <div class="arrow">→</div>
+  <div class="cell"><img src="screens/letter.svg"><div class="cap"><span class="step">10</span>letter（礼状）</div></div>
+</div>
+
+<div class="group">④ 台帳 / イベント / 設定</div>
+<div class="row">
+  <div class="cell"><img src="screens/ledger.svg"><div class="cap">ledger（台帳）</div></div>
+  <div class="arrow">⇄</div>
+  <div class="cell"><img src="screens/event-detail.svg"><div class="cap">event-detail（詳細・状態）</div></div>
+  <div class="cell"><img src="screens/settings.svg"><div class="cap">settings（削除）</div></div>
+</div>
+</body></html>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" font-family="sans-serif">
+<rect x="0" y="0" width="375" height="812" fill="#fff" stroke="#222" stroke-width="2"/>
+<rect x="0" y="0" width="375" height="24" fill="#fafafa"/>
+<text x="12" y="16" font-size="10" fill="#888">9:41</text>
+<text x="363" y="16" font-size="10" fill="#888" text-anchor="end">100%</text>
+<!-- screen title chip -->
+<text x="365" y="804" font-size="9" fill="#ccc" text-anchor="end">record-saved</text><rect x="0" y="24" width="375" height="48" fill="#fafafa" stroke="#bbb"/><text x="187.5" y="54" font-size="15" fill="#333" text-anchor="middle" font-weight="bold">完了</text><circle cx="187.5" cy="200" r="40" fill="#eef7ee" stroke="#6a6"/><text x="187.5" y="212" font-size="30" fill="#5a5" text-anchor="middle">✓</text><text x="187.5" y="290" font-size="16" fill="#333" text-anchor="middle">記録しました</text><rect x="16" y="320" width="343" height="72" rx="8" fill="#f4f4f5" stroke="#bbb"/><text x="28" y="342" font-size="12" fill="#333">佐藤 花子 / 出産祝い</text><text x="28" y="360" font-size="10" fill="#888">¥30,000 受領 — 2026-05-20</text><rect x="16" y="430" width="343" height="44" rx="22" fill="#3b3b3b" stroke="#3b3b3b"/><text x="187.5" y="458" font-size="13" fill="#fff" text-anchor="middle">お返しを検討する</text><rect x="16" y="482" width="343" height="44" rx="22" fill="#fff" stroke="#3b3b3b"/><text x="187.5" y="510" font-size="13" fill="#333" text-anchor="middle">ホームに戻る</text>
+</svg>

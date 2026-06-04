@@ -28,15 +28,13 @@
   "intentDir": "org-ai-kb/aidlc-docs/intent-001-noshi-gift-service",
   "rulesDir": "rules",
   "current": {
-    "skill": "wireframes",
+    "skill": "application-design",
     "phase": "inception",
     "unit": null,
     "scope": null,
     "step": "skill-complete",
     "status": "verified"
   },
-  "next": {
-    "step": "clarification"
-  },
+  "next": null,
   "error": null
 }

@@ -9,6 +9,15 @@ def test_抽出モックは候補と信頼度を返す():
     assert "amount" in out["candidates"]
 
 
+def test_抽出モックは項目別の信頼度を返す():
+    """抽出モックが項目別の信頼度(field_confidence)を返し、一部だけ低信頼であることを検証する（P0-2）。"""
+    out = OcrLlmMock().extract(["img"])
+    fc = out["field_confidence"]
+    assert set(fc) >= {"amount", "party_name", "purpose"}
+    lows = [k for k, v in fc.items() if v < 0.7]
+    assert 0 < len(lows) < len(fc)  # 全部ではなく一部だけが要確認
+
+
 def test_抽出モックは決定論的():
     """同じ入力に対して抽出モックが同じ結果を返す（決定論的でテスト容易）ことを検証する。"""
     a = OcrLlmMock().extract(["x"])

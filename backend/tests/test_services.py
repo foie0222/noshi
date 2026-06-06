@@ -63,6 +63,40 @@ def test_お返しフローで半返しと提案と礼状が紐づく():
     assert updated.suggestion_id is not None and updated.letter_id == letter.id
 
 
+def test_あげた贈答はお返し対象に出ない():
+    """direction=given のレコードは未完了お返し(pending)に現れないことを検証する（BR-3-GIVEN）。"""
+    svc = make_service()
+    svc.create_record("u1", amount=50000, purpose="結婚祝い", party_name="田中", direction="given")
+    assert svc.list_pending_events("u1") == []
+    assert len(svc.list_records("u1")) == 1  # 台帳には残る
+
+
+def test_お返し不要の用途は未完了に出ない():
+    """お中元（お返し不要）は受領でも未完了お返しに出ないことを検証する（BR-3-DUE-2）。"""
+    svc = make_service()
+    svc.create_record("u1", amount=5000, purpose="お中元", party_name="山田", direction="received", occurred_at="2026-07-01")
+    assert svc.pending_views("u1") == []
+
+
+def test_未完了ビューは期限と残日数を含む():
+    """未完了お返しのビューが期限(due_at)と残日数(days_left)を含むことを検証する（P0-1）。"""
+    svc = make_service()
+    svc.create_record("u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received", occurred_at="2026-05-01")
+    v = svc.pending_views("u1")[0]
+    assert v["due_at"] == "2026-05-31"
+    assert "days_left" in v
+
+
+def test_未完了は期限の近い順に並ぶ():
+    """未完了お返しが残日数の昇順（期限が近い順）に並ぶことを検証する（BR-3-DUE-5）。"""
+    svc = make_service()
+    svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="A", direction="received", occurred_at="2026-05-10")  # 6/9
+    svc.create_record("u1", amount=10000, purpose="香典", party_name="B", direction="received", occurred_at="2026-05-01")      # 6/19
+    svc.create_record("u1", amount=10000, purpose="結婚祝い", party_name="C", direction="received", occurred_at="2026-05-05")  # 6/4
+    order = [v["party_name"] for v in svc.pending_views("u1")]
+    assert order == ["C", "A", "B"]  # 6/4 < 6/9 < 6/19
+
+
 def test_未完了ビューは相手と用途と金額を含む():
     """未完了イベントの表示用ビューが、イベントIDではなく相手・用途・金額を含むことを検証する（UX）。"""
     svc = make_service()

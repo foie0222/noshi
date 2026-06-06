@@ -1,5 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { yen, diffLabel, summarize, statusLabel } from "./format";
+import { yen, diffLabel, summarize, statusLabel, daysLeftLabel } from "./format";
+
+describe("残日数の表示", () => {
+  it("残日数が正なら「のこり◯日」と表示することを検証する", () => {
+    expect(daysLeftLabel(5)).toBe("のこり5日");
+  });
+  it("残日数が0なら「きょうが期限」と表示することを検証する", () => {
+    expect(daysLeftLabel(0)).toBe("きょうが期限");
+  });
+  it("残日数が負なら「期限超過」と表示することを検証する", () => {
+    expect(daysLeftLabel(-2)).toBe("期限超過");
+  });
+  it("期限なし(null)は空文字を返すことを検証する", () => {
+    expect(daysLeftLabel(null)).toBe("");
+  });
+});
 
 describe("ステータス表示", () => {
   it("英語のステータス値を日本語ラベルに変換することを検証する", () => {

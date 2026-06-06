@@ -1,0 +1,5 @@
+# noshi P0 improvements — lean brownfield workflow (unit: noshi-service, OWASP active)
+requirements-analysis org-ai-kb/aidlc-docs/intent-003-noshi-p0-improvements/intent.md org-ai-kb/design-reviews/ux-product-review-001.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/requirements-analysis/requirements.md
+user-stories org-ai-kb/aidlc-docs/intent-003-noshi-p0-improvements/inception/requirements-analysis/requirements.md
+functional-design --unit noshi-service org-ai-kb/aidlc-docs/intent-003-noshi-p0-improvements/inception/user-stories/stories.md org-ai-kb/aidlc-docs/intent-002-noshi-construction/construction/noshi-service/functional-design/business-rules.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/components.md
+code-generation --unit noshi-service org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/api-contracts.md org-ai-kb/aidlc-docs/intent-002-noshi-construction/construction/noshi-service/functional-design/business-rules.md

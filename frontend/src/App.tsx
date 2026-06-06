@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, RecordInput } from "./api";
-import { SummaryBar } from "./components/SummaryBar";
-import { yen, statusLabel } from "./lib/format";
+import { yen, statusLabel, daysLeftLabel } from "./lib/format";
 
 type Screen =
   | "login" | "home" | "capture" | "review" | "ledger"
@@ -33,7 +32,7 @@ export function App() {
   async function doCapture() {
     try {
       const job = await api.capture();
-      setDraft({ ...job.candidates, direction: "received", needs_review: job.needs_review });
+      setDraft({ ...job.candidates, direction: "received", field_review: job.field_review || {} });
       go("review");
     } catch (e: any) { notify(e.message); }
   }
@@ -111,15 +110,25 @@ export function App() {
       {screen === "home" && home && (
         <>
           <Bar title="noshi" />
-          <SummaryBar received={home.summary.received} given={home.summary.given} diff={home.summary.diff} />
-          <div className="h">未完了のお返し</div>
-          {home.pending.length === 0 && <p className="muted">ありません</p>}
-          {home.pending.map((e: any) => (
-            <div className="card tap" key={e.id} onClick={() => openEvent(e.id)}>
-              <b>{e.party_name} 様</b>
-              <div className="muted">{e.purpose} ・ {yen(e.amount)} ・ {statusLabel(e.status)}</div>
-            </div>
-          ))}
+          <div className="h">お返しの予定</div>
+          <p className="muted">期限の近い順。タップしてお返しへ。</p>
+          {home.pending.length === 0 && <p className="muted" style={{ marginTop: 16 }}>いま必要なお返しはありません。</p>}
+          {home.pending.map((e: any) => {
+            const overdue = e.days_left !== null && e.days_left < 0;
+            const soon = e.days_left !== null && e.days_left <= 3;
+            return (
+              <div className="card tap" key={e.id} onClick={() => openEvent(e.id)}>
+                <div className="between">
+                  <b>{e.party_name} 様</b>
+                  <span className="duebadge" style={{
+                    color: overdue ? "var(--shu)" : soon ? "var(--kin)" : "var(--ink-soft)",
+                    fontWeight: overdue || soon ? 700 : 400,
+                  }}>{daysLeftLabel(e.days_left)}</span>
+                </div>
+                <div className="muted">{e.purpose} ・ {yen(e.amount)} ・ {statusLabel(e.status)}</div>
+              </div>
+            );
+          })}
           <button className="btn shu" onClick={() => go("capture")}>＋ 贈答を撮影して記録</button>
         </>
       )}
@@ -132,19 +141,33 @@ export function App() {
         </>
       )}
 
-      {screen === "review" && draft && (
-        <>
-          <Bar title="内容を確認" back="capture" />
-          {draft.needs_review && <div className="err">AIの読み取りに自信のない項目があります。確認してください。</div>}
-          {(["amount", "party_name", "relationship", "purpose", "occurred_at"] as const).map((k) => (
-            <div className="field" key={k}>
-              <label>{({ amount: "金額", party_name: "お相手", relationship: "続柄", purpose: "用途", occurred_at: "日付" } as any)[k]}</label>
-              <input className="input" value={draft[k] ?? ""} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} />
-            </div>
-          ))}
-          <button className="btn primary" onClick={saveRecord}>確認して保存</button>
-        </>
-      )}
+      {screen === "review" && draft && (() => {
+        const fields = ["amount", "party_name", "relationship", "purpose", "occurred_at"] as const;
+        const labels: any = { amount: "金額", party_name: "お相手", relationship: "続柄", purpose: "用途", occurred_at: "日付" };
+        const fr = draft.field_review || {};
+        const reviewCount = fields.filter((k) => fr[k]).length;
+        return (
+          <>
+            <Bar title="内容を確認" back="capture" />
+            <p className="muted" style={{ marginTop: 6 }}>
+              {reviewCount > 0
+                ? `ほぼ読み取れました。${reviewCount}か所だけ確認してください。`
+                : "読み取れました。問題なければ保存できます。"}
+            </p>
+            {fields.map((k) => {
+              const warn = !!fr[k];
+              return (
+                <div className="field" key={k}>
+                  <label>{labels[k]}{warn ? <span className="reviewbadge">要確認</span> : <span className="okbadge">✓ 確定</span>}</label>
+                  <input className={"input" + (warn ? " warn" : "")} value={draft[k] ?? ""}
+                    onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} />
+                </div>
+              );
+            })}
+            <button className="btn primary" onClick={saveRecord}>確認して保存</button>
+          </>
+        );
+      })()}
 
       {screen === "ledger" && ledger && (
         <>

@@ -6,9 +6,35 @@
 """
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass
+from typing import Optional
 
 CONFIDENCE_THRESHOLD = 0.7
+
+# 用途 → お返し期限の日数（受領日起点）。None はお返し不要。
+_DUE_DAYS_DEFAULT = 30
+_DUE_NONE = ("お中元", "お歳暮")
+
+
+def due_date(occurred_at: str, purpose: str) -> Optional[datetime.date]:
+    """受領日と用途から標準お返し期限を算出する（BR-3-DUE）。お返し不要なら None。"""
+    p = purpose or ""
+    if any(k in p for k in _DUE_NONE):
+        return None
+    try:
+        base = datetime.date.fromisoformat((occurred_at or "")[:10])
+    except ValueError:
+        base = datetime.date.today()  # occurred_at 未設定/不正は今日でフォールバック
+    days = 49 if "香典" in p else _DUE_DAYS_DEFAULT
+    return base + datetime.timedelta(days=days)
+
+
+def days_left(due: Optional[datetime.date], today: Optional[datetime.date] = None) -> Optional[int]:
+    """期限日と基準日から残日数を返す（超過は負値）。期限なしは None。"""
+    if due is None:
+        return None
+    return (due - (today or datetime.date.today())).days
 
 # 用途 → (推奨比率, レンジ下限比率)。お中元/お歳暮は返礼不要。
 _DEFAULT_RATIO = 0.5

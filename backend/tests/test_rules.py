@@ -1,6 +1,33 @@
 """ドメインの業務ルール（半返し計算・入力検証）のテスト。"""
+import datetime
 import pytest
 from app.domain import rules
+
+
+def test_香典のお返し期限は四十九日後():
+    """香典のお返し期限が受領日から49日後になることを検証する（BR-3-DUE）。"""
+    due = rules.due_date("2026-05-01", "香典")
+    assert due == datetime.date(2026, 6, 19)  # 5/1 + 49日
+
+
+def test_出産祝いのお返し期限は一ヶ月後():
+    """出産祝いのお返し期限が受領日から30日後になることを検証する（BR-3-DUE）。"""
+    due = rules.due_date("2026-05-01", "出産祝い")
+    assert due == datetime.date(2026, 5, 31)
+
+
+def test_中元歳暮はお返し期限を持たない():
+    """お中元・お歳暮はお返し不要のため期限がNoneになることを検証する（BR-3-DUE-2）。"""
+    assert rules.due_date("2026-07-01", "お中元") is None
+    assert rules.due_date("2026-12-01", "お歳暮") is None
+
+
+def test_残日数を算出する():
+    """期限日と基準日から残日数を算出し、超過は負値になることを検証する（BR-3-DUE-3）。"""
+    due = datetime.date(2026, 5, 10)
+    assert rules.days_left(due, today=datetime.date(2026, 5, 5)) == 5
+    assert rules.days_left(due, today=datetime.date(2026, 5, 12)) == -2
+    assert rules.days_left(None) is None
 
 
 def test_香典は半返し():

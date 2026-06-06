@@ -21,6 +21,14 @@ class OcrLlmMock:
     """決定論的なダミー抽出・定型礼状（MVP/テスト用）。"""
 
     def extract(self, image_refs: list[str]) -> dict:
+        # 項目別の信頼度（P0-2: 高信頼はそのまま、低信頼の氏名だけ要確認）
+        field_confidence = {
+            "amount": 0.97,
+            "party_name": 0.58,   # 氏名だけ自信が低い → 要確認
+            "relationship": 0.91,
+            "purpose": 0.95,
+            "occurred_at": 0.93,
+        }
         return {
             "candidates": {
                 "amount": 30000,
@@ -29,7 +37,8 @@ class OcrLlmMock:
                 "purpose": "出産祝い",
                 "occurred_at": "2026-05-20",
             },
-            "confidence": 0.62,  # しきい値未満 → 要確認（確認導線を促す）
+            "field_confidence": field_confidence,
+            "confidence": min(field_confidence.values()),  # 後方互換（全体の最低値）
         }
 
     def generate_letter(self, purpose: str, relationship: str, tone: str) -> str:

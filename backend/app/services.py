@@ -42,11 +42,16 @@ class NoshiService:
         job = ExtractionJob(
             user_id=user_id, status="completed",
             candidates=out["candidates"], confidence=out["confidence"],
+            field_confidence=out.get("field_confidence", {}),
         )
         return self.repo.put_job(job)
 
     def extraction_needs_review(self, job: ExtractionJob) -> bool:
         return rules.needs_review(job.confidence)
+
+    def field_review(self, job: ExtractionJob) -> dict:
+        """項目別に要確認かどうかを返す（P0-2: 低信頼の項目だけ True）。"""
+        return {k: rules.needs_review(v) for k, v in (job.field_confidence or {}).items()}
 
     # --- 記録 ---
     def create_record(self, user_id: str, amount: int, purpose: str,
@@ -60,8 +65,11 @@ class NoshiService:
             occurred_at=extra.get("occurred_at", ""), relationship=extra.get("relationship", ""),
         )
         self.repo.put_record(rec)
-        ev = GiftEvent(user_id=user_id, record_id=rec.id, status="received")
-        self.repo.put_event(ev)
+        # received のみお返しイベントを生成（BR-3-GIVEN: given は対象外）
+        ev = None
+        if direction == "received":
+            ev = GiftEvent(user_id=user_id, record_id=rec.id, status="received")
+            self.repo.put_event(ev)
         return rec, ev
 
     def list_records(self, user_id: str) -> list[GiftRecord]:
@@ -127,25 +135,36 @@ class NoshiService:
     def get_event(self, user_id: str, event_id: str) -> GiftEvent:
         return self._require_event(user_id, event_id)
 
-    # --- 表示用ビュー（UX: ID ではなく相手・用途・金額を見せる） ---
+    # --- 表示用ビュー（UX: ID ではなく相手・用途・金額・期限を見せる） ---
     def _view(self, user_id: str, ev: GiftEvent) -> dict:
         rec = self.repo.get_record(user_id, ev.record_id)
+        purpose = rec.purpose if rec else ""
+        occurred_at = rec.occurred_at if rec else ""
+        due = rules.due_date(occurred_at, purpose)  # BR-3-DUE
         return {
             "id": ev.id,
             "status": ev.status,
             "record_id": ev.record_id,
             "party_name": rec.party_name if rec else "",
-            "purpose": rec.purpose if rec else "",
+            "purpose": purpose,
             "amount": rec.amount if rec else 0,
             "direction": rec.direction if rec else "received",
-            "occurred_at": rec.occurred_at if rec else "",
+            "occurred_at": occurred_at,
+            "due_at": due.isoformat() if due else None,
+            "days_left": rules.days_left(due),
             "suggestion_id": ev.suggestion_id,
             "letter_id": ev.letter_id,
         }
 
     def pending_views(self, user_id: str) -> list[dict]:
-        """未完了イベントを、相手・用途・金額つきの表示用ビューで返す。"""
-        return [self._view(user_id, e) for e in self.repo.list_pending_events(user_id)]
+        """未完了お返しを、相手・用途・金額・期限つきで、残日数の近い順に返す。
+
+        お返し不要（期限なし）の用途は除外する（BR-3-DUE-2）。
+        """
+        views = [self._view(user_id, e) for e in self.repo.list_pending_events(user_id)]
+        views = [v for v in views if v["due_at"] is not None]  # 期限なしは除外
+        views.sort(key=lambda v: v["days_left"])  # 残日数 昇順（期限が近い順）
+        return views
 
     def event_view(self, user_id: str, event_id: str) -> dict:
         """単一イベントを表示用ビューで返す（本人スコープ強制）。"""

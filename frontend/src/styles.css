@@ -55,3 +55,8 @@ body {
 .tabbar button.on { color: var(--shu); font-weight: 700; }
 .err { background: #f7ecdd; border: 1px solid var(--kin); border-radius: 12px; padding: 10px; margin-top: 8px; font-size: 13px; }
 .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #1c1a16; color: #f4ecdb; padding: 10px 18px; border-radius: 999px; font-size: 13px; z-index: 50; }
+.between { display: flex; justify-content: space-between; align-items: center; }
+.duebadge { font-size: 12px; white-space: nowrap; }
+.input.warn { border-color: var(--kin); box-shadow: 0 0 0 3px rgba(169,134,63,.18); }
+.reviewbadge { font-size: 10px; color: var(--kin); border: 1px solid var(--kin); border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
+.okbadge { font-size: 10px; color: var(--moss); margin-left: 6px; }

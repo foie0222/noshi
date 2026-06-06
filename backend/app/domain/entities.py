@@ -64,6 +64,7 @@ class ExtractionJob:
     status: str = "pending"  # pending / completed / failed
     candidates: dict = field(default_factory=dict)  # confidential（確定前）
     confidence: float = 0.0
+    field_confidence: dict = field(default_factory=dict)  # 項目別信頼度（P0-2）
     id: str = field(default_factory=_id)
 
 

@@ -44,15 +44,11 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
 
     @app.get("/api/home")
     def home(uid: str = Depends(current_user)):
+        # P0-3: 収支・差分は見せない。主役はお返し期限（pending: 期限つき・残日数昇順）。
         records = svc.list_records(uid)
-        summary = svc.party_summary(uid)
-        received = sum(r.amount for r in records if r.direction == "received")
-        given = sum(r.amount for r in records if r.direction == "given")
         return {
-            "summary": {"received": received, "given": given, "diff": received - given},
-            "pending": svc.pending_views(uid),  # 相手・用途・金額つき（UX）
+            "pending": svc.pending_views(uid),
             "recent": [vars(r) for r in records[-5:]],
-            "party_summary": summary,
         }
 
     @app.post("/api/capture")
@@ -60,6 +56,8 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         job = svc.submit_extraction(uid, ["mock.jpg"])
         return {"job_id": job.id, "status": job.status,
                 "candidates": job.candidates, "confidence": job.confidence,
+                "field_confidence": job.field_confidence,
+                "field_review": svc.field_review(job),  # 項目別 要確認（P0-2）
                 "needs_review": svc.extraction_needs_review(job)}
 
     @app.post("/api/records")

@@ -10,6 +10,13 @@ export function statusLabel(status: string): string {
   return STATUS_LABELS[status] ?? status;
 }
 
+export function daysLeftLabel(days: number | null): string {
+  if (days === null || days === undefined) return "";
+  if (days > 0) return `のこり${days}日`;
+  if (days === 0) return "きょうが期限";
+  return "期限超過";
+}
+
 export function yen(n: number): string {
   return "¥" + n.toLocaleString("ja-JP");
 }

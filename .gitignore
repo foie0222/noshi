@@ -36,3 +36,11 @@ coverage/
 .cache/
 tmp/
 *.tmp
+
+# noshi app
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+frontend/node_modules/
+frontend/dist/

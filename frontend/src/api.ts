@@ -1,0 +1,48 @@
+// noshi API クライアント。スタブ認証は X-User-Id ヘッダ（本番は OIDC トークン）。
+
+const USER_ID = "demo-user"; // MVP: 開発用固定ユーザー
+
+async function req(path: string, init: RequestInit = {}) {
+  const res = await fetch(`/api${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-Id": USER_ID,
+      ...(init.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(typeof body.detail === "string" ? body.detail : "リクエストに失敗しました");
+  }
+  return res.json();
+}
+
+export interface RecordInput {
+  amount: number;
+  purpose: string;
+  party_name: string;
+  direction: "received" | "given";
+  occurred_at?: string;
+  relationship?: string;
+}
+
+export const api = {
+  home: () => req("/home"),
+  ledger: () => req("/ledger"),
+  capture: () => req("/capture", { method: "POST" }),
+  createRecord: (r: RecordInput) =>
+    req("/records", { method: "POST", body: JSON.stringify(r) }),
+  halfReturn: (amount: number, purpose: string) =>
+    req(`/returns/half-return?amount=${amount}&purpose=${encodeURIComponent(purpose)}`),
+  suggestions: (eventId: string, budget: number, relationship: string, purpose: string) =>
+    req(`/events/${eventId}/suggestions?budget=${budget}&relationship=${encodeURIComponent(relationship)}&purpose=${encodeURIComponent(purpose)}`),
+  selectSuggestion: (eventId: string, s: any) =>
+    req(`/events/${eventId}/suggestion`, { method: "POST", body: JSON.stringify(s) }),
+  letter: (eventId: string, purpose: string, relationship: string, tone: string) =>
+    req(`/events/${eventId}/letter`, { method: "POST", body: JSON.stringify({ purpose, relationship, tone }) }),
+  setStatus: (eventId: string, status: string) =>
+    req(`/events/${eventId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  getEvent: (eventId: string) => req(`/events/${eventId}`),
+  eventForRecord: (recordId: string) => req(`/records/${recordId}/event`),
+};

@@ -1,0 +1,7 @@
+# noshi construction — composed workflow (single unit: noshi-service, OWASP lens active)
+# Inputs reference intent-001 inception artifacts. Per-unit construction skills.
+functional-design --unit noshi-service org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/user-stories/stories.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/components.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/component-methods.md
+nfr-assessment --unit noshi-service org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/requirements-analysis/requirements.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/components.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/cross-cutting.md
+nfr-design --unit noshi-service org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/requirements-analysis/requirements.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/cross-cutting.md
+infrastructure-design --unit noshi-service org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/components.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/data-models.md
+code-generation --unit noshi-service org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/application-design/api-contracts.md org-ai-kb/aidlc-docs/intent-001-noshi-gift-service/inception/wireframes/wireframe-guidance.md

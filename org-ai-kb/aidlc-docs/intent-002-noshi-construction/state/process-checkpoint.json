@@ -1,0 +1,46 @@
+{
+  "workflow": [
+    {
+      "skill": "functional-design",
+      "phase": "construction",
+      "unit": "noshi-service",
+      "scope": null
+    },
+    {
+      "skill": "nfr-assessment",
+      "phase": "construction",
+      "unit": "noshi-service",
+      "scope": null
+    },
+    {
+      "skill": "nfr-design",
+      "phase": "construction",
+      "unit": "noshi-service",
+      "scope": null
+    },
+    {
+      "skill": "infrastructure-design",
+      "phase": "construction",
+      "unit": "noshi-service",
+      "scope": null
+    },
+    {
+      "skill": "code-generation",
+      "phase": "construction",
+      "unit": "noshi-service",
+      "scope": null
+    }
+  ],
+  "intentDir": "org-ai-kb/aidlc-docs/intent-002-noshi-construction",
+  "rulesDir": "rules",
+  "current": {
+    "skill": "code-generation",
+    "phase": "construction",
+    "unit": "noshi-service",
+    "scope": null,
+    "step": "skill-complete",
+    "status": "verified"
+  },
+  "next": null,
+  "error": null
+}

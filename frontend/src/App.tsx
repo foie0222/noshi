@@ -1,0 +1,227 @@
+import { useEffect, useState } from "react";
+import { api, RecordInput } from "./api";
+import { SummaryBar } from "./components/SummaryBar";
+import { yen, statusLabel } from "./lib/format";
+
+type Screen =
+  | "login" | "home" | "capture" | "review" | "ledger"
+  | "half" | "suggest" | "letter" | "event";
+
+export function App() {
+  const [screen, setScreen] = useState<Screen>("login");
+  const [toast, setToast] = useState<string>("");
+  const [home, setHome] = useState<any>(null);
+  const [ledger, setLedger] = useState<any>(null);
+  const [draft, setDraft] = useState<any>(null);            // 抽出/手入力中のレコード
+  const [event, setEvent] = useState<any>(null);            // 進行中のお返し対象
+  const [range, setRange] = useState<any>(null);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [letterText, setLetterText] = useState<string>("");
+
+  const notify = (m: string) => { setToast(m); setTimeout(() => setToast(""), 1500); };
+  const go = (s: Screen) => setScreen(s);
+
+  async function loadHome() { setHome(await api.home()); }
+  async function loadLedger() { setLedger(await api.ledger()); }
+
+  useEffect(() => {
+    if (screen === "home") loadHome().catch((e) => notify(e.message));
+    if (screen === "ledger") loadLedger().catch((e) => notify(e.message));
+  }, [screen]);
+
+  // ---- 撮影 → 抽出 ----
+  async function doCapture() {
+    try {
+      const job = await api.capture();
+      setDraft({ ...job.candidates, direction: "received", needs_review: job.needs_review });
+      go("review");
+    } catch (e: any) { notify(e.message); }
+  }
+
+  async function saveRecord() {
+    try {
+      const input: RecordInput = {
+        amount: Number(draft.amount), purpose: draft.purpose,
+        party_name: draft.party_name, direction: draft.direction,
+        occurred_at: draft.occurred_at || "", relationship: draft.relationship || "",
+      };
+      const res = await api.createRecord(input);
+      setEvent(res.event);
+      notify("記録しました");
+      go("home");
+    } catch (e: any) { notify(e.message); }
+  }
+
+  // ---- イベントを開く（相手・用途・金額つき） ----
+  async function openEvent(eventId: string) {
+    try { const r = await api.getEvent(eventId); setEvent(r.event); go("event"); }
+    catch (e: any) { notify(e.message); }
+  }
+  async function openEventForRecord(recordId: string) {
+    try { const r = await api.eventForRecord(recordId); setEvent(r.event); go("event"); }
+    catch (e: any) { notify(e.message); }
+  }
+
+  // ---- お返し ----
+  async function startReturn(ev: any) {
+    setEvent(ev);
+    const r = await api.halfReturn(ev.amount, ev.purpose);
+    setRange({ ...r, amount: ev.amount, purpose: ev.purpose });
+    go("half");
+  }
+  async function loadSuggestions() {
+    const r = await api.suggestions(event.id, range.recommended, "友人", range.purpose);
+    setSuggestions(r.suggestions);
+    go("suggest");
+  }
+  async function chooseSuggestion(s: any) {
+    await api.selectSuggestion(event.id, s);
+    notify("お返しを選びました");
+    go("letter");
+  }
+  async function makeLetter() {
+    const r = await api.letter(event.id, range.purpose, "友人", "丁寧");
+    setLetterText(r.letter.body_text);
+  }
+  async function complete() {
+    await api.setStatus(event.id, "done");
+    notify("完了にしました");
+    go("home");
+  }
+
+  const Bar = ({ title, back }: { title: string; back?: Screen }) => (
+    <div className="appbar">
+      {back ? <div className="back" onClick={() => go(back)}>‹</div> : <div style={{ width: 28 }} />}
+      <div className="title">{title}</div>
+      <div style={{ width: 28 }} />
+    </div>
+  );
+
+  return (
+    <div className="phone">
+      {screen === "login" && (
+        <>
+          <div className="brand">のし</div>
+          <div className="brand-en">N O S H I</div>
+          <p className="muted" style={{ textAlign: "center" }}>贈答を、ちゃんと続けられる。</p>
+          <button className="btn primary" onClick={() => go("home")}>はじめる（デモ）</button>
+        </>
+      )}
+
+      {screen === "home" && home && (
+        <>
+          <Bar title="noshi" />
+          <SummaryBar received={home.summary.received} given={home.summary.given} diff={home.summary.diff} />
+          <div className="h">未完了のお返し</div>
+          {home.pending.length === 0 && <p className="muted">ありません</p>}
+          {home.pending.map((e: any) => (
+            <div className="card tap" key={e.id} onClick={() => openEvent(e.id)}>
+              <b>{e.party_name} 様</b>
+              <div className="muted">{e.purpose} ・ {yen(e.amount)} ・ {statusLabel(e.status)}</div>
+            </div>
+          ))}
+          <button className="btn shu" onClick={() => go("capture")}>＋ 贈答を撮影して記録</button>
+        </>
+      )}
+
+      {screen === "capture" && (
+        <>
+          <Bar title="撮影" back="home" />
+          <div className="card" style={{ textAlign: "center", padding: 40 }}>🧧<div className="muted">ご祝儀袋を撮影（モック）</div></div>
+          <button className="btn primary" onClick={doCapture}>この画像で読み取る</button>
+        </>
+      )}
+
+      {screen === "review" && draft && (
+        <>
+          <Bar title="内容を確認" back="capture" />
+          {draft.needs_review && <div className="err">AIの読み取りに自信のない項目があります。確認してください。</div>}
+          {(["amount", "party_name", "relationship", "purpose", "occurred_at"] as const).map((k) => (
+            <div className="field" key={k}>
+              <label>{({ amount: "金額", party_name: "お相手", relationship: "続柄", purpose: "用途", occurred_at: "日付" } as any)[k]}</label>
+              <input className="input" value={draft[k] ?? ""} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} />
+            </div>
+          ))}
+          <button className="btn primary" onClick={saveRecord}>確認して保存</button>
+        </>
+      )}
+
+      {screen === "ledger" && ledger && (
+        <>
+          <Bar title="贈答の台帳" />
+          {ledger.records.length === 0 && <p className="muted">記録がありません</p>}
+          {ledger.records.map((r: any) => (
+            <div className="listitem" key={r.id} onClick={() => openEventForRecord(r.id)}>
+              <span className={`dirpill dir-${r.direction}`}>{r.direction === "received" ? "受領" : "贈与"}</span>
+              <div style={{ flex: 1 }}><b>{r.party_name}</b><div className="muted">{r.purpose}</div></div>
+              <div className="amount">{yen(r.amount)}</div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {screen === "half" && range && (
+        <>
+          <Bar title="半返し" back="home" />
+          <div className="card"><span className="muted">もらった額</span><div className="amount">{yen(range.amount)}</div></div>
+          <div className="card"><span className="muted">推奨お返し額</span><div className="range">{yen(range.low)}〜{yen(range.high)}</div></div>
+          <div className="card"><span className="muted">根拠</span><div>{range.rationale}</div></div>
+          <button className="btn primary" onClick={loadSuggestions}>次へ（お返し品）</button>
+        </>
+      )}
+
+      {screen === "suggest" && (
+        <>
+          <Bar title="お返し品の提案" back="half" />
+          {suggestions.map((s, i) => (
+            <div className="card" key={i}>
+              <b>{s.title}</b><div className="muted">{s.summary} ・ {s.price_band} ・ 外部サイト↗</div>
+              <button className="btn" style={{ height: 40 }} onClick={() => chooseSuggestion(s)}>これにする</button>
+            </div>
+          ))}
+        </>
+      )}
+
+      {screen === "letter" && (
+        <>
+          <Bar title="礼状の文面" back="suggest" />
+          <button className="btn ghost" onClick={makeLetter}>文面を生成する</button>
+          {letterText && <div className="letterpaper">{letterText}</div>}
+          <button className="btn primary" onClick={complete}>このお礼で完了にする</button>
+        </>
+      )}
+
+      {screen === "event" && event && (
+        <>
+          <Bar title="贈答の詳細" back="home" />
+          <div className="card">
+            <b style={{ fontFamily: "var(--serif)", fontSize: 17 }}>{event.party_name} 様</b>
+            <div className="muted">{event.purpose} ・ {yen(event.amount)} ・ {event.direction === "received" ? "受領" : "贈与"}</div>
+          </div>
+          <div className="h" style={{ fontSize: 14 }}>ステータス</div>
+          <div className="chips">
+            {["received", "considering", "done"].map((st) => (
+              <span key={st} className={`chip ${event.status === st ? "on" : ""}`}
+                onClick={async () => { const r = await api.setStatus(event.id, st); setEvent(r.event); notify("更新しました"); }}>
+                {statusLabel(st)}
+              </span>
+            ))}
+          </div>
+          {event.direction === "received" && (
+            <button className="btn shu" onClick={() => startReturn(event)}>お返しの続き（半返し→提案→礼状）</button>
+          )}
+        </>
+      )}
+
+      {screen !== "login" && (
+        <div className="tabbar">
+          <button className={screen === "home" ? "on" : ""} onClick={() => go("home")}>ホーム</button>
+          <button className={screen === "capture" ? "on" : ""} onClick={() => go("capture")}>撮影</button>
+          <button className={screen === "ledger" ? "on" : ""} onClick={() => go("ledger")}>台帳</button>
+        </div>
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}

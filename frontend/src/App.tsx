@@ -4,6 +4,7 @@ import { yen, statusLabel, daysLeftLabel } from "./lib/format";
 import { toneOf } from "./lib/tone";
 import { seasonOf, seasonNudge } from "./lib/season";
 import { otoshidamaRange } from "./lib/otoshidama";
+import { validateImageFile, fileToDataUrl } from "./lib/image";
 
 type Screen =
   | "login" | "home" | "capture" | "review" | "ledger"
@@ -28,6 +29,17 @@ export function App() {
   const [letterText, setLetterText] = useState<string>("");
   const [fontLarge, setFontLarge] = useState<boolean>(() => localStorage.getItem("noshi-font") === "large");
   const [celebrate, setCelebrate] = useState<boolean>(false); // 水引の完了演出
+  const [capturedImage, setCapturedImage] = useState<string>(""); // 撮影/選択した画像(dataURL)
+  const [extracting, setExtracting] = useState<boolean>(false);
+
+  async function onPickImage(file: File | null) {
+    const err = validateImageFile(file);
+    if (err) { notify(err); return; }
+    try {
+      const dataUrl = await fileToDataUrl(file as File);
+      setCapturedImage(dataUrl);
+    } catch { notify("画像を読み込めませんでした。"); }
+  }
 
   const notify = (m: string) => { setToast(m); setTimeout(() => setToast(""), 1500); };
   const go = (s: Screen) => setScreen(s);
@@ -53,11 +65,20 @@ export function App() {
 
   // ---- 撮影 → 抽出 ----
   async function doCapture() {
+    if (!capturedImage) { notify("先に写真を撮るか、画像を選んでください。"); return; }
+    setExtracting(true);
     try {
+      // 画像から AI 抽出（MVP はモック。実プロバイダは OcrLlmPort で差し替え）。
       const job = await api.capture();
-      setDraft({ ...job.candidates, direction: "received", field_review: job.field_review || {} });
+      setDraft({ ...job.candidates, direction: "received", field_review: job.field_review || {}, image: capturedImage });
       go("review");
     } catch (e: any) { notify(e.message); }
+    finally { setExtracting(false); }
+  }
+
+  function startCapture() {
+    setCapturedImage("");
+    go("capture");
   }
 
   async function saveRecord() {
@@ -179,8 +200,25 @@ export function App() {
       {screen === "capture" && (
         <>
           <Bar title="撮影" back="home" />
-          <div className="card" style={{ textAlign: "center", padding: 40 }}>🧧<div className="muted">ご祝儀袋を撮影（モック）</div></div>
-          <button className="btn primary" onClick={doCapture}>この画像で読み取る</button>
+          <p className="muted" style={{ marginTop: 6 }}>ご祝儀袋・のし・送り状を撮影、または画像を選んでください。</p>
+
+          <label className="dropzone" htmlFor="noshi-camera" aria-label="写真を撮る・画像を選ぶ">
+            {capturedImage ? (
+              <img className="capture-preview" src={capturedImage} alt="撮影した画像" />
+            ) : (
+              <><div className="dz-emoji" aria-hidden="true">📷</div><div className="muted">タップして撮影 / 画像を選ぶ</div></>
+            )}
+          </label>
+          <input id="noshi-camera" className="visually-hidden" type="file" accept="image/*" capture="environment"
+            onChange={(e) => onPickImage(e.target.files?.[0] ?? null)} />
+
+          {capturedImage && (
+            <label className="btn ghost" htmlFor="noshi-camera" style={{ marginTop: 8 }}>撮り直す / 別の画像</label>
+          )}
+          <button className="btn primary" disabled={!capturedImage || extracting} onClick={doCapture}>
+            {extracting ? "読み取り中…" : "この画像で読み取る"}
+          </button>
+          <TrustNote />
         </>
       )}
 
@@ -192,6 +230,7 @@ export function App() {
         return (
           <>
             <Bar title="内容を確認" back="capture" />
+            {draft.image && <img className="review-image" src={draft.image} alt="撮影した画像" />}
             <p className="muted" style={{ marginTop: 6 }}>
               {reviewCount > 0
                 ? `ほぼ読み取れました。${reviewCount}か所だけ確認してください。`
@@ -374,7 +413,7 @@ export function App() {
         <div className="tabbar">
           <button className={screen === "home" ? "on" : ""} aria-label="ホーム" onClick={() => go("home")}>ホーム</button>
           <button className={screen === "ledger" ? "on" : ""} aria-label="台帳" onClick={() => go("ledger")}>台帳</button>
-          <button className="fab" aria-label="贈答を撮影して記録" onClick={() => go("capture")}>＋</button>
+          <button className="fab" aria-label="贈答を撮影して記録" onClick={startCapture}>＋</button>
           <button className={screen === "mypage" ? "on" : ""} aria-label="マイページ" onClick={() => go("mypage")}>マイページ</button>
           <button className="spacer" aria-hidden="true" tabIndex={-1}></button>
         </div>

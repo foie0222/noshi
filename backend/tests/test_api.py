@@ -150,3 +150,43 @@ def test_記録修正で日付が消えない():
     rec = c.get("/api/ledger", headers=_h()).json()["records"][0]
     assert rec["amount"] == 55000
     assert rec["occurred_at"] == "2026-04-10"  # 日付は保持される
+
+
+def test_世帯APIで招待コードを取得し家族が参加して共有できる():
+    """X-User-Id 認証で、招待コードを取得→別ユーザーが参加→台帳を共有できることをHTTPで検証する。"""
+    c = TestClient(create_app())
+    # 太郎が記録 → 世帯が自動作成
+    c.post("/api/records", headers=_h("taro"), json={
+        "amount": 30000, "purpose": "出産祝い", "party_name": "佐藤", "direction": "received"})
+    code = c.get("/api/household", headers=_h("taro")).json()["household"]["invite_code"]
+    # 花子が招待コードで参加
+    r = c.post("/api/household/join", headers=_h("hanako"), json={"code": code})
+    assert r.status_code == 200
+    # 花子からも太郎の記録が見える（共有）
+    ledger = c.get("/api/ledger", headers=_h("hanako")).json()["records"]
+    assert len(ledger) == 1 and ledger[0]["party_name"] == "佐藤"
+    # メンバーが2人
+    members = c.get("/api/household", headers=_h("taro")).json()["household"]["members"]
+    assert {m["user_id"] for m in members} == {"taro", "hanako"}
+
+
+def test_別世帯のユーザーには台帳が見えない():
+    """同じ世帯に参加していないユーザーには台帳が見えないことを検証する（世帯境界）。"""
+    c = TestClient(create_app())
+    c.post("/api/records", headers=_h("taro"), json={
+        "amount": 30000, "purpose": "出産祝い", "party_name": "佐藤", "direction": "received"})
+    assert c.get("/api/ledger", headers=_h("stranger")).json()["records"] == []
+
+
+def test_JWT構成時はBearerトークンで認証する(monkeypatch):
+    """NOSHI_JWT_SECRET 構成時、Bearer の HS256 トークンで認証できることを検証する。"""
+    import time, jwt
+    secret = "test-secret-at-least-32-bytes-long-xxxx"
+    monkeypatch.setenv("NOSHI_JWT_SECRET", secret)
+    c = TestClient(create_app())
+    tok = jwt.encode({"sub": "user-xyz", "email": "z@x.jp", "exp": int(time.time()) + 3600},
+                     secret, algorithm="HS256")
+    r = c.get("/api/household", headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    # email がメンバーに反映される
+    assert r.json()["household"]["members"][0]["email"] == "z@x.jp"

@@ -12,7 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.ports import OcrLlmMock, GiftCatalogMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService, ForbiddenError, ValidationError
-from app.schemas import RecordIn, RecordUpdateIn, StatusIn, SelectSuggestionIn, LetterIn, CaptureIn
+from app.auth import Identity
+from app.schemas import (
+    RecordIn, RecordUpdateIn, StatusIn, SelectSuggestionIn, LetterIn, CaptureIn, JoinHouseholdIn,
+)
 
 
 def _default_ocr():
@@ -43,11 +46,25 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     )
     svc = service or NoshiService(_default_repository(), _default_ocr(), GiftCatalogMock())
 
-    def current_user(x_user_id: str | None = Header(default=None)) -> str:
-        # スタブ認証: 本番は OIDC トークン検証に置換。未提示は 401（A07）。
-        if not x_user_id:
-            raise HTTPException(status_code=401, detail="authentication required")
-        return x_user_id
+    def current_identity(
+        authorization: str | None = Header(default=None),
+        x_user_id: str | None = Header(default=None),
+    ) -> Identity:
+        # JWT 構成済み(Cognito/HS256)なら Bearer トークンを検証。未構成なら
+        # 開発用 X-User-Id スタブにフォールバック。どちらも無ければ 401（A07）。
+        from app.auth import auth_configured, decode_identity, AuthError
+        if auth_configured() and authorization:
+            token = authorization[7:] if authorization.lower().startswith("bearer ") else authorization
+            try:
+                return decode_identity(token)
+            except AuthError:
+                raise HTTPException(status_code=401, detail="authentication required")
+        if x_user_id:
+            return Identity(user_id=x_user_id)
+        raise HTTPException(status_code=401, detail="authentication required")
+
+    def current_user(ident: Identity = Depends(current_identity)) -> str:
+        return ident.user_id
 
     @app.exception_handler(ForbiddenError)
     async def _forbidden(_req, _exc):
@@ -62,6 +79,18 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     @app.get("/api/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/api/household")
+    def household(ident: Identity = Depends(current_identity)):
+        # 自分の世帯（名前・招待コード・メンバー）。初回は自動作成される。
+        svc.resolve_household(ident.user_id, email=ident.email)
+        return {"household": svc.household_view(ident.user_id)}
+
+    @app.post("/api/household/join")
+    def join_household(body: JoinHouseholdIn, ident: Identity = Depends(current_identity)):
+        # 招待コードで家族の世帯に参加（以後その世帯の台帳を共有）。
+        svc.join_household(ident.user_id, body.code, email=ident.email)
+        return {"household": svc.household_view(ident.user_id)}
 
     @app.get("/api/home")
     def home(uid: str = Depends(current_user)):

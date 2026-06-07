@@ -13,6 +13,10 @@ class RecordIn(BaseModel):
     relationship: str = ""
 
 
+class JoinHouseholdIn(BaseModel):
+    code: str = Field(min_length=1, description="家族から共有された招待コード")
+
+
 class CaptureIn(BaseModel):
     # 撮影/選択画像（data URL もしくは base64）。未指定ならモック抽出にフォールバック。
     image: str | None = None

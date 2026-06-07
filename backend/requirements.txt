@@ -3,3 +3,4 @@ uvicorn==0.34.0
 pydantic==2.10.4
 boto3==1.35.92
 mangum==0.19.0
+pyjwt[crypto]==2.13.0  # Cognito JWT 検証（RS256/JWKS）・ローカルは HS256

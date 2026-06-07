@@ -36,3 +36,19 @@ def test_カタログモックは予算内の候補を返す():
     items = GiftCatalogMock().suggest(budget=12000, relationship="友人", purpose="出産祝い")
     assert len(items) >= 1
     assert "external_ref" in items[0]
+
+
+def test_弔事の礼状は慶事の言い回しを含まない():
+    """tone='弔事' の礼状が「健やか」等の慶事表現を避け、お悔やみに沿う文面を返すことを検証する。"""
+    mourning = OcrLlmMock().generate_letter(purpose="香典", relationship="知人", tone="弔事")
+    assert "健やか" not in mourning
+    assert "おめでとう" not in mourning
+    # 香典返し/弔事にふさわしい語が含まれる
+    assert ("供養" in mourning) or ("偲" in mourning) or ("法要" in mourning)
+
+
+def test_慶事と弔事で礼状の文面が異なる():
+    """同じ用途でも tone により慶事と弔事で異なる文面になることを検証する。"""
+    joy = OcrLlmMock().generate_letter(purpose="香典", relationship="知人", tone="丁寧")
+    mourning = OcrLlmMock().generate_letter(purpose="香典", relationship="知人", tone="弔事")
+    assert joy != mourning

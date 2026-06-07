@@ -42,6 +42,15 @@ class OcrLlmMock:
         }
 
     def generate_letter(self, purpose: str, relationship: str, tone: str) -> str:
+        # 弔事（香典返し等）は慶事の言い回し（健やか・お付き合い等）を避け、
+        # 故人の供養・忌明けに沿った文面にする（BR-LTR-TONE）。
+        if tone == "弔事":
+            return (
+                f"この度は、ご丁寧なお心遣いを賜り、誠にありがとうございました。"
+                f"おかげをもちまして、四十九日の法要を滞りなく相済ませました。"
+                f"供養のしるしに心ばかりの品をお送りいたします。"
+                f"略儀ながら書中をもちまして謹んで御礼申し上げます。"
+            )
         prefix = "拝啓　" if tone == "丁寧" else ""
         return (
             f"{prefix}この度は、心のこもった{purpose}を賜り、誠にありがとうございました。"

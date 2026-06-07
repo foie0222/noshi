@@ -146,7 +146,9 @@ export function App() {
     go("letter");
   }
   async function makeLetter() {
-    const r = await api.letter(event.id, range.purpose, "友人", "丁寧");
+    // 弔事(香典等)は弔事トーンで生成。慶事と同じ文面にしない。
+    const tone = toneOf(range.purpose) === "mourning" ? "弔事" : "丁寧";
+    const r = await api.letter(event.id, range.purpose, "友人", tone);
     setLetterText(r.letter.body_text);
   }
   async function complete() {

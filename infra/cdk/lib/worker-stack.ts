@@ -15,8 +15,10 @@ export class WorkerStack extends Stack {
     super(scope, id, props);
     const worker = new lambda.Function(this, "ExtractionWorker", {
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: "app.worker.handler",
-      code: lambda.Code.fromInline("def handler(event, context):\n    return None\n"),
+      handler: "app.worker.handler", // backend/app/worker.py
+      code: lambda.Code.fromAsset("../../backend", {
+        exclude: [".venv", "__pycache__", "**/__pycache__", "tests", ".pytest_cache", "*.md"],
+      }),
       timeout: Duration.seconds(30),
       memorySize: 512,
       environment: { NOSHI_TABLE: props.table.tableName },

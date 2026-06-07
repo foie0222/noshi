@@ -23,10 +23,12 @@ export class ApiStack extends Stack {
 
     const apiFn = new lambda.Function(this, "BffFn", {
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: "app.lambda.handler", // Mangum(app)
-      code: lambda.Code.fromInline(
-        "def handler(event, context):\n    return {'statusCode': 200, 'body': 'placeholder'}\n"
-      ), // 実体は backend/ を bundling（本 intent はインフラ骨子）
+      handler: "app.lambda_handler.handler", // Mangum(app) — backend/app/lambda_handler.py
+      // backend/ をアセット同梱（.venv/tests/キャッシュは除外）。本番デプロイ時は依存(fastapi/mangum/boto3)を
+      // Lambda Layer もしくは bundling で同梱する（requirements.txt 参照）。
+      code: lambda.Code.fromAsset("../../backend", {
+        exclude: [".venv", "__pycache__", "**/__pycache__", "tests", ".pytest_cache", "*.md"],
+      }),
       timeout: Duration.seconds(15),
       memorySize: 256,
       environment: {

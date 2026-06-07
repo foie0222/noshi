@@ -1,0 +1,21 @@
+{
+  "name": "noshi-cdk",
+  "version": "0.1.0",
+  "bin": {
+    "noshi": "bin/noshi.js"
+  },
+  "scripts": {
+    "synth": "cdk synth",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "aws-cdk": "^2.170.0",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.170.0",
+    "constructs": "^10.4.2",
+    "ts-node": "^10.9.2"
+  }
+}

@@ -3,6 +3,7 @@ import { api, RecordInput } from "./api";
 import { yen, statusLabel, daysLeftLabel } from "./lib/format";
 import { toneOf } from "./lib/tone";
 import { seasonOf, seasonNudge } from "./lib/season";
+import { otoshidamaRange } from "./lib/otoshidama";
 
 type Screen =
   | "login" | "home" | "capture" | "review" | "ledger"
@@ -19,6 +20,7 @@ export function App() {
   const [ledger, setLedger] = useState<any>(null);
   const [giftTax, setGiftTax] = useState<any>(null);
   const [relationships, setRelationships] = useState<any[] | null>(null);
+  const [otoshiAge, setOtoshiAge] = useState<string>("");
   const [draft, setDraft] = useState<any>(null);            // 抽出/手入力中のレコード
   const [event, setEvent] = useState<any>(null);            // 進行中のお返し対象
   const [range, setRange] = useState<any>(null);
@@ -300,7 +302,30 @@ export function App() {
               <div className="disclaimer">※ 香典・お中元・お歳暮などは除外した概算です。これは税アドバイスではなく気づきのための目安です。正確な要否は専門家にご確認ください。</div>
             </div>
           )}
-          <div className="h" style={{ fontSize: 15 }}>おつきあい</div>
+          <div className="h" style={{ fontSize: 15 }}>お年玉の目安</div>
+          <div className="card">
+            <div className="field" style={{ marginTop: 0 }}>
+              <label htmlFor="otoshi-age">お子さんの年齢</label>
+              <input id="otoshi-age" className="input" type="number" inputMode="numeric" min={0} max={25}
+                placeholder="例）8" value={otoshiAge} aria-label="お子さんの年齢"
+                onChange={(e) => setOtoshiAge(e.target.value)} />
+            </div>
+            {otoshiAge !== "" && !Number.isNaN(Number(otoshiAge)) && (() => {
+              const r = otoshidamaRange(Number(otoshiAge));
+              return (
+                <div style={{ marginTop: 12 }}>
+                  <div className="muted">{r.bracket}</div>
+                  <div className="range" style={{ fontSize: 22 }}>
+                    {r.low === r.high ? yen(r.low) : `${yen(r.low)}〜${yen(r.high)}`}
+                  </div>
+                  <div className="muted" style={{ marginTop: 4 }}>{r.note}</div>
+                </div>
+              );
+            })()}
+            <div className="disclaimer">※ 家庭・地域で異なる一般的な目安です。</div>
+          </div>
+
+          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>おつきあい</div>
           <p className="muted">関係のメンテナンス。気になる関係をそっとお知らせします。</p>
           {relationships && relationships.length === 0 && <p className="muted" style={{ marginTop: 8 }}>まだ記録がありません。</p>}
           {relationships && relationships.map((r: any) => {

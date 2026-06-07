@@ -66,3 +66,44 @@ body {
 /* 弔事トーン: 朱を墨/グレーに静かに */
 .mourning { --shu: #4a4640; }
 .mourning .appbar .title, .mourning .brand { color: #2b2820; }
+
+/* P2: ナビ中央FAB */
+.tabbar { align-items: center; }
+.tabbar .fab { flex: none; width: 56px; height: 56px; margin: 0 6px -14px; border-radius: 50%;
+  background: var(--shu); color: #fff; font-size: 26px; font-weight: 700; border: none;
+  box-shadow: 0 8px 18px -6px rgba(178,58,46,.6); cursor: pointer; }
+.tabbar .spacer { background: none; pointer-events: none; }
+
+/* P2: 水引の完了演出 */
+.celebrate { position: fixed; inset: 0; z-index: 80; background: #efe7d7ee; display: flex;
+  flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.celebrate-text { font-family: var(--serif); font-size: 18px; color: var(--ink); letter-spacing: .08em;
+  animation: fadeup .6s .3s both; }
+.celebrate .mizu1, .celebrate .mizu2 { stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw 1s ease forwards; }
+.celebrate .mizu2 { animation-delay: .18s; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fadeup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .celebrate .mizu1, .celebrate .mizu2 { animation: none; stroke-dashoffset: 0; }
+  .celebrate-text { animation: none; }
+}
+
+/* P2: 季節ナッジ */
+.nudge { background: #f3eee2; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  margin-top: 10px; font-size: 13px; color: var(--moss); }
+
+/* P2: オンボーディング/空状態 */
+.onboard { text-align: center; padding: 40px 12px 8px; }
+.onboard-emoji { font-size: 56px; }
+
+/* P2: 文字サイズ拡大 */
+.font-large { font-size: 1.18em; }
+.font-large .input, .font-large .btn { font-size: 1.05em; }
+
+/* P2: トグル */
+.toggle { width: 48px; height: 28px; border-radius: 999px; border: 1px solid var(--line);
+  background: #e8e0cf; position: relative; cursor: pointer; }
+.toggle.on { background: var(--ai); border-color: var(--ai); }
+.toggle .knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%;
+  background: #fff; transition: left .15s; }
+.toggle.on .knob { left: 22px; }

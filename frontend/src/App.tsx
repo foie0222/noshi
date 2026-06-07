@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, RecordInput } from "./api";
 import { yen, statusLabel, daysLeftLabel } from "./lib/format";
 import { toneOf } from "./lib/tone";
+import { seasonOf, seasonNudge } from "./lib/season";
 
 type Screen =
   | "login" | "home" | "capture" | "review" | "ledger"
@@ -22,9 +23,18 @@ export function App() {
   const [range, setRange] = useState<any>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [letterText, setLetterText] = useState<string>("");
+  const [fontLarge, setFontLarge] = useState<boolean>(() => localStorage.getItem("noshi-font") === "large");
+  const [celebrate, setCelebrate] = useState<boolean>(false); // 水引の完了演出
 
   const notify = (m: string) => { setToast(m); setTimeout(() => setToast(""), 1500); };
   const go = (s: Screen) => setScreen(s);
+  const nudge = seasonNudge(seasonOf(new Date().getMonth() + 1));
+
+  function toggleFont() {
+    const next = !fontLarge;
+    setFontLarge(next);
+    localStorage.setItem("noshi-font", next ? "large" : "normal");
+  }
 
   async function loadHome() { setHome(await api.home()); }
   async function loadLedger() { setLedger(await api.ledger()); }
@@ -91,8 +101,8 @@ export function App() {
   }
   async function complete() {
     await api.setStatus(event.id, "done");
-    notify("完了にしました");
-    go("home");
+    setCelebrate(true);                       // 水引が結ばれる演出（reduced-motion 尊重）
+    setTimeout(() => { setCelebrate(false); go("home"); }, 1600);
   }
 
   const Bar = ({ title, back }: { title: string; back?: Screen }) => (
@@ -104,22 +114,43 @@ export function App() {
   );
 
   return (
-    <div className="phone">
+    <div className={"phone" + (fontLarge ? " font-large" : "")}>
+      {celebrate && (
+        <div className="celebrate" role="status" aria-label="お返しを完了しました">
+          <svg width="160" height="90" viewBox="0 0 160 90">
+            <path className="mizu1" d="M20 60 C 55 15, 105 15, 140 60" fill="none" stroke="#b23a2e" stroke-width="4" stroke-linecap="round"/>
+            <path className="mizu2" d="M20 66 C 55 21, 105 21, 140 66" fill="none" stroke="#a9863f" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="80" cy="45" r="6" fill="#b23a2e"/>
+          </svg>
+          <div className="celebrate-text">お返し、完了しました</div>
+        </div>
+      )}
       {screen === "login" && (
         <>
           <div className="brand">のし</div>
           <div className="brand-en">N O S H I</div>
           <p className="muted" style={{ textAlign: "center" }}>贈答を、ちゃんと続けられる。</p>
-          <button className="btn primary" onClick={() => go("home")}>はじめる（デモ）</button>
+          <button className="btn primary" aria-label="noshi をはじめる" onClick={() => go("home")}>noshi をはじめる</button>
         </>
       )}
 
       {screen === "home" && home && (
         <>
           <Bar title="noshi" />
-          <div className="h">お返しの予定</div>
-          <p className="muted">期限の近い順。タップしてお返しへ。</p>
-          {home.pending.length === 0 && <p className="muted" style={{ marginTop: 16 }}>いま必要なお返しはありません。</p>}
+          {nudge && <div className="nudge">🎁 {nudge}</div>}
+          {home.pending.length === 0 && home.recent.length === 0 ? (
+            <div className="onboard">
+              <div className="onboard-emoji" aria-hidden="true">🧧</div>
+              <div className="h" style={{ textAlign: "center" }}>まず1枚、撮ってみましょう</div>
+              <p className="muted" style={{ textAlign: "center" }}>頂いた贈答を撮るだけで、お返しまでご案内します。</p>
+            </div>
+          ) : (
+            <>
+              <div className="h">お返しの予定</div>
+              <p className="muted">期限の近い順。タップしてお返しへ。</p>
+              {home.pending.length === 0 && <p className="muted" style={{ marginTop: 16 }}>いま必要なお返しはありません。</p>}
+            </>
+          )}
           {home.pending.map((e: any) => {
             const overdue = e.days_left !== null && e.days_left < 0;
             const soon = e.days_left !== null && e.days_left <= 3;
@@ -136,7 +167,6 @@ export function App() {
               </div>
             );
           })}
-          <button className="btn shu" onClick={() => go("capture")}>＋ 贈答を撮影して記録</button>
         </>
       )}
 
@@ -266,6 +296,15 @@ export function App() {
               <div className="disclaimer">※ 香典・お中元・お歳暮などは除外した概算です。これは税アドバイスではなく気づきのための目安です。正確な要否は専門家にご確認ください。</div>
             </div>
           )}
+          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>表示</div>
+          <div className="card">
+            <div className="between">
+              <span>文字を大きくする</span>
+              <button className={"toggle" + (fontLarge ? " on" : "")} role="switch" aria-checked={fontLarge}
+                aria-label="文字を大きくする" onClick={toggleFont}><span className="knob" /></button>
+            </div>
+          </div>
+
           <div className="h" style={{ fontSize: 15, marginTop: 20 }}>プライバシー</div>
           <div className="card"><TrustNote />
             <div className="muted" style={{ marginTop: 8 }}>贈り先の情報も含め、あなたのデータはいつでも書き出し・削除できます。</div>
@@ -275,10 +314,11 @@ export function App() {
 
       {screen !== "login" && (
         <div className="tabbar">
-          <button className={screen === "home" ? "on" : ""} onClick={() => go("home")}>ホーム</button>
-          <button className={screen === "capture" ? "on" : ""} onClick={() => go("capture")}>撮影</button>
-          <button className={screen === "ledger" ? "on" : ""} onClick={() => go("ledger")}>台帳</button>
-          <button className={screen === "mypage" ? "on" : ""} onClick={() => go("mypage")}>マイページ</button>
+          <button className={screen === "home" ? "on" : ""} aria-label="ホーム" onClick={() => go("home")}>ホーム</button>
+          <button className={screen === "ledger" ? "on" : ""} aria-label="台帳" onClick={() => go("ledger")}>台帳</button>
+          <button className="fab" aria-label="贈答を撮影して記録" onClick={() => go("capture")}>＋</button>
+          <button className={screen === "mypage" ? "on" : ""} aria-label="マイページ" onClick={() => go("mypage")}>マイページ</button>
+          <button className="spacer" aria-hidden="true" tabIndex={-1}></button>
         </div>
       )}
 

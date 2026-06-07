@@ -67,6 +67,11 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
             direction=body.direction, occurred_at=body.occurred_at, relationship=body.relationship)
         return {"record": vars(rec), "event": vars(ev)}
 
+    @app.get("/api/relationships")
+    def relationships(uid: str = Depends(current_user)):
+        # N1: 相手別おつきあいバランス（本人データのみ）。
+        return {"relationships": svc.relationships(uid)}
+
     @app.get("/api/gift-tax")
     def gift_tax(uid: str = Depends(current_user)):
         # P1-3: 暦年の対象もらった合計と110万枠の気づき（税アドバイスではない）。

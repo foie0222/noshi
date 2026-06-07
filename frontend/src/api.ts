@@ -46,4 +46,5 @@ export const api = {
   getEvent: (eventId: string) => req(`/events/${eventId}`),
   eventForRecord: (recordId: string) => req(`/records/${recordId}/event`),
   giftTax: () => req(`/gift-tax`),
+  relationships: () => req(`/relationships`),
 };

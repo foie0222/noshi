@@ -46,6 +46,18 @@ def test_半返しエンドポイント():
     assert body["recommended"] == 5000 and body["rationale"]
 
 
+def test_おつきあいバランスを返す():
+    """GET /api/relationships が相手別の差分と気になる関係フラグを返すことを検証する（N1）。"""
+    c = TestClient(create_app())
+    c.post("/api/records", headers=_h(), json={
+        "amount": 50000, "purpose": "結婚祝い", "party_name": "いとこ", "direction": "received",
+        "occurred_at": "2025-01-01"})
+    rows = c.get("/api/relationships", headers=_h()).json()["relationships"]
+    row = next(r for r in rows if r["party_name"] == "いとこ")
+    assert row["received"] == 50000 and row["status"] == "owe"
+    assert row["attention"] is True  # 1年以上前
+
+
 def test_贈与税サマリを返す():
     """GET /api/gift-tax が本人の対象合計・残額・超過を返すことを検証する（P1-3）。"""
     c = TestClient(create_app())

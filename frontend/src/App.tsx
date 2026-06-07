@@ -18,6 +18,7 @@ export function App() {
   const [home, setHome] = useState<any>(null);
   const [ledger, setLedger] = useState<any>(null);
   const [giftTax, setGiftTax] = useState<any>(null);
+  const [relationships, setRelationships] = useState<any[] | null>(null);
   const [draft, setDraft] = useState<any>(null);            // 抽出/手入力中のレコード
   const [event, setEvent] = useState<any>(null);            // 進行中のお返し対象
   const [range, setRange] = useState<any>(null);
@@ -42,7 +43,10 @@ export function App() {
   useEffect(() => {
     if (screen === "home") loadHome().catch((e) => notify(e.message));
     if (screen === "ledger") loadLedger().catch((e) => notify(e.message));
-    if (screen === "mypage") api.giftTax().then(setGiftTax).catch((e) => notify(e.message));
+    if (screen === "mypage") {
+      api.giftTax().then(setGiftTax).catch((e) => notify(e.message));
+      api.relationships().then((r) => setRelationships(r.relationships)).catch((e) => notify(e.message));
+    }
   }, [screen]);
 
   // ---- 撮影 → 抽出 ----
@@ -296,6 +300,25 @@ export function App() {
               <div className="disclaimer">※ 香典・お中元・お歳暮などは除外した概算です。これは税アドバイスではなく気づきのための目安です。正確な要否は専門家にご確認ください。</div>
             </div>
           )}
+          <div className="h" style={{ fontSize: 15 }}>おつきあい</div>
+          <p className="muted">関係のメンテナンス。気になる関係をそっとお知らせします。</p>
+          {relationships && relationships.length === 0 && <p className="muted" style={{ marginTop: 8 }}>まだ記録がありません。</p>}
+          {relationships && relationships.map((r: any) => {
+            const label = r.status === "owe" ? "もらい多め" : r.status === "ahead" ? "お贈り多め" : "均衡";
+            return (
+              <div className="card" key={r.party_name}>
+                <div className="between">
+                  <b className="val">{r.party_name} 様</b>
+                  <span className={"balbadge " + r.status}>{r.attention ? "気になる関係" : label}</span>
+                </div>
+                <div className="muted" style={{ marginTop: 4 }}>
+                  もらった {yen(r.received)} ／ あげた {yen(r.given)} ・ 最終 {r.last_at || "—"}
+                </div>
+                {r.attention && <div className="muted" style={{ marginTop: 4, color: "var(--kin)" }}>しばらくお贈りしていません。折を見て一言いかがでしょう。</div>}
+              </div>
+            );
+          })}
+
           <div className="h" style={{ fontSize: 15, marginTop: 20 }}>表示</div>
           <div className="card">
             <div className="between">

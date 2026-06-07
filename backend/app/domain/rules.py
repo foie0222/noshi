@@ -129,6 +129,55 @@ def gift_tax_summary(records, year: int) -> dict:
     }
 
 
+RELATIONSHIP_ATTENTION_DAYS = 180  # 「気になる関係」の経過日数しきい値
+_BALANCE_TOLERANCE = 0.2           # |差分|/総額 がこれ以下なら均衡
+
+
+def relationship_balance(records, today=None):
+    """相手別に もらった/あげた/差分/最終やりとり日 を集計し、偏りを分類する（BR-6-BALANCE）。
+
+    損得ではなく「関係のメンテナンス」のための気づき。本人データのみを渡す前提（A01）。
+    返り値は attention（気になる関係）優先・差分降順で並べる。
+    """
+    import datetime
+
+    today = today or datetime.date.today()
+    parties: dict[str, dict] = {}
+    for r in records:
+        name = getattr(r, "party_name", "") or ""
+        if not name:
+            continue
+        p = parties.setdefault(name, {"party_name": name, "received": 0, "given": 0, "last_at": ""})
+        amount = getattr(r, "amount", 0) or 0
+        direction = getattr(r, "direction", "received")
+        p["received" if direction == "received" else "given"] += amount
+        occurred = (getattr(r, "occurred_at", "") or "")[:10]
+        if occurred > p["last_at"]:
+            p["last_at"] = occurred
+
+    out = []
+    for p in parties.values():
+        total = p["received"] + p["given"]
+        diff = p["received"] - p["given"]
+        if total == 0 or abs(diff) <= total * _BALANCE_TOLERANCE:
+            status = "balanced"
+        elif diff > 0:
+            status = "owe"     # もらい超過
+        else:
+            status = "ahead"   # あげ超過
+        attention = False
+        if status == "owe" and p["last_at"]:
+            try:
+                last = datetime.date.fromisoformat(p["last_at"])
+                attention = (today - last).days > RELATIONSHIP_ATTENTION_DAYS
+            except ValueError:
+                attention = False
+        out.append({**p, "diff": diff, "status": status, "attention": attention})
+
+    out.sort(key=lambda b: (not b["attention"], -b["diff"]))
+    return out
+
+
 def needs_review(confidence: float, threshold: float = CONFIDENCE_THRESHOLD) -> bool:
     """抽出項目の信頼度がしきい値未満なら要確認（BR-EX-2）。"""
     return confidence < threshold

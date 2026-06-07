@@ -4,6 +4,44 @@ import pytest
 from app.domain import rules
 
 
+def test_相手別バランスを集計する():
+    """相手ごとに もらった/あげた/差分/最終やりとり日 を集計することを検証する（BR-6-BALANCE-1）。"""
+    recs = [
+        _rec(30000, "出産祝い", "received", "2026-01-10"),
+        _rec(10000, "暑中見舞", "given", "2026-03-01"),
+        _rec(5000, "お年賀", "received", "2026-02-01"),
+    ]
+    # 同じ相手にする
+    for r in recs:
+        r.party_name = "叔母"
+    bal = rules.relationship_balance(recs, today=__import__("datetime").date(2026, 6, 1))
+    row = next(b for b in bal if b["party_name"] == "叔母")
+    assert row["received"] == 35000
+    assert row["given"] == 10000
+    assert row["diff"] == 25000
+    assert row["last_at"] == "2026-03-01"
+
+
+def test_もらい超過は気になる関係になる():
+    """もらい超過かつ最終やりとりが180日超なら attention=True になることを検証する（BR-6-BALANCE-3）。"""
+    import datetime
+    r = _rec(50000, "結婚祝い", "received", "2025-06-01")
+    r.party_name = "いとこ"
+    bal = rules.relationship_balance([r], today=datetime.date(2026, 6, 1))
+    row = bal[0]
+    assert row["status"] == "owe"
+    assert row["attention"] is True
+
+
+def test_均衡な関係はbalanced():
+    """もらった/あげたが概ね均衡なら status=balanced になることを検証する（BR-6-BALANCE-2）。"""
+    import datetime
+    a = _rec(10000, "出産祝い", "received", "2026-05-01"); a.party_name = "友人"
+    b = _rec(10000, "結婚祝い", "given", "2026-05-02"); b.party_name = "友人"
+    bal = rules.relationship_balance([a, b], today=datetime.date(2026, 6, 1))
+    assert bal[0]["status"] == "balanced"
+
+
 def test_弔事の用途はmourningに分類される():
     """香典・御霊前・法事など弔事の用途が mourning に分類されることを検証する（BR-4-TONE）。"""
     for p in ("香典", "御霊前", "法事", "弔慰金"):

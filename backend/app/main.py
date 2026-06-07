@@ -15,12 +15,24 @@ from app.services import NoshiService, ForbiddenError, ValidationError
 from app.schemas import RecordIn, RecordUpdateIn, StatusIn, SelectSuggestionIn, LetterIn
 
 
+def _default_repository():
+    """既定のデータ層を選ぶ。NOSHI_USE_DYNAMO=1 か DYNAMODB_ENDPOINT があれば永続化(DynamoDB)。
+
+    未設定なら InMemory（再起動でデータは消える）。本番/ローカル永続化は環境変数で切替。
+    """
+    import os
+    if os.environ.get("NOSHI_USE_DYNAMO") == "1" or os.environ.get("DYNAMODB_ENDPOINT"):
+        from app.repository import DynamoRepository
+        return DynamoRepository()
+    return InMemoryRepository()
+
+
 def create_app(service: NoshiService | None = None) -> FastAPI:
     app = FastAPI(title="noshi API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
     )
-    svc = service or NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    svc = service or NoshiService(_default_repository(), OcrLlmMock(), GiftCatalogMock())
 
     def current_user(x_user_id: str | None = Header(default=None)) -> str:
         # スタブ認証: 本番は OIDC トークン検証に置換。未提示は 401（A07）。

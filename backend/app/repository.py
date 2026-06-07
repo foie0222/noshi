@@ -106,21 +106,34 @@ class DynamoRepository:
     def _pk(user_id: str) -> str:
         return f"USER#{user_id}"
 
+    def _item(self, pk: str, sk: str, type_: str, obj) -> dict:
+        # float は DynamoDB が拒否するため Decimal へ深く変換して保存する。
+        return {"PK": pk, "SK": sk, "type": type_, **_to_dynamo(vars(obj))}
+
+    @staticmethod
+    def _hydrate(cls, item: Optional[dict]):
+        # Decimal を int/float へ戻し、データクラスのフィールドだけで復元する。
+        if not item:
+            return None
+        clean = _from_dynamo({k: v for k, v in item.items() if k in cls.__annotations__})
+        if "amount" in clean and clean["amount"] is not None:
+            clean["amount"] = int(clean["amount"])  # 金額は常に int
+        return cls(**clean)
+
     def put_record(self, rec: GiftRecord) -> GiftRecord:
-        item = {"PK": self._pk(rec.user_id), "SK": f"RECORD#{rec.id}", "type": "record", **vars(rec)}
-        self.table.put_item(Item=item)
+        self.table.put_item(Item=self._item(self._pk(rec.user_id), f"RECORD#{rec.id}", "record", rec))
         return rec
 
     def get_record(self, user_id: str, record_id: str) -> Optional[GiftRecord]:
         r = self.table.get_item(Key={"PK": self._pk(user_id), "SK": f"RECORD#{record_id}"}).get("Item")
-        return GiftRecord(**{k: v for k, v in r.items() if k in GiftRecord.__annotations__}) if r else None
+        return self._hydrate(GiftRecord, r)
 
     def list_records(self, user_id: str) -> list[GiftRecord]:
         from boto3.dynamodb.conditions import Key
         items = self.table.query(
             KeyConditionExpression=Key("PK").eq(self._pk(user_id)) & Key("SK").begins_with("RECORD#")
         ).get("Items", [])
-        return [GiftRecord(**{k: v for k, v in it.items() if k in GiftRecord.__annotations__}) for it in items]
+        return [self._hydrate(GiftRecord, it) for it in items]
 
     def delete_record(self, user_id: str, record_id: str) -> bool:
         if self.get_record(user_id, record_id) is None:
@@ -129,30 +142,82 @@ class DynamoRepository:
         return True
 
     def put_event(self, ev: GiftEvent) -> GiftEvent:
-        self.table.put_item(Item={"PK": self._pk(ev.user_id), "SK": f"EVENT#{ev.id}", "type": "event", **vars(ev)})
+        self.table.put_item(Item=self._item(self._pk(ev.user_id), f"EVENT#{ev.id}", "event", ev))
         return ev
 
     def get_event(self, user_id: str, event_id: str) -> Optional[GiftEvent]:
         r = self.table.get_item(Key={"PK": self._pk(user_id), "SK": f"EVENT#{event_id}"}).get("Item")
-        return GiftEvent(**{k: v for k, v in r.items() if k in GiftEvent.__annotations__}) if r else None
+        return self._hydrate(GiftEvent, r)
 
     def list_events(self, user_id: str) -> list[GiftEvent]:
         from boto3.dynamodb.conditions import Key
         items = self.table.query(
             KeyConditionExpression=Key("PK").eq(self._pk(user_id)) & Key("SK").begins_with("EVENT#")
         ).get("Items", [])
-        return [GiftEvent(**{k: v for k, v in it.items() if k in GiftEvent.__annotations__}) for it in items]
+        return [self._hydrate(GiftEvent, it) for it in items]
 
     def list_pending_events(self, user_id: str) -> list[GiftEvent]:
         return [e for e in self.list_events(user_id) if e.status != "done"]
 
     def put_job(self, job: ExtractionJob) -> ExtractionJob:
-        self.table.put_item(Item={"PK": self._pk(job.user_id), "SK": f"JOB#{job.id}", "type": "job", **vars(job)})
+        self.table.put_item(Item=self._item(self._pk(job.user_id), f"JOB#{job.id}", "job", job))
         return job
 
     def get_job(self, user_id: str, job_id: str) -> Optional[ExtractionJob]:
         r = self.table.get_item(Key={"PK": self._pk(user_id), "SK": f"JOB#{job_id}"}).get("Item")
-        return ExtractionJob(**{k: v for k, v in r.items() if k in ExtractionJob.__annotations__}) if r else None
+        return self._hydrate(ExtractionJob, r)
 
     def append_audit(self, entry: AuditEntry) -> None:
-        self.table.put_item(Item={"PK": self._pk(entry.actor_id), "SK": f"AUDIT#{entry.at}#{entry.id}", "type": "audit", **vars(entry)})
+        self.table.put_item(Item=self._item(
+            self._pk(entry.actor_id), f"AUDIT#{entry.at}#{entry.id}", "audit", entry))
+
+
+def _to_dynamo(value):
+    """書き込み用に float を Decimal へ深く変換する（DynamoDB は float 非対応）。"""
+    from decimal import Decimal
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {k: _to_dynamo(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_dynamo(v) for v in value]
+    return value
+
+
+def _from_dynamo(value):
+    """読み出し用に Decimal を int（整数なら）/ float へ深く戻す。"""
+    from decimal import Decimal
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    if isinstance(value, dict):
+        return {k: _from_dynamo(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_from_dynamo(v) for v in value]
+    return value
+
+
+def create_table(table_name: str = "noshi", endpoint_url: str | None = None):
+    """単一テーブル（PK/SK 文字列キー）を作成する。ローカル/CI 用ブートストラップ。
+
+    既に存在する場合は既存テーブルを返す（冪等）。本番は CDK(DataStack) が作成する。
+    """
+    import os
+    import boto3
+    from botocore.exceptions import ClientError
+
+    ddb = boto3.resource("dynamodb", endpoint_url=endpoint_url or os.environ.get("DYNAMODB_ENDPOINT"))
+    try:
+        table = ddb.create_table(
+            TableName=table_name,
+            KeySchema=[{"AttributeName": "PK", "KeyType": "HASH"},
+                       {"AttributeName": "SK", "KeyType": "RANGE"}],
+            AttributeDefinitions=[{"AttributeName": "PK", "AttributeType": "S"},
+                                  {"AttributeName": "SK", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+        table.wait_until_exists()
+        return table
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceInUseException":
+            return ddb.Table(table_name)  # 既存（冪等）
+        raise

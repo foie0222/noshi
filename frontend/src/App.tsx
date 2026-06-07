@@ -5,6 +5,7 @@ import { toneOf } from "./lib/tone";
 import { seasonOf, seasonNudge } from "./lib/season";
 import { otoshidamaRange } from "./lib/otoshidama";
 import { validateImageFile, fileToDataUrl } from "./lib/image";
+import { copyText } from "./lib/clipboard";
 
 type Screen =
   | "login" | "home" | "capture" | "review" | "ledger"
@@ -323,6 +324,11 @@ export function App() {
           <Bar title="礼状の文面" back="suggest" />
           <button className="btn ghost" onClick={makeLetter}>文面を生成する</button>
           {letterText && <div className="letterpaper">{letterText}</div>}
+          {letterText && (
+            <button className="btn" onClick={async () => {
+              notify(await copyText(letterText) ? "文面をコピーしました" : "コピーできませんでした。長押しで選択してください。");
+            }}>📋 文面をコピー</button>
+          )}
           <button className="btn primary" onClick={complete}>このお礼で完了にする</button>
         </>
       )}

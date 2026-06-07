@@ -21,6 +21,7 @@ export function App() {
   const [home, setHome] = useState<any>(null);
   const [ledger, setLedger] = useState<any>(null);
   const [giftTax, setGiftTax] = useState<any>(null);
+  const [annual, setAnnual] = useState<any>(null);
   const [relationships, setRelationships] = useState<any[] | null>(null);
   const [otoshiAge, setOtoshiAge] = useState<string>("");
   const [draft, setDraft] = useState<any>(null);            // 抽出/手入力中のレコード
@@ -61,6 +62,7 @@ export function App() {
     if (screen === "ledger") loadLedger().catch((e) => notify(e.message));
     if (screen === "mypage") {
       api.giftTax().then(setGiftTax).catch((e) => notify(e.message));
+      api.annual().then(setAnnual).catch((e) => notify(e.message));
       api.relationships().then((r) => setRelationships(r.relationships)).catch((e) => notify(e.message));
     }
   }, [screen]);
@@ -384,6 +386,34 @@ export function App() {
       {screen === "mypage" && (
         <>
           <Bar title="マイページ" />
+          {annual && (
+            <>
+              <div className="h" style={{ fontSize: 15 }}>{annual.year}年の振り返り</div>
+              <div className="card">
+                {annual.received_count === 0 && annual.given_count === 0 ? (
+                  <div className="muted">今年の記録はまだありません。撮影して残しましょう。</div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div className="muted">いただいた</div>
+                        <div className="amount" style={{ fontSize: 20 }}>{yen(annual.received_total)}</div>
+                        <div className="muted">{annual.received_count}件</div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div className="muted">贈った</div>
+                        <div className="amount" style={{ fontSize: 20 }}>{yen(annual.given_total)}</div>
+                        <div className="muted">{annual.given_count}件</div>
+                      </div>
+                    </div>
+                    <div className="muted" style={{ marginTop: 10 }}>
+                      今年は <b>{annual.party_count}</b> 人の方とご縁がありました。
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
           <div className="h" style={{ fontSize: 15 }}>贈与税の目安</div>
           {giftTax && (
             <div className="card">

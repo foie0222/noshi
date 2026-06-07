@@ -85,6 +85,12 @@ class NoshiService:
         y = year or datetime.date.today().year
         return rules.gift_tax_summary(self.repo.list_records(user_id), y)
 
+    def annual_summary(self, user_id: str, year: int | None = None) -> dict:
+        """本人の指定年（既定は今年）の年間振り返りを返す（A01）。"""
+        import datetime
+        y = year or datetime.date.today().year
+        return rules.annual_summary(self.repo.list_records(user_id), y)
+
     def party_summary(self, user_id: str) -> dict:
         """相手別の もらった/あげた/差分。"""
         summary: dict[str, dict] = {}

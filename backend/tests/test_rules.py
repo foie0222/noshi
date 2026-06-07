@@ -179,3 +179,35 @@ def test_贈答レコードの入力検証():
     assert ok == []
     errs = rules.validate_record(amount=0, purpose="出産祝い", party_name="佐藤", direction="received")
     assert errs  # 金額0はエラー
+
+
+def test_年間振り返りは受領とあげたを集計する():
+    """指定年の受領件数・合計とあげた件数・合計を集計することを検証する（年間振り返り）。"""
+    recs = [
+        _rec(30000, "出産祝い", "received", "2026-01-10"),
+        _rec(5000, "お年賀", "received", "2026-02-01"),
+        _rec(10000, "結婚祝い", "given", "2026-03-01"),
+    ]
+    s = rules.annual_summary(recs, 2026)
+    assert s["year"] == 2026
+    assert s["received_count"] == 2 and s["received_total"] == 35000
+    assert s["given_count"] == 1 and s["given_total"] == 10000
+
+
+def test_年間振り返りは別の年を含めない():
+    """指定年以外の occurred_at を持つレコードを集計に含めないことを検証する。"""
+    recs = [
+        _rec(30000, "出産祝い", "received", "2026-01-10"),
+        _rec(20000, "出産祝い", "received", "2025-12-20"),
+    ]
+    s = rules.annual_summary(recs, 2026)
+    assert s["received_count"] == 1 and s["received_total"] == 30000
+
+
+def test_年間振り返りは相手の人数を数える():
+    """その年にやりとりした相手のユニーク人数を数えることを検証する。"""
+    a = _rec(10000, "出産祝い", "received", "2026-01-10"); a.party_name = "叔母"
+    b = _rec(5000, "お年賀", "received", "2026-02-01"); b.party_name = "叔母"
+    c = _rec(8000, "結婚祝い", "given", "2026-03-01"); c.party_name = "友人"
+    s = rules.annual_summary([a, b, c], 2026)
+    assert s["party_count"] == 2

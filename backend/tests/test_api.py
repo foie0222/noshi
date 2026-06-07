@@ -127,3 +127,13 @@ def test_他人の記録はPATCHで修正できない():
     r = c.patch(f"/api/records/{rid}", headers=_h("attacker"), json={
         "amount": 1, "purpose": "香典", "party_name": "田中"})
     assert r.status_code == 403
+
+
+def test_年間振り返りを取得できる():
+    """GET /api/annual が本人の指定年の受領件数・合計を返すことを検証する。"""
+    c = TestClient(create_app())
+    c.post("/api/records", headers=_h(), json={
+        "amount": 30000, "purpose": "出産祝い", "party_name": "佐藤",
+        "direction": "received", "occurred_at": "2026-01-10"})
+    s = c.get("/api/annual?year=2026", headers=_h()).json()
+    assert s["received_count"] == 1 and s["received_total"] == 30000

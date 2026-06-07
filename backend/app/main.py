@@ -78,6 +78,11 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # P1-3: 暦年の対象もらった合計と110万枠の気づき（税アドバイスではない）。
         return svc.gift_tax(uid)
 
+    @app.get("/api/annual")
+    def annual(year: int | None = None, uid: str = Depends(current_user)):
+        # 年間振り返り（本人の受領/あげた件数・合計・相手人数）。
+        return svc.annual_summary(uid, year)
+
     @app.get("/api/ledger")
     def ledger(uid: str = Depends(current_user)):
         return {"records": [vars(r) for r in svc.list_records(uid)],

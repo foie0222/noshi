@@ -129,6 +129,25 @@ def gift_tax_summary(records, year: int) -> dict:
     }
 
 
+def annual_summary(records, year: int) -> dict:
+    """指定年のやりとりを集計して年間振り返りを返す（本人データのみ）。
+
+    occurred_at の先頭4桁が指定年のレコードのみを対象に、受領/あげたの件数・合計、
+    やりとりした相手のユニーク人数を返す。日付不明（occurred_at 空）は対象外。
+    """
+    in_year = [r for r in records if (getattr(r, "occurred_at", "") or "")[:4] == str(year)]
+    received = [r for r in in_year if getattr(r, "direction", "received") == "received"]
+    given = [r for r in in_year if getattr(r, "direction", "received") == "given"]
+    return {
+        "year": year,
+        "received_count": len(received),
+        "received_total": sum((r.amount or 0) for r in received),
+        "given_count": len(given),
+        "given_total": sum((r.amount or 0) for r in given),
+        "party_count": len({r.party_name for r in in_year}),
+    }
+
+
 RELATIONSHIP_ATTENTION_DAYS = 180  # 「気になる関係」の経過日数しきい値
 _BALANCE_TOLERANCE = 0.2           # |差分|/総額 がこれ以下なら均衡
 

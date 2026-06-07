@@ -1,13 +1,19 @@
-// noshi API クライアント。スタブ認証は X-User-Id ヘッダ（本番は OIDC トークン）。
+// noshi API クライアント。ローカルはスタブ認証（X-User-Id）。本番は Cognito の Bearer トークン。
 
-const USER_ID = "demo-user"; // MVP: 開発用固定ユーザー
+// 開発用: 家族共有を体験できるよう識別子を切替可能（localStorage）。本番はトークンの sub を使う。
+export function currentUserId(): string {
+  return localStorage.getItem("noshi-user") || "demo-user";
+}
+export function setCurrentUserId(id: string) {
+  localStorage.setItem("noshi-user", id.trim() || "demo-user");
+}
 
 async function req(path: string, init: RequestInit = {}) {
   const res = await fetch(`/api${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-User-Id": USER_ID,
+      "X-User-Id": currentUserId(),
       ...(init.headers || {}),
     },
   });
@@ -50,5 +56,8 @@ export const api = {
   eventForRecord: (recordId: string) => req(`/records/${recordId}/event`),
   giftTax: () => req(`/gift-tax`),
   annual: (year?: number) => req(`/annual${year ? `?year=${year}` : ""}`),
+  household: () => req(`/household`),
+  joinHousehold: (code: string) =>
+    req(`/household/join`, { method: "POST", body: JSON.stringify({ code }) }),
   relationships: () => req(`/relationships`),
 };

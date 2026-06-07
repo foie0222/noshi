@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api, RecordInput } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { api, RecordInput, currentUserId, setCurrentUserId } from "./api";
 import { yen, statusLabel, daysLeftLabel } from "./lib/format";
 import { toneOf } from "./lib/tone";
 import { seasonOf, seasonNudge } from "./lib/season";
@@ -12,7 +12,7 @@ type Screen =
   | "half" | "suggest" | "letter" | "event" | "mypage";
 
 const TrustNote = () => (
-  <div className="trustnote">🔒 ここに入れた情報は<b>あなただけ</b>が見られます。暗号化して保存します。</div>
+  <div className="trustnote">🔒 ここに入れた情報は<b>ご家族だけ</b>が見られます。暗号化して保存します。</div>
 );
 
 export function App() {
@@ -22,6 +22,9 @@ export function App() {
   const [ledger, setLedger] = useState<any>(null);
   const [giftTax, setGiftTax] = useState<any>(null);
   const [annual, setAnnual] = useState<any>(null);
+  const [household, setHousehold] = useState<any>(null);
+  const [joinCode, setJoinCode] = useState<string>("");
+  const devUserRef = useRef<string>(currentUserId());
   const [relationships, setRelationships] = useState<any[] | null>(null);
   const [otoshiAge, setOtoshiAge] = useState<string>("");
   const [draft, setDraft] = useState<any>(null);            // 抽出/手入力中のレコード
@@ -64,6 +67,7 @@ export function App() {
       api.giftTax().then(setGiftTax).catch((e) => notify(e.message));
       api.annual().then(setAnnual).catch((e) => notify(e.message));
       api.relationships().then((r) => setRelationships(r.relationships)).catch((e) => notify(e.message));
+      api.household().then((r) => setHousehold(r.household)).catch((e) => notify(e.message));
     }
   }, [screen]);
 
@@ -107,6 +111,18 @@ export function App() {
   async function openEventForRecord(recordId: string) {
     try { const r = await api.eventForRecord(recordId); setEvent(r.event); setEditDraft(null); go("event"); }
     catch (e: any) { notify(e.message); }
+  }
+
+  // ---- 家族共有 ----
+  async function doJoinHousehold() {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) { notify("招待コードを入力してください。"); return; }
+    try {
+      const r = await api.joinHousehold(code);
+      setHousehold(r.household);
+      setJoinCode("");
+      notify("ご家族に参加しました");
+    } catch (e: any) { notify(e.message); }
   }
 
   // ---- 記録の修正（AI抽出の誤りを本人が訂正）----
@@ -388,6 +404,37 @@ export function App() {
       {screen === "mypage" && (
         <>
           <Bar title="マイページ" />
+          {household && (
+            <>
+              <div className="h" style={{ fontSize: 15 }}>ご家族（共有）</div>
+              <div className="card">
+                <div className="muted">この台帳を共有しているメンバー</div>
+                <div style={{ margin: "6px 0 10px" }}>
+                  {household.members.map((m: any) => (
+                    <span key={m.user_id} className="chip on" style={{ marginRight: 6 }}>
+                      {m.email || m.user_id}{m.role === "owner" ? "（管理者）" : ""}
+                    </span>
+                  ))}
+                </div>
+                <div className="muted">家族を招待するコード（伝えると同じ台帳を共有できます）</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 6px" }}>
+                  <code className="invitecode">{household.invite_code}</code>
+                  <button className="btn" style={{ height: 38, width: "auto", padding: "0 12px" }}
+                    onClick={async () => notify(await copyText(household.invite_code) ? "コードをコピーしました" : "コピーできませんでした")}>
+                    コピー
+                  </button>
+                </div>
+                <div className="muted" style={{ marginTop: 10 }}>家族から受け取ったコードで参加する</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <input className="input" style={{ flex: 1 }} placeholder="招待コード"
+                    value={joinCode} onChange={(e) => setJoinCode(e.target.value)} aria-label="招待コード" />
+                  <button className="btn primary" style={{ width: "auto", padding: "0 16px" }}
+                    onClick={doJoinHousehold}>参加</button>
+                </div>
+                <div className="trustnote" style={{ marginTop: 10 }}>🔒 台帳は<b>このご家族だけ</b>が見られます。</div>
+              </div>
+            </>
+          )}
           {annual && (
             <>
               <div className="h" style={{ fontSize: 15 }}>{annual.year}年の振り返り</div>
@@ -482,7 +529,22 @@ export function App() {
 
           <div className="h" style={{ fontSize: 15, marginTop: 20 }}>プライバシー</div>
           <div className="card"><TrustNote />
-            <div className="muted" style={{ marginTop: 8 }}>贈り先の情報も含め、あなたのデータはいつでも書き出し・削除できます。</div>
+            <div className="muted" style={{ marginTop: 8 }}>贈り先の情報も含め、ご家族のデータはいつでも書き出し・削除できます。</div>
+          </div>
+
+          <div className="card" style={{ marginTop: 16, borderStyle: "dashed" }}>
+            <div className="muted">🛠 開発用: ログイン中のユーザー（本番は Cognito ログインに置換）</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <input className="input" style={{ flex: 1 }} defaultValue={currentUserId()} aria-label="ユーザー識別子"
+                onChange={(e) => (devUserRef.current = e.target.value)} />
+              <button className="btn" style={{ width: "auto", padding: "0 14px" }}
+                onClick={() => { setCurrentUserId(devUserRef.current ?? currentUserId()); location.reload(); }}>
+                切替
+              </button>
+            </div>
+            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+              別の人に切替→相手の招待コードで「参加」すると、同じ台帳が共有されます。
+            </div>
           </div>
         </>
       )}

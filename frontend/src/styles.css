@@ -58,6 +58,7 @@ body {
 .between { display: flex; justify-content: space-between; align-items: center; }
 .duebadge { font-size: 12px; white-space: nowrap; }
 .input.warn { border-color: var(--kin); box-shadow: 0 0 0 3px rgba(169,134,63,.18); }
+.invitecode { font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: 3px; font-weight: 700; color: var(--ai); background: #fffdf8; border: 1px dashed var(--line); border-radius: 10px; padding: 6px 12px; }
 .reviewbadge { font-size: 10px; color: var(--kin); border: 1px solid var(--kin); border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
 .okbadge { font-size: 10px; color: var(--moss); margin-left: 6px; }
 .trustnote { background: #eef2f4; border: 1px solid #cdd8dd; border-radius: 12px; padding: 10px 12px; margin-top: 12px; font-size: 12px; color: #3a4a52; line-height: 1.6; }

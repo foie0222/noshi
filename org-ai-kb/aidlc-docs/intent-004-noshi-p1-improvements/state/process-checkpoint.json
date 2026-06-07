@@ -1,0 +1,40 @@
+{
+  "workflow": [
+    {
+      "skill": "requirements-analysis",
+      "phase": "inception",
+      "unit": null,
+      "scope": null
+    },
+    {
+      "skill": "user-stories",
+      "phase": "inception",
+      "unit": null,
+      "scope": null
+    },
+    {
+      "skill": "functional-design",
+      "phase": "construction",
+      "unit": "noshi-service",
+      "scope": null
+    },
+    {
+      "skill": "code-generation",
+      "phase": "construction",
+      "unit": "noshi-service",
+      "scope": null
+    }
+  ],
+  "intentDir": "org-ai-kb/aidlc-docs/intent-004-noshi-p1-improvements",
+  "rulesDir": "rules",
+  "current": {
+    "skill": "code-generation",
+    "phase": "construction",
+    "unit": "noshi-service",
+    "scope": null,
+    "step": "skill-complete",
+    "status": "verified"
+  },
+  "next": null,
+  "error": null
+}

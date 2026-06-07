@@ -45,4 +45,5 @@ export const api = {
     req(`/events/${eventId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   getEvent: (eventId: string) => req(`/events/${eventId}`),
   eventForRecord: (recordId: string) => req(`/records/${recordId}/event`),
+  giftTax: () => req(`/gift-tax`),
 };

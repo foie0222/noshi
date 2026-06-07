@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
 import { api, RecordInput } from "./api";
 import { yen, statusLabel, daysLeftLabel } from "./lib/format";
+import { toneOf } from "./lib/tone";
 
 type Screen =
   | "login" | "home" | "capture" | "review" | "ledger"
-  | "half" | "suggest" | "letter" | "event";
+  | "half" | "suggest" | "letter" | "event" | "mypage";
+
+const TrustNote = () => (
+  <div className="trustnote">🔒 ここに入れた情報は<b>あなただけ</b>が見られます。暗号化して保存します。</div>
+);
 
 export function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [toast, setToast] = useState<string>("");
   const [home, setHome] = useState<any>(null);
   const [ledger, setLedger] = useState<any>(null);
+  const [giftTax, setGiftTax] = useState<any>(null);
   const [draft, setDraft] = useState<any>(null);            // 抽出/手入力中のレコード
   const [event, setEvent] = useState<any>(null);            // 進行中のお返し対象
   const [range, setRange] = useState<any>(null);
@@ -26,6 +32,7 @@ export function App() {
   useEffect(() => {
     if (screen === "home") loadHome().catch((e) => notify(e.message));
     if (screen === "ledger") loadLedger().catch((e) => notify(e.message));
+    if (screen === "mypage") api.giftTax().then(setGiftTax).catch((e) => notify(e.message));
   }, [screen]);
 
   // ---- 撮影 → 抽出 ----
@@ -164,6 +171,7 @@ export function App() {
                 </div>
               );
             })}
+            <TrustNote />
             <button className="btn primary" onClick={saveRecord}>確認して保存</button>
           </>
         );
@@ -214,25 +222,54 @@ export function App() {
         </>
       )}
 
-      {screen === "event" && event && (
+      {screen === "event" && event && (() => {
+        const mourning = toneOf(event.purpose) === "mourning";
+        return (
+          <div className={mourning ? "mourning" : ""}>
+            <Bar title={mourning ? "弔事のお返し" : "贈答の詳細"} back="home" />
+            {mourning && <div className="mournnote">お悔やみの贈答です。落ち着いてお返しを進めましょう。</div>}
+            <div className="card">
+              <b style={{ fontFamily: "var(--serif)", fontSize: 17 }}>{event.party_name} 様</b>
+              <div className="muted">{event.purpose} ・ {yen(event.amount)} ・ {event.direction === "received" ? "受領" : "贈与"}</div>
+            </div>
+            <div className="h" style={{ fontSize: 14 }}>ステータス</div>
+            <div className="chips">
+              {["received", "considering", "done"].map((st) => (
+                <span key={st} className={`chip ${event.status === st ? "on" : ""}`}
+                  onClick={async () => { const r = await api.setStatus(event.id, st); setEvent(r.event); notify("更新しました"); }}>
+                  {statusLabel(st)}
+                </span>
+              ))}
+            </div>
+            {event.direction === "received" && (
+              <button className={mourning ? "btn" : "btn shu"} onClick={() => startReturn(event)}>
+                {mourning ? "お返し（香典返し）を進める" : "お返しの続き（半返し→提案→礼状）"}
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
+      {screen === "mypage" && (
         <>
-          <Bar title="贈答の詳細" back="home" />
-          <div className="card">
-            <b style={{ fontFamily: "var(--serif)", fontSize: 17 }}>{event.party_name} 様</b>
-            <div className="muted">{event.purpose} ・ {yen(event.amount)} ・ {event.direction === "received" ? "受領" : "贈与"}</div>
-          </div>
-          <div className="h" style={{ fontSize: 14 }}>ステータス</div>
-          <div className="chips">
-            {["received", "considering", "done"].map((st) => (
-              <span key={st} className={`chip ${event.status === st ? "on" : ""}`}
-                onClick={async () => { const r = await api.setStatus(event.id, st); setEvent(r.event); notify("更新しました"); }}>
-                {statusLabel(st)}
-              </span>
-            ))}
-          </div>
-          {event.direction === "received" && (
-            <button className="btn shu" onClick={() => startReturn(event)}>お返しの続き（半返し→提案→礼状）</button>
+          <Bar title="マイページ" />
+          <div className="h" style={{ fontSize: 15 }}>贈与税の目安</div>
+          {giftTax && (
+            <div className="card">
+              <div className="muted">今年もらった（対象）合計</div>
+              <div className="amount" style={{ fontSize: 20 }}>{yen(giftTax.total)}</div>
+              <div style={{ marginTop: 8 }}>
+                {giftTax.over
+                  ? <span style={{ color: "var(--shu)", fontWeight: 700 }}>110万円の枠を超えています。確認しましょう。</span>
+                  : <span className="muted">110万円まで <b>あと {yen(giftTax.remaining)}</b></span>}
+              </div>
+              <div className="disclaimer">※ 香典・お中元・お歳暮などは除外した概算です。これは税アドバイスではなく気づきのための目安です。正確な要否は専門家にご確認ください。</div>
+            </div>
           )}
+          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>プライバシー</div>
+          <div className="card"><TrustNote />
+            <div className="muted" style={{ marginTop: 8 }}>贈り先の情報も含め、あなたのデータはいつでも書き出し・削除できます。</div>
+          </div>
         </>
       )}
 
@@ -241,6 +278,7 @@ export function App() {
           <button className={screen === "home" ? "on" : ""} onClick={() => go("home")}>ホーム</button>
           <button className={screen === "capture" ? "on" : ""} onClick={() => go("capture")}>撮影</button>
           <button className={screen === "ledger" ? "on" : ""} onClick={() => go("ledger")}>台帳</button>
+          <button className={screen === "mypage" ? "on" : ""} onClick={() => go("mypage")}>マイページ</button>
         </div>
       )}
 

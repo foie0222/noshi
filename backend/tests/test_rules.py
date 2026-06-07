@@ -4,6 +4,55 @@ import pytest
 from app.domain import rules
 
 
+def test_弔事の用途はmourningに分類される():
+    """香典・御霊前・法事など弔事の用途が mourning に分類されることを検証する（BR-4-TONE）。"""
+    for p in ("香典", "御霊前", "法事", "弔慰金"):
+        assert rules.tone(p) == "mourning"
+
+
+def test_慶事の用途はcelebrationに分類される():
+    """出産祝い・結婚祝いなど慶事の用途が celebration に分類されることを検証する（BR-4-TONE）。"""
+    for p in ("出産祝い", "結婚祝い", "入学祝い"):
+        assert rules.tone(p) == "celebration"
+
+
+def _rec(amount, purpose, direction="received", occurred_at="2026-03-01"):
+    from app.domain.entities import GiftRecord
+    return GiftRecord(user_id="u", party_name="x", amount=amount, purpose=purpose,
+                      direction=direction, occurred_at=occurred_at)
+
+
+def test_贈与税集計は社会通念上の贈答を除外する():
+    """贈与税の対象集計が香典・お中元・お歳暮を除外することを検証する（BR-4-TAX-1）。"""
+    recs = [
+        _rec(1000000, "出産祝い"),
+        _rec(300000, "香典"),       # 除外
+        _rec(5000, "お中元"),       # 除外
+        _rec(5000, "お歳暮"),       # 除外
+    ]
+    s = rules.gift_tax_summary(recs, year=2026)
+    assert s["total"] == 1000000
+
+
+def test_贈与税集計は暦年と受領に限定する():
+    """贈与税の集計が対象年かつ direction=received に限定されることを検証する（BR-4-TAX-1/2）。"""
+    recs = [
+        _rec(500000, "出産祝い", occurred_at="2026-05-01"),
+        _rec(400000, "結婚祝い", direction="given", occurred_at="2026-05-01"),  # given 除外
+        _rec(900000, "新築祝い", occurred_at="2025-12-31"),                      # 別年 除外
+    ]
+    s = rules.gift_tax_summary(recs, year=2026)
+    assert s["total"] == 500000
+
+
+def test_贈与税の残枠と超過を判定する():
+    """110万円枠に対する残額と超過フラグを判定することを検証する（BR-4-TAX-3）。"""
+    under = rules.gift_tax_summary([_rec(800000, "新築祝い")], year=2026)
+    assert under["remaining"] == 300000 and under["over"] is False
+    over = rules.gift_tax_summary([_rec(1200000, "新築祝い")], year=2026)
+    assert over["remaining"] == 0 and over["over"] is True
+
+
 def test_香典のお返し期限は四十九日後():
     """香典のお返し期限が受領日から49日後になることを検証する（BR-3-DUE）。"""
     due = rules.due_date("2026-05-01", "香典")

@@ -60,3 +60,9 @@ body {
 .input.warn { border-color: var(--kin); box-shadow: 0 0 0 3px rgba(169,134,63,.18); }
 .reviewbadge { font-size: 10px; color: var(--kin); border: 1px solid var(--kin); border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
 .okbadge { font-size: 10px; color: var(--moss); margin-left: 6px; }
+.trustnote { background: #eef2f4; border: 1px solid #cdd8dd; border-radius: 12px; padding: 10px 12px; margin-top: 12px; font-size: 12px; color: #3a4a52; line-height: 1.6; }
+.disclaimer { font-size: 11px; color: var(--ink-soft); line-height: 1.7; margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.mournnote { background: #eceae6; border: 1px solid #cfc9c0; border-radius: 12px; padding: 10px 12px; margin-top: 8px; font-size: 12px; color: #4a4640; }
+/* 弔事トーン: 朱を墨/グレーに静かに */
+.mourning { --shu: #4a4640; }
+.mourning .appbar .title, .mourning .brand { color: #2b2820; }

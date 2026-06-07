@@ -91,6 +91,44 @@ def half_return(amount: int, purpose: str) -> ReturnRange:
     return ReturnRange(recommended, min(low, recommended), max(high, recommended), ratio, rationale)
 
 
+# 弔事キーワード（BR-4-TONE）。社会通念上の贈答で集計除外する用途（BR-4-TAX）。
+_MOURNING_KEYWORDS = ("香典", "御霊前", "御仏前", "法事", "法要", "弔慰", "お悔やみ")
+_GIFT_TAX_EXCLUDED = ("香典", "御霊前", "御仏前", "お中元", "お歳暮", "中元", "歳暮")
+GIFT_TAX_EXEMPTION = 1_100_000  # 暦年課税の基礎控除
+
+
+def tone(purpose: str) -> str:
+    """用途を弔事(mourning)/慶事(celebration)に分類する（BR-4-TONE）。"""
+    p = purpose or ""
+    return "mourning" if any(k in p for k in _MOURNING_KEYWORDS) else "celebration"
+
+
+def gift_tax_summary(records, year: int) -> dict:
+    """暦年の「もらった」対象合計と110万円枠への残額・超過を返す（BR-4-TAX）。
+
+    社会通念上の贈答（香典・お中元・お歳暮等）と given・対象年外は集計から除外する。
+    税アドバイスではなく概算の気づき。本人データのみを渡す前提（A01）。
+    """
+    total = 0
+    for r in records:
+        if getattr(r, "direction", "received") != "received":
+            continue
+        purpose = getattr(r, "purpose", "") or ""
+        if any(k in purpose for k in _GIFT_TAX_EXCLUDED):
+            continue
+        occurred = (getattr(r, "occurred_at", "") or "")[:4]
+        if occurred and occurred != str(year):
+            continue
+        total += getattr(r, "amount", 0) or 0
+    return {
+        "total": total,
+        "remaining": max(0, GIFT_TAX_EXEMPTION - total),
+        "over": total > GIFT_TAX_EXEMPTION,
+        "exemption": GIFT_TAX_EXEMPTION,
+        "year": year,
+    }
+
+
 def needs_review(confidence: float, threshold: float = CONFIDENCE_THRESHOLD) -> bool:
     """抽出項目の信頼度がしきい値未満なら要確認（BR-EX-2）。"""
     return confidence < threshold

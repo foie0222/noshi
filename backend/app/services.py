@@ -75,6 +75,12 @@ class NoshiService:
     def list_records(self, user_id: str) -> list[GiftRecord]:
         return self.repo.list_records(user_id)
 
+    def gift_tax(self, user_id: str, year: int | None = None) -> dict:
+        """本人の暦年「もらった」対象合計と110万円枠サマリを返す（P1-3, A01）。"""
+        import datetime
+        y = year or datetime.date.today().year
+        return rules.gift_tax_summary(self.repo.list_records(user_id), y)
+
     def party_summary(self, user_id: str) -> dict:
         """相手別の もらった/あげた/差分。"""
         summary: dict[str, dict] = {}

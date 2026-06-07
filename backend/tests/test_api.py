@@ -46,6 +46,22 @@ def test_半返しエンドポイント():
     assert body["recommended"] == 5000 and body["rationale"]
 
 
+def test_贈与税サマリを返す():
+    """GET /api/gift-tax が本人の対象合計・残額・超過を返すことを検証する（P1-3）。"""
+    c = TestClient(create_app())
+    import datetime
+    y = datetime.date.today().year
+    c.post("/api/records", headers=_h(), json={
+        "amount": 800000, "purpose": "新築祝い", "party_name": "親", "direction": "received",
+        "occurred_at": f"{y}-03-01"})
+    c.post("/api/records", headers=_h(), json={
+        "amount": 300000, "purpose": "香典", "party_name": "知人", "direction": "received",
+        "occurred_at": f"{y}-04-01"})  # 除外
+    body = c.get("/api/gift-tax", headers=_h()).json()
+    assert body["total"] == 800000
+    assert body["remaining"] == 300000 and body["over"] is False
+
+
 def test_他人のイベントには触れない():
     """別ユーザーのイベントへのステータス更新が403で拒否されることを検証する（A01）。"""
     c = TestClient(create_app())

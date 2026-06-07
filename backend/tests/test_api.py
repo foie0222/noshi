@@ -137,3 +137,16 @@ def test_年間振り返りを取得できる():
         "direction": "received", "occurred_at": "2026-01-10"})
     s = c.get("/api/annual?year=2026", headers=_h()).json()
     assert s["received_count"] == 1 and s["received_total"] == 30000
+
+
+def test_記録修正で日付が消えない():
+    """金額のみのPATCH修正で occurred_at が空に上書きされず保持されることを検証する（回帰）。"""
+    c = TestClient(create_app())
+    rid = c.post("/api/records", headers=_h(), json={
+        "amount": 50000, "purpose": "結婚祝い", "party_name": "高橋",
+        "direction": "received", "occurred_at": "2026-04-10"}).json()["record"]["id"]
+    c.patch(f"/api/records/{rid}", headers=_h(), json={
+        "amount": 55000, "purpose": "結婚祝い", "party_name": "高橋"})
+    rec = c.get("/api/ledger", headers=_h()).json()["records"][0]
+    assert rec["amount"] == 55000
+    assert rec["occurred_at"] == "2026-04-10"  # 日付は保持される

@@ -91,10 +91,12 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     @app.patch("/api/records/{record_id}")
     def update_record(record_id: str, body: RecordUpdateIn, uid: str = Depends(current_user)):
         # AI抽出の誤りを本人が訂正（本人スコープ＋監査）。direction は変更しない。
+        # None のフィールドは渡さない＝既存値を保持（金額のみ修正で日付が消えないように）。
+        extra = {k: v for k, v in (("occurred_at", body.occurred_at),
+                                   ("relationship", body.relationship)) if v is not None}
         rec = svc.update_record(
             uid, record_id, amount=body.amount, purpose=body.purpose,
-            party_name=body.party_name, occurred_at=body.occurred_at,
-            relationship=body.relationship)
+            party_name=body.party_name, **extra)
         return {"record": vars(rec)}
 
     @app.delete("/api/records/{record_id}")

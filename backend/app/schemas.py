@@ -17,8 +17,9 @@ class RecordUpdateIn(BaseModel):
     amount: int = Field(gt=0, description="修正後の金額（>0）")
     purpose: str = Field(min_length=1)
     party_name: str = Field(min_length=1)
-    occurred_at: str = ""
-    relationship: str = ""
+    # 未指定(None)なら既存値を保持する。"" を渡すと明示的にクリアできる。
+    occurred_at: str | None = None
+    relationship: str | None = None
 
 
 class StatusIn(BaseModel):

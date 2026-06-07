@@ -39,7 +39,7 @@ Python(FastAPI) + React(TS) + DynamoDB + SQS + S3 / デプロイ AWS（CDK）・
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/python -m pytest                 # 72 tests
+.venv/bin/python -m pytest                 # 77 tests
 .venv/bin/python -m uvicorn app.main:app --reload   # http://localhost:8000
 .venv/bin/python seed_demo.py              # （任意）デモ用に7件投入（要: backend 起動中）
 ```
@@ -51,6 +51,13 @@ export DYNAMODB_ENDPOINT=http://localhost:8001 AWS_REGION=ap-northeast-1 \
        AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local NOSHI_TABLE=noshi NOSHI_USE_DYNAMO=1
 .venv/bin/python -c "from app.repository import create_table; create_table('noshi')"  # 初回のみ
 .venv/bin/python -m uvicorn app.main:app                        # 以後データは DynamoDB に永続化
+```
+**実 AI で画像を読む**（モック→本物）には Amazon Bedrock(Claude) を有効化:
+```bash
+aws login                                  # AWS 認証（要 Bedrock の Claude モデル利用許可）
+.venv/bin/pip install "botocore[crt]"      # aws login の資格情報を boto3 が読むために必要
+export NOSHI_USE_BEDROCK=1                  # 既定モデル jp.anthropic.claude-sonnet-4-5（NOSHI_BEDROCK_MODEL で変更可）
+.venv/bin/python -m uvicorn app.main:app   # /api/capture が実画像を Claude Vision で抽出
 ```
 
 ### frontend
@@ -69,7 +76,7 @@ npx cdk synth       # CloudFormation を生成（AWS 認証不要・未デプロ
 ```
 
 ## テスト方針（TDD）
-backend=**pytest**（72）/ frontend=**vitest**（30）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
+backend=**pytest**（77）/ frontend=**vitest**（30）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
 半返し・期限・贈与税・おつきあい・お年玉・本人スコープ（OWASP A01）・入力検証（A03）・監査（A09）をテストで担保。
 
 ## セキュリティ（OWASP）

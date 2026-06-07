@@ -65,7 +65,8 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         rec, ev = svc.create_record(
             uid, amount=body.amount, purpose=body.purpose, party_name=body.party_name,
             direction=body.direction, occurred_at=body.occurred_at, relationship=body.relationship)
-        return {"record": vars(rec), "event": vars(ev)}
+        # given はお返しイベントを持たない（ev is None）。安全に null を返す（FR-8-1）。
+        return {"record": vars(rec), "event": vars(ev) if ev is not None else None}
 
     @app.get("/api/relationships")
     def relationships(uid: str = Depends(current_user)):

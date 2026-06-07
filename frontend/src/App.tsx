@@ -197,6 +197,16 @@ export function App() {
                 ? `ほぼ読み取れました。${reviewCount}か所だけ確認してください。`
                 : "読み取れました。問題なければ保存できます。"}
             </p>
+            <div className="field">
+              <label>種類</label>
+              <div className="chips">
+                {([["received", "もらった"], ["given", "あげた"]] as const).map(([d, lbl]) => (
+                  <span key={d} className={"chip " + (draft.direction === d ? "on" : "")}
+                    role="button" aria-label={lbl} aria-pressed={draft.direction === d}
+                    onClick={() => setDraft({ ...draft, direction: d })}>{lbl}</span>
+                ))}
+              </div>
+            </div>
             {fields.map((k) => {
               const warn = !!fr[k];
               return (

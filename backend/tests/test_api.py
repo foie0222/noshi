@@ -29,6 +29,20 @@ def test_記録作成して台帳に出る():
     assert len(ledger["records"]) == 1
 
 
+def test_あげた贈答を記録できイベントは作られない():
+    """direction=given の記録作成が200で成功し、お返しイベントが作られない(null)ことを検証する（FR-8-1）。"""
+    c = TestClient(create_app())
+    r = c.post("/api/records", headers=_h(), json={
+        "amount": 5000, "purpose": "入学祝い", "party_name": "姪", "direction": "given",
+        "occurred_at": "2026-04-01"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["event"] is None
+    # 台帳には出るが pending には出ない
+    assert len(c.get("/api/ledger", headers=_h()).json()["records"]) == 1
+    assert c.get("/api/home", headers=_h()).json()["pending"] == []
+
+
 def test_不正入力は422になる():
     """金額0の記録作成がバリデーションで422になることを検証する（BR-VAL/A03）。"""
     c = TestClient(create_app())

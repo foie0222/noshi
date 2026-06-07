@@ -9,6 +9,7 @@ from __future__ import annotations
 from app.domain import rules
 from app.domain.entities import (
     GiftRecord, GiftEvent, ExtractionJob, ReturnSuggestion, Letter, AuditEntry,
+    Household, Membership,
 )
 from app.ports import OcrLlmPort, GiftCatalogPort
 from app.repository import Repository
@@ -36,11 +37,55 @@ class NoshiService:
     def _audit(self, actor_id: str, action: str, target_ref: str) -> None:
         self.repo.append_audit(AuditEntry(actor_id=actor_id, action=action, target_ref=target_ref))
 
+    # --- 家族共有: 世帯（記録・お返しは「本人」ではなく「世帯」に属する）---
+    def resolve_household(self, user_id: str, email: str = "") -> Household:
+        """ユーザーの世帯を返す。初回は世帯を自動作成し本人を owner にする（A01）。"""
+        m = self.repo.get_membership(user_id)
+        if m is not None:
+            h = self.repo.get_household(m.household_id)
+            if h is not None:
+                return h
+        h = Household()
+        self.repo.put_household(h)
+        self.repo.put_membership(Membership(
+            user_id=user_id, household_id=h.id, role="owner", email=email))
+        self._audit(user_id, "create_household", h.id)  # A09
+        return h
+
+    def _scope(self, user_id: str) -> str:
+        """データ操作のスコープID（= 世帯ID）。すべての repo 呼び出しに用いる。"""
+        return self.resolve_household(user_id).id
+
+    def household_members(self, user_id: str) -> list[dict]:
+        """同じ世帯のメンバー一覧（本人・家族）。"""
+        hid = self._scope(user_id)
+        return [{"user_id": m.user_id, "role": m.role, "email": m.email}
+                for m in self.repo.list_members(hid)]
+
+    def household_invite_code(self, user_id: str) -> str:
+        """世帯への招待コード（家族に伝えて参加してもらう）。"""
+        return self.resolve_household(user_id).invite_code
+
+    def household_view(self, user_id: str) -> dict:
+        h = self.resolve_household(user_id)
+        return {"id": h.id, "name": h.name, "invite_code": h.invite_code,
+                "members": self.household_members(user_id)}
+
+    def join_household(self, user_id: str, code: str, email: str = "") -> Household:
+        """招待コードで世帯に参加する（既存の所属は上書き）。"""
+        h = self.repo.get_household_by_invite((code or "").strip().upper())
+        if h is None:
+            raise ValidationError(["招待コードが正しくありません。"])
+        self.repo.put_membership(Membership(
+            user_id=user_id, household_id=h.id, role="member", email=email))
+        self._audit(user_id, "join_household", h.id)  # A09
+        return h
+
     # --- 撮影 → 抽出 ---
     def submit_extraction(self, user_id: str, image_refs: list[str]) -> ExtractionJob:
         out = self.ocr.extract(image_refs)
         job = ExtractionJob(
-            user_id=user_id, status="completed",
+            user_id=self._scope(user_id), status="completed",
             candidates=out["candidates"], confidence=out["confidence"],
             field_confidence=out.get("field_confidence", {}),
         )
@@ -59,8 +104,9 @@ class NoshiService:
         errors = rules.validate_record(amount, purpose, party_name, direction)
         if errors:
             raise ValidationError(errors)
+        scope = self._scope(user_id)
         rec = GiftRecord(
-            user_id=user_id, amount=amount, purpose=purpose,
+            user_id=scope, amount=amount, purpose=purpose,
             party_name=party_name, direction=direction,
             occurred_at=extra.get("occurred_at", ""), relationship=extra.get("relationship", ""),
         )
@@ -68,33 +114,33 @@ class NoshiService:
         # received のみお返しイベントを生成（BR-3-GIVEN: given は対象外）
         ev = None
         if direction == "received":
-            ev = GiftEvent(user_id=user_id, record_id=rec.id, status="received")
+            ev = GiftEvent(user_id=scope, record_id=rec.id, status="received")
             self.repo.put_event(ev)
         return rec, ev
 
     def list_records(self, user_id: str) -> list[GiftRecord]:
-        return self.repo.list_records(user_id)
+        return self.repo.list_records(self._scope(user_id))
 
     def relationships(self, user_id: str) -> list[dict]:
-        """相手別の おつきあいバランス（差分・最終やりとり・偏り・気になる関係）を返す（N1, A01）。"""
-        return rules.relationship_balance(self.repo.list_records(user_id))
+        """世帯の おつきあいバランス（差分・最終やりとり・偏り・気になる関係）を返す（N1）。"""
+        return rules.relationship_balance(self.repo.list_records(self._scope(user_id)))
 
     def gift_tax(self, user_id: str, year: int | None = None) -> dict:
-        """本人の暦年「もらった」対象合計と110万円枠サマリを返す（P1-3, A01）。"""
+        """世帯の暦年「もらった」対象合計と110万円枠サマリを返す（P1-3）。"""
         import datetime
         y = year or datetime.date.today().year
-        return rules.gift_tax_summary(self.repo.list_records(user_id), y)
+        return rules.gift_tax_summary(self.repo.list_records(self._scope(user_id)), y)
 
     def annual_summary(self, user_id: str, year: int | None = None) -> dict:
-        """本人の指定年（既定は今年）の年間振り返りを返す（A01）。"""
+        """世帯の指定年（既定は今年）の年間振り返りを返す。"""
         import datetime
         y = year or datetime.date.today().year
-        return rules.annual_summary(self.repo.list_records(user_id), y)
+        return rules.annual_summary(self.repo.list_records(self._scope(user_id)), y)
 
     def party_summary(self, user_id: str) -> dict:
         """相手別の もらった/あげた/差分。"""
         summary: dict[str, dict] = {}
-        for r in self.repo.list_records(user_id):
+        for r in self.repo.list_records(self._scope(user_id)):
             s = summary.setdefault(r.party_name, {"received": 0, "given": 0})
             s[r.direction] = s.get(r.direction, 0) + r.amount
         for s in summary.values():
@@ -107,7 +153,7 @@ class NoshiService:
 
         direction は変更しない（イベント生成/破棄の整合を避けるため）。
         """
-        rec = self.repo.get_record(user_id, record_id)
+        rec = self.repo.get_record(self._scope(user_id), record_id)
         if rec is None:
             raise ForbiddenError("not your record")
         errors = rules.validate_record(amount, purpose, party_name, rec.direction)
@@ -125,9 +171,10 @@ class NoshiService:
         return rec
 
     def delete_record(self, user_id: str, record_id: str) -> bool:
-        if self.repo.get_record(user_id, record_id) is None:
+        scope = self._scope(user_id)
+        if self.repo.get_record(scope, record_id) is None:
             raise ForbiddenError("not your record")
-        ok = self.repo.delete_record(user_id, record_id)
+        ok = self.repo.delete_record(scope, record_id)
         self._audit(user_id, "delete_record", record_id)  # A09
         return ok
 
@@ -137,11 +184,11 @@ class NoshiService:
 
     def suggest_returns(self, user_id: str, event_id: str, budget: int,
                         relationship: str, purpose: str) -> list[dict]:
-        self._require_event(user_id, event_id)
+        self._require_event(user_id, self._scope(user_id), event_id)
         return self.catalog.suggest(budget, relationship, purpose)
 
     def select_suggestion(self, user_id: str, event_id: str, suggestion: dict) -> ReturnSuggestion:
-        ev = self._require_event(user_id, event_id)
+        ev = self._require_event(user_id, self._scope(user_id), event_id)
         sug = ReturnSuggestion(
             event_id=event_id, title=suggestion["title"], summary=suggestion.get("summary", ""),
             external_ref=suggestion.get("external_ref", ""), price_band=suggestion.get("price_band", ""),
@@ -152,7 +199,7 @@ class NoshiService:
 
     def generate_letter(self, user_id: str, event_id: str, purpose: str,
                         relationship: str, tone: str) -> Letter:
-        ev = self._require_event(user_id, event_id)
+        ev = self._require_event(user_id, self._scope(user_id), event_id)
         # 送信は最小化（BR-LTR-1）: 氏名等の restricted は渡さない
         body = self.ocr.generate_letter(purpose=purpose, relationship=relationship, tone=tone)
         letter = Letter(event_id=event_id, tone=tone, body_text=body)
@@ -164,19 +211,19 @@ class NoshiService:
     def set_event_status(self, user_id: str, event_id: str, status: str) -> GiftEvent:
         if status not in ("received", "considering", "done"):
             raise ValidationError([f"不正なステータス: {status}"])
-        ev = self._require_event(user_id, event_id)
+        ev = self._require_event(user_id, self._scope(user_id), event_id)
         ev.status = status  # 自由遷移（BR-EVT-1）
         return self.repo.put_event(ev)
 
     def list_pending_events(self, user_id: str) -> list[GiftEvent]:
-        return self.repo.list_pending_events(user_id)
+        return self.repo.list_pending_events(self._scope(user_id))
 
     def get_event(self, user_id: str, event_id: str) -> GiftEvent:
-        return self._require_event(user_id, event_id)
+        return self._require_event(user_id, self._scope(user_id), event_id)
 
     # --- 表示用ビュー（UX: ID ではなく相手・用途・金額・期限を見せる） ---
-    def _view(self, user_id: str, ev: GiftEvent) -> dict:
-        rec = self.repo.get_record(user_id, ev.record_id)
+    def _view(self, scope: str, ev: GiftEvent) -> dict:
+        rec = self.repo.get_record(scope, ev.record_id)
         purpose = rec.purpose if rec else ""
         occurred_at = rec.occurred_at if rec else ""
         due = rules.due_date(occurred_at, purpose)  # BR-3-DUE
@@ -200,25 +247,27 @@ class NoshiService:
 
         お返し不要（期限なし）の用途は除外する（BR-3-DUE-2）。
         """
-        views = [self._view(user_id, e) for e in self.repo.list_pending_events(user_id)]
+        scope = self._scope(user_id)
+        views = [self._view(scope, e) for e in self.repo.list_pending_events(scope)]
         views = [v for v in views if v["due_at"] is not None]  # 期限なしは除外
         views.sort(key=lambda v: v["days_left"])  # 残日数 昇順（期限が近い順）
         return views
 
     def event_view(self, user_id: str, event_id: str) -> dict:
-        """単一イベントを表示用ビューで返す（本人スコープ強制）。"""
-        return self._view(user_id, self._require_event(user_id, event_id))
+        """単一イベントを表示用ビューで返す（世帯スコープ強制）。"""
+        scope = self._scope(user_id)
+        return self._view(scope, self._require_event(user_id, scope, event_id))
 
     def event_for_record(self, user_id: str, record_id: str):
         """台帳の記録IDから対応するイベントを引く（ledger→お返しフロー、done 含む）。"""
-        for e in self.repo.list_events(user_id):
+        for e in self.repo.list_events(self._scope(user_id)):
             if e.record_id == record_id:
                 return e
         return None
 
-    # --- 内部: 本人スコープ ---
-    def _require_event(self, user_id: str, event_id: str) -> GiftEvent:
-        ev = self.repo.get_event(user_id, event_id)
+    # --- 内部: 世帯スコープ（user_id は監査用、scope は世帯ID）---
+    def _require_event(self, user_id: str, scope: str, event_id: str) -> GiftEvent:
+        ev = self.repo.get_event(scope, event_id)
         if ev is None:
             self._audit(user_id, "authz_denied", event_id)  # A09
             raise ForbiddenError("not your event")

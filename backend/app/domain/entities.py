@@ -19,6 +19,32 @@ def _now() -> float:
     return time.time()
 
 
+def _invite_code() -> str:
+    # 家族に口頭/メッセージで伝えやすい短い英数字コード（紛らわしい文字を除外）。
+    import random
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(random.choice(alphabet) for _ in range(6))
+
+
+@dataclass
+class Household:
+    """世帯（家族の共有単位）。記録・お返しは User ではなく Household に属する。"""
+    name: str = "わたしの家"
+    invite_code: str = field(default_factory=_invite_code)  # 共有参加用コード
+    id: str = field(default_factory=_id)
+    created_at: float = field(default_factory=_now)
+
+
+@dataclass
+class Membership:
+    """ユーザーの世帯への所属（誰がどの世帯の owner/member か）。"""
+    user_id: str
+    household_id: str
+    role: str = "member"  # owner / member
+    email: str = ""  # confidential
+    joined_at: float = field(default_factory=_now)
+
+
 @dataclass
 class User:
     auth_identifier: str  # restricted

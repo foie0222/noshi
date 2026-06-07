@@ -7,10 +7,13 @@ from __future__ import annotations
 
 from typing import Optional, Protocol
 
-from app.domain.entities import GiftRecord, GiftEvent, ExtractionJob, AuditEntry
+from app.domain.entities import (
+    GiftRecord, GiftEvent, ExtractionJob, AuditEntry, Household, Membership,
+)
 
 
 class Repository(Protocol):
+    # 注: record/event/job の第1引数 user_id は「スコープID」。家族共有では世帯ID を渡す。
     def put_record(self, rec: GiftRecord) -> GiftRecord: ...
     def get_record(self, user_id: str, record_id: str) -> Optional[GiftRecord]: ...
     def list_records(self, user_id: str) -> list[GiftRecord]: ...
@@ -22,6 +25,13 @@ class Repository(Protocol):
     def put_job(self, job: ExtractionJob) -> ExtractionJob: ...
     def get_job(self, user_id: str, job_id: str) -> Optional[ExtractionJob]: ...
     def append_audit(self, entry: AuditEntry) -> None: ...
+    # --- 家族共有: 世帯とメンバーシップ ---
+    def put_household(self, h: Household) -> Household: ...
+    def get_household(self, household_id: str) -> Optional[Household]: ...
+    def get_household_by_invite(self, code: str) -> Optional[Household]: ...
+    def put_membership(self, m: Membership) -> Membership: ...
+    def get_membership(self, user_id: str) -> Optional[Membership]: ...
+    def list_members(self, household_id: str) -> list[Membership]: ...
 
 
 class InMemoryRepository:
@@ -32,6 +42,8 @@ class InMemoryRepository:
         self._events: dict[str, GiftEvent] = {}
         self._jobs: dict[str, ExtractionJob] = {}
         self._audit: list[AuditEntry] = []
+        self._households: dict[str, Household] = {}
+        self._memberships: dict[str, Membership] = {}  # user_id -> Membership
 
     # --- records ---
     def put_record(self, rec: GiftRecord) -> GiftRecord:
@@ -82,6 +94,27 @@ class InMemoryRepository:
     @property
     def audit_entries(self) -> list[AuditEntry]:
         return list(self._audit)
+
+    # --- households / memberships ---
+    def put_household(self, h: Household) -> Household:
+        self._households[h.id] = h
+        return h
+
+    def get_household(self, household_id: str) -> Optional[Household]:
+        return self._households.get(household_id)
+
+    def get_household_by_invite(self, code: str) -> Optional[Household]:
+        return next((h for h in self._households.values() if h.invite_code == code), None)
+
+    def put_membership(self, m: Membership) -> Membership:
+        self._memberships[m.user_id] = m
+        return m
+
+    def get_membership(self, user_id: str) -> Optional[Membership]:
+        return self._memberships.get(user_id)
+
+    def list_members(self, household_id: str) -> list[Membership]:
+        return [m for m in self._memberships.values() if m.household_id == household_id]
 
 
 class DynamoRepository:
@@ -170,6 +203,40 @@ class DynamoRepository:
     def append_audit(self, entry: AuditEntry) -> None:
         self.table.put_item(Item=self._item(
             self._pk(entry.actor_id), f"AUDIT#{entry.at}#{entry.id}", "audit", entry))
+
+    # --- households / memberships ---
+    def put_household(self, h: Household) -> Household:
+        self.table.put_item(Item=self._item(f"HOUSEHOLD#{h.id}", "META", "household", h))
+        # 招待コード→世帯 の逆引きインデックス
+        self.table.put_item(Item={"PK": f"INVITE#{h.invite_code}", "SK": "INVITE",
+                                  "type": "invite", "household_id": h.id})
+        return h
+
+    def get_household(self, household_id: str) -> Optional[Household]:
+        r = self.table.get_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": "META"}).get("Item")
+        return self._hydrate(Household, r)
+
+    def get_household_by_invite(self, code: str) -> Optional[Household]:
+        idx = self.table.get_item(Key={"PK": f"INVITE#{code}", "SK": "INVITE"}).get("Item")
+        return self.get_household(idx["household_id"]) if idx else None
+
+    def put_membership(self, m: Membership) -> Membership:
+        self.table.put_item(Item=self._item(f"USER#{m.user_id}", "MEMBERSHIP", "membership", m))
+        # 世帯→メンバー の一覧引きインデックス
+        self.table.put_item(Item=self._item(
+            f"HOUSEHOLD#{m.household_id}", f"MEMBER#{m.user_id}", "member", m))
+        return m
+
+    def get_membership(self, user_id: str) -> Optional[Membership]:
+        r = self.table.get_item(Key={"PK": f"USER#{user_id}", "SK": "MEMBERSHIP"}).get("Item")
+        return self._hydrate(Membership, r)
+
+    def list_members(self, household_id: str) -> list[Membership]:
+        from boto3.dynamodb.conditions import Key
+        items = self.table.query(
+            KeyConditionExpression=Key("PK").eq(f"HOUSEHOLD#{household_id}") & Key("SK").begins_with("MEMBER#")
+        ).get("Items", [])
+        return [self._hydrate(Membership, it) for it in items]
 
 
 def _to_dynamo(value):

@@ -72,3 +72,23 @@ def test_未完了イベントはdoneを除外する(table_name):
     repo.put_event(e1)
     repo.put_event(e2)
     assert [e.id for e in repo.list_pending_events("u1")] == [e1.id]
+
+
+def test_世帯と招待コードで往復できる(table_name):
+    """世帯を保存し、招待コードから逆引きで同じ世帯を取得できることを検証する（家族共有）。"""
+    from app.domain.entities import Household
+    repo = DynamoRepository(table_name=table_name)
+    h = Household(name="井上家")
+    repo.put_household(h)
+    assert repo.get_household(h.id).name == "井上家"
+    assert repo.get_household_by_invite(h.invite_code).id == h.id
+
+
+def test_メンバーシップと世帯メンバー一覧(table_name):
+    """メンバーシップを保存し、ユーザー引き・世帯メンバー一覧引きの両方ができることを検証する。"""
+    from app.domain.entities import Membership
+    repo = DynamoRepository(table_name=table_name)
+    repo.put_membership(Membership(user_id="u1", household_id="H", role="owner"))
+    repo.put_membership(Membership(user_id="u2", household_id="H", role="member"))
+    assert repo.get_membership("u1").role == "owner"
+    assert {m.user_id for m in repo.list_members("H")} == {"u1", "u2"}

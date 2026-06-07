@@ -13,6 +13,14 @@ class RecordIn(BaseModel):
     relationship: str = ""
 
 
+class RecordUpdateIn(BaseModel):
+    amount: int = Field(gt=0, description="修正後の金額（>0）")
+    purpose: str = Field(min_length=1)
+    party_name: str = Field(min_length=1)
+    occurred_at: str = ""
+    relationship: str = ""
+
+
 class StatusIn(BaseModel):
     status: str = Field(pattern="^(received|considering|done)$")
 

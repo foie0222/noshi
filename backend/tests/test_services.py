@@ -132,3 +132,31 @@ def test_他人の台帳は見えない():
     svc.create_record("u1", amount=1000, purpose="香典", party_name="A", direction="received")
     svc.create_record("u2", amount=2000, purpose="香典", party_name="B", direction="received")
     assert len(svc.list_records("u1")) == 1
+
+
+def test_記録を修正すると金額と相手が更新され監査が残る():
+    """保存済みレコードの金額・相手・用途をupdate_recordで修正でき、監査に残ることを検証する（S-13, A09）。"""
+    svc = make_service()
+    rec, _ = svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received")
+    updated = svc.update_record("u1", rec.id, amount=30000, purpose="結婚祝い", party_name="佐藤花子")
+    assert updated.amount == 30000
+    assert updated.purpose == "結婚祝い"
+    assert updated.party_name == "佐藤花子"
+    assert updated.id == rec.id  # 同一レコードを更新（新規ではない）
+    assert "update_record" in [a.action for a in svc.repo.audit_entries]
+
+
+def test_他人の記録は修正できない():
+    """他ユーザーのレコード修正がForbiddenErrorで拒否されることを検証する（A01）。"""
+    svc = make_service()
+    rec, _ = svc.create_record("u1", amount=10000, purpose="香典", party_name="田中", direction="received")
+    with pytest.raises(ForbiddenError):
+        svc.update_record("attacker", rec.id, amount=20000, purpose="香典", party_name="田中")
+
+
+def test_不正な値での修正は検証エラーになる():
+    """金額0など不正な値でのレコード修正がValidationErrorになることを検証する（BR-VAL）。"""
+    svc = make_service()
+    rec, _ = svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received")
+    with pytest.raises(ValidationError):
+        svc.update_record("u1", rec.id, amount=0, purpose="出産祝い", party_name="佐藤")

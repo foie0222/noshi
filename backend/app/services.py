@@ -95,6 +95,29 @@ class NoshiService:
             s["diff"] = s.get("received", 0) - s.get("given", 0)
         return summary
 
+    def update_record(self, user_id: str, record_id: str, *, amount: int,
+                      purpose: str, party_name: str, **extra) -> GiftRecord:
+        """保存済みレコードを修正する（AI抽出の誤りを本人が訂正）。本人スコープ強制＋監査（A01, A09）。
+
+        direction は変更しない（イベント生成/破棄の整合を避けるため）。
+        """
+        rec = self.repo.get_record(user_id, record_id)
+        if rec is None:
+            raise ForbiddenError("not your record")
+        errors = rules.validate_record(amount, purpose, party_name, rec.direction)
+        if errors:
+            raise ValidationError(errors)
+        rec.amount = amount
+        rec.purpose = purpose
+        rec.party_name = party_name
+        if "occurred_at" in extra:
+            rec.occurred_at = extra["occurred_at"]
+        if "relationship" in extra:
+            rec.relationship = extra["relationship"]
+        self.repo.put_record(rec)
+        self._audit(user_id, "update_record", record_id)  # A09
+        return rec
+
     def delete_record(self, user_id: str, record_id: str) -> bool:
         if self.repo.get_record(user_id, record_id) is None:
             raise ForbiddenError("not your record")

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.ports import OcrLlmMock, GiftCatalogMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService, ForbiddenError, ValidationError
-from app.schemas import RecordIn, StatusIn, SelectSuggestionIn, LetterIn
+from app.schemas import RecordIn, RecordUpdateIn, StatusIn, SelectSuggestionIn, LetterIn
 
 
 def create_app(service: NoshiService | None = None) -> FastAPI:
@@ -82,6 +82,15 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     def ledger(uid: str = Depends(current_user)):
         return {"records": [vars(r) for r in svc.list_records(uid)],
                 "party_summary": svc.party_summary(uid)}
+
+    @app.patch("/api/records/{record_id}")
+    def update_record(record_id: str, body: RecordUpdateIn, uid: str = Depends(current_user)):
+        # AI抽出の誤りを本人が訂正（本人スコープ＋監査）。direction は変更しない。
+        rec = svc.update_record(
+            uid, record_id, amount=body.amount, purpose=body.purpose,
+            party_name=body.party_name, occurred_at=body.occurred_at,
+            relationship=body.relationship)
+        return {"record": vars(rec)}
 
     @app.delete("/api/records/{record_id}")
     def delete_record(record_id: str, uid: str = Depends(current_user)):

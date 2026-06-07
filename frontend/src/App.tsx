@@ -31,6 +31,7 @@ export function App() {
   const [celebrate, setCelebrate] = useState<boolean>(false); // 水引の完了演出
   const [capturedImage, setCapturedImage] = useState<string>(""); // 撮影/選択した画像(dataURL)
   const [extracting, setExtracting] = useState<boolean>(false);
+  const [editDraft, setEditDraft] = useState<any>(null);     // 記録の修正中(AI抽出の訂正)
 
   async function onPickImage(file: File | null) {
     const err = validateImageFile(file);
@@ -97,12 +98,31 @@ export function App() {
 
   // ---- イベントを開く（相手・用途・金額つき） ----
   async function openEvent(eventId: string) {
-    try { const r = await api.getEvent(eventId); setEvent(r.event); go("event"); }
+    try { const r = await api.getEvent(eventId); setEvent(r.event); setEditDraft(null); go("event"); }
     catch (e: any) { notify(e.message); }
   }
   async function openEventForRecord(recordId: string) {
-    try { const r = await api.eventForRecord(recordId); setEvent(r.event); go("event"); }
+    try { const r = await api.eventForRecord(recordId); setEvent(r.event); setEditDraft(null); go("event"); }
     catch (e: any) { notify(e.message); }
+  }
+
+  // ---- 記録の修正（AI抽出の誤りを本人が訂正）----
+  function startEdit() {
+    setEditDraft({ amount: String(event.amount), purpose: event.purpose, party_name: event.party_name });
+  }
+  async function saveEdit() {
+    try {
+      const amount = Number(editDraft.amount);
+      if (!amount || amount <= 0) { notify("金額は1円以上で入力してください。"); return; }
+      if (!editDraft.purpose.trim() || !editDraft.party_name.trim()) { notify("用途と相手は必須です。"); return; }
+      await api.updateRecord(event.record_id, {
+        amount, purpose: editDraft.purpose.trim(), party_name: editDraft.party_name.trim(),
+      });
+      const r = await api.getEvent(event.id);   // 修正後の表示を取り直す
+      setEvent(r.event);
+      setEditDraft(null);
+      notify("修正しました");
+    } catch (e: any) { notify(e.message); }
   }
 
   // ---- お返し ----
@@ -313,10 +333,30 @@ export function App() {
           <div className={mourning ? "mourning" : ""}>
             <Bar title={mourning ? "弔事のお返し" : "贈答の詳細"} back="home" />
             {mourning && <div className="mournnote">お悔やみの贈答です。落ち着いてお返しを進めましょう。</div>}
-            <div className="card">
-              <b style={{ fontFamily: "var(--serif)", fontSize: 17 }}>{event.party_name} 様</b>
-              <div className="muted">{event.purpose} ・ {yen(event.amount)} ・ {event.direction === "received" ? "受領" : "贈与"}</div>
-            </div>
+            {!editDraft ? (
+              <div className="card">
+                <b style={{ fontFamily: "var(--serif)", fontSize: 17 }}>{event.party_name} 様</b>
+                <div className="muted">{event.purpose} ・ {yen(event.amount)} ・ {event.direction === "received" ? "受領" : "贈与"}</div>
+                <button className="btn ghost" style={{ height: 38, marginTop: 8 }} onClick={startEdit}>✎ 内容を修正</button>
+              </div>
+            ) : (
+              <div className="card">
+                <div className="h" style={{ fontSize: 14 }}>内容を修正</div>
+                <label className="field">相手のお名前
+                  <input value={editDraft.party_name} onChange={(e) => setEditDraft({ ...editDraft, party_name: e.target.value })} />
+                </label>
+                <label className="field">用途
+                  <input value={editDraft.purpose} onChange={(e) => setEditDraft({ ...editDraft, purpose: e.target.value })} />
+                </label>
+                <label className="field">金額（円）
+                  <input type="number" inputMode="numeric" value={editDraft.amount} onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })} />
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn primary" style={{ flex: 1 }} onClick={saveEdit}>保存する</button>
+                  <button className="btn ghost" style={{ flex: 1 }} onClick={() => setEditDraft(null)}>やめる</button>
+                </div>
+              </div>
+            )}
             <div className="h" style={{ fontSize: 14 }}>ステータス</div>
             <div className="chips">
               {["received", "considering", "done"].map((st) => (

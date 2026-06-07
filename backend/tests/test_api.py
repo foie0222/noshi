@@ -104,3 +104,26 @@ def test_汎用エラーは内部情報を漏らさない():
     r = c.patch("/api/events/nonexistent", headers=_h(), json={"status": "done"})
     assert r.status_code == 403
     assert "Traceback" not in r.text
+
+
+def test_記録をPATCHで修正できる():
+    """PATCH /api/records/{id} で金額・相手を修正でき、台帳に反映されることを検証する。"""
+    c = TestClient(create_app())
+    rid = c.post("/api/records", headers=_h(), json={
+        "amount": 10000, "purpose": "出産祝い", "party_name": "佐藤", "direction": "received"}).json()["record"]["id"]
+    r = c.patch(f"/api/records/{rid}", headers=_h(), json={
+        "amount": 30000, "purpose": "結婚祝い", "party_name": "佐藤花子"})
+    assert r.status_code == 200
+    assert r.json()["record"]["amount"] == 30000
+    ledger = c.get("/api/ledger", headers=_h()).json()["records"]
+    assert ledger[0]["amount"] == 30000 and ledger[0]["party_name"] == "佐藤花子"
+
+
+def test_他人の記録はPATCHで修正できない():
+    """他ユーザーのレコードへのPATCHが403で拒否されることを検証する（A01）。"""
+    c = TestClient(create_app())
+    rid = c.post("/api/records", headers=_h("owner"), json={
+        "amount": 10000, "purpose": "香典", "party_name": "田中", "direction": "received"}).json()["record"]["id"]
+    r = c.patch(f"/api/records/{rid}", headers=_h("attacker"), json={
+        "amount": 1, "purpose": "香典", "party_name": "田中"})
+    assert r.status_code == 403

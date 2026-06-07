@@ -33,6 +33,8 @@ export const api = {
   capture: () => req("/capture", { method: "POST" }),
   createRecord: (r: RecordInput) =>
     req("/records", { method: "POST", body: JSON.stringify(r) }),
+  updateRecord: (recordId: string, r: { amount: number; purpose: string; party_name: string }) =>
+    req(`/records/${recordId}`, { method: "PATCH", body: JSON.stringify(r) }),
   halfReturn: (amount: number, purpose: string) =>
     req(`/returns/half-return?amount=${amount}&purpose=${encodeURIComponent(purpose)}`),
   suggestions: (eventId: string, budget: number, relationship: string, purpose: string) =>

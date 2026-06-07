@@ -9,10 +9,12 @@
 
 ## 主な機能
 - **撮影 → 記録**: ご祝儀袋等を撮影し AI 抽出（金額/氏名/関係/用途/日付）。要所だけ確認して保存。
+- **記録の修正**: 抽出/入力の誤りを後から訂正（本人スコープ＋監査、日付は保持）。
 - **お返し期限ダッシュボード**: ホームを「お返しの予定」（残日数の近い順）に。期限超過を強調。
 - **半返し計算**: 用途別の推奨お返し額＋根拠（香典1/2、出産1/3〜1/2、お中元歳暮は返礼不要 等）。
-- **お返し提案・礼状生成**: 候補提示（提案のみ）と礼状文面の生成。
-- **弔事/慶事トーン**: 香典等は静かな配色・コピーに切替。
+- **お返し提案・礼状生成**: 候補提示（提案のみ）と礼状文面の生成。礼状はワンタップでコピー。
+- **弔事/慶事トーン**: 香典等は静かな配色・コピーに切替。礼状文面も弔事（四十九日・供養）に出し分け。
+- **年間振り返り**: その年の いただいた/贈った の件数・合計・お付き合いした人数。
 - **信頼の可視化**: 「あなただけが見られます🔒」。本人スコープ・暗号化・削除権。
 - **贈与税110万枠の気づき**: 暦年の対象もらった合計（社会通念上の贈答は除外）と枠への接近（※税アドバイスではない）。
 - **おつきあいバランス**: 相手別の もらった/あげた/差分・最終やりとり、「気になる関係」をやさしく可視化。
@@ -37,16 +39,25 @@ Python(FastAPI) + React(TS) + DynamoDB + SQS + S3 / デプロイ AWS（CDK）・
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/python -m pytest                 # 54 tests
+.venv/bin/python -m pytest                 # 72 tests
 .venv/bin/python -m uvicorn app.main:app --reload   # http://localhost:8000
+.venv/bin/python seed_demo.py              # （任意）デモ用に7件投入（要: backend 起動中）
 ```
-MVP は InMemory リポジトリ＋モック抽出で外部依存なく起動（`X-User-Id` ヘッダでユーザー識別）。
+既定は InMemory リポジトリ＋モック抽出で外部依存なく起動（`X-User-Id` ヘッダでユーザー識別）。
+**再起動を跨いでデータを残す**には DynamoDB Local を使う永続モードで起動:
+```bash
+docker compose up -d dynamodb                                   # DynamoDB Local (host:8001)
+export DYNAMODB_ENDPOINT=http://localhost:8001 AWS_REGION=ap-northeast-1 \
+       AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local NOSHI_TABLE=noshi NOSHI_USE_DYNAMO=1
+.venv/bin/python -c "from app.repository import create_table; create_table('noshi')"  # 初回のみ
+.venv/bin/python -m uvicorn app.main:app                        # 以後データは DynamoDB に永続化
+```
 
 ### frontend
 ```bash
 cd frontend
 npm install
-npm test            # vitest 23（日本語の検証説明つき）
+npm test            # vitest 30（日本語の検証説明つき）
 npm run dev         # http://localhost:5173 （/api を backend にプロキシ）
 ```
 
@@ -58,7 +69,7 @@ npx cdk synth       # CloudFormation を生成（AWS 認証不要・未デプロ
 ```
 
 ## テスト方針（TDD）
-backend=**pytest**（54）/ frontend=**vitest**（23）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
+backend=**pytest**（72）/ frontend=**vitest**（30）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
 半返し・期限・贈与税・おつきあい・お年玉・本人スコープ（OWASP A01）・入力検証（A03）・監査（A09）をテストで担保。
 
 ## セキュリティ（OWASP）

@@ -72,8 +72,8 @@ export function App() {
     if (!capturedImage) { notify("先に写真を撮るか、画像を選んでください。"); return; }
     setExtracting(true);
     try {
-      // 画像から AI 抽出（MVP はモック。実プロバイダは OcrLlmPort で差し替え）。
-      const job = await api.capture();
+      // 撮影画像を送って AI 抽出（モック or Bedrock/Claude を環境変数で切替）。
+      const job = await api.capture(capturedImage);
       setDraft({ ...job.candidates, direction: "received", field_review: job.field_review || {}, image: capturedImage });
       go("review");
     } catch (e: any) { notify(e.message); }

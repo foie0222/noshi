@@ -30,7 +30,8 @@ export interface RecordInput {
 export const api = {
   home: () => req("/home"),
   ledger: () => req("/ledger"),
-  capture: () => req("/capture", { method: "POST" }),
+  capture: (image?: string) =>
+    req("/capture", { method: "POST", body: JSON.stringify({ image: image ?? null }) }),
   createRecord: (r: RecordInput) =>
     req("/records", { method: "POST", body: JSON.stringify(r) }),
   updateRecord: (recordId: string, r: { amount: number; purpose: string; party_name: string }) =>

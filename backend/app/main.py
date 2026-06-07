@@ -12,7 +12,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.ports import OcrLlmMock, GiftCatalogMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService, ForbiddenError, ValidationError
-from app.schemas import RecordIn, RecordUpdateIn, StatusIn, SelectSuggestionIn, LetterIn
+from app.schemas import RecordIn, RecordUpdateIn, StatusIn, SelectSuggestionIn, LetterIn, CaptureIn
+
+
+def _default_ocr():
+    """OCR/LLM の実装を選ぶ。NOSHI_USE_BEDROCK=1 で本物(Bedrock/Claude)、既定はモック。"""
+    import os
+    if os.environ.get("NOSHI_USE_BEDROCK") == "1":
+        from app.adapters import BedrockOcrLlm
+        return BedrockOcrLlm()
+    return OcrLlmMock()
 
 
 def _default_repository():
@@ -32,7 +41,7 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
     )
-    svc = service or NoshiService(_default_repository(), OcrLlmMock(), GiftCatalogMock())
+    svc = service or NoshiService(_default_repository(), _default_ocr(), GiftCatalogMock())
 
     def current_user(x_user_id: str | None = Header(default=None)) -> str:
         # スタブ認証: 本番は OIDC トークン検証に置換。未提示は 401（A07）。
@@ -64,8 +73,15 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         }
 
     @app.post("/api/capture")
-    def capture(uid: str = Depends(current_user)):
-        job = svc.submit_extraction(uid, ["mock.jpg"])
+    def capture(body: CaptureIn | None = None, uid: str = Depends(current_user)):
+        # 画像があれば抽出器（モック or Bedrock）へ渡す。無ければモック用のダミー参照。
+        image_refs = [body.image] if (body and body.image) else ["mock.jpg"]
+        try:
+            job = svc.submit_extraction(uid, image_refs)
+        except Exception as exc:  # 抽出失敗は握り潰さず 502 で返す（モックへ無言降格しない）
+            import logging
+            logging.getLogger("noshi").exception("extraction failed")
+            raise HTTPException(status_code=502, detail="画像の読み取りに失敗しました。時間をおいて再度お試しください。") from exc
         return {"job_id": job.id, "status": job.status,
                 "candidates": job.candidates, "confidence": job.confidence,
                 "field_confidence": job.field_confidence,

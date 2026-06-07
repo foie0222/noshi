@@ -13,6 +13,11 @@ class RecordIn(BaseModel):
     relationship: str = ""
 
 
+class CaptureIn(BaseModel):
+    # 撮影/選択画像（data URL もしくは base64）。未指定ならモック抽出にフォールバック。
+    image: str | None = None
+
+
 class RecordUpdateIn(BaseModel):
     amount: int = Field(gt=0, description="修正後の金額（>0）")
     purpose: str = Field(min_length=1)

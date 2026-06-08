@@ -1,0 +1,85 @@
+# Dependabot: 依存パッケージの自動更新（バージョン更新）。
+# 監視対象は backend(pip) / frontend(npm) / infra/cdk(npm) / GitHub Actions の 4 系統。
+# 毎週月曜にまとめて更新 PR を作成する。更新 PR でも CI が回るため、壊れる更新は赤くなって気づける。
+# 本番は main マージで自動デプロイされるため、マージは人手で確認してから行う（自動マージはしない）。
+version: 2
+
+updates:
+  # --- バックエンド（FastAPI / boto3 等） ---
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: friday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "deps(backend)"
+    groups:
+      # 開発用ツール（lint/型/テスト）はまとめて 1 PR に
+      backend-dev:
+        patterns:
+          - ruff
+          - mypy
+          - pre-commit
+          - pytest*
+          - moto*
+
+  # --- フロントエンド（React / Vite / biome） ---
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: friday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "deps(frontend)"
+    groups:
+      frontend-dev:
+        dependency-type: development
+
+  # --- インフラ（AWS CDK） ---
+  - package-ecosystem: npm
+    directory: /infra/cdk
+    schedule:
+      interval: weekly
+      day: friday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "deps(infra)"
+    groups:
+      # aws-cdk-lib と constructs は連動して上げる必要があるためまとめる
+      cdk:
+        patterns:
+          - aws-cdk-lib
+          - aws-cdk
+          - constructs
+
+  # --- GitHub Actions（checkout / configure-aws-credentials 等） ---
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: friday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"

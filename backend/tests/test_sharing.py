@@ -62,3 +62,55 @@ def test_不正な招待コードは拒否される():
     svc = make()
     with pytest.raises(ValidationError):
         svc.join_household("u2", "BADCODE")
+
+
+def test_脱退すると世帯から外れデータは家族に残る():
+    """脱退したメンバーには台帳が見えなくなり、データは残る家族側に保持されることを検証する。"""
+    svc = make()
+    svc.create_record("u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received")
+    svc.join_household("u2", svc.household_invite_code("u1"))
+    assert len(svc.list_records("u2")) == 1   # 参加中は見える
+    svc.leave_household("u2")
+    assert len(svc.list_records("u2")) == 0   # 脱退後は見えない（新しい空の世帯）
+    assert len(svc.list_records("u1")) == 1   # データは家族側に残る
+
+
+def test_管理者が抜けると残ったメンバーが管理者を引き継ぐ():
+    """owner が脱退し他メンバーが残る場合、残ったメンバーが owner を引き継ぐことを検証する。"""
+    svc = make()
+    svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received")
+    svc.join_household("u2", svc.household_invite_code("u1"))
+    svc.leave_household("u1")
+    members = {m["user_id"]: m["role"] for m in svc.household_members("u2")}
+    assert members == {"u2": "owner"}
+
+
+def test_管理者はメンバーを外せる():
+    """owner が家族メンバーを世帯から外せ、外された人には台帳が見えなくなることを検証する。"""
+    svc = make()
+    svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received")
+    svc.join_household("u2", svc.household_invite_code("u1"))
+    svc.remove_member("u1", "u2")
+    assert {m["user_id"] for m in svc.household_members("u1")} == {"u1"}
+    assert len(svc.list_records("u2")) == 0
+
+
+def test_管理者以外はメンバーを外せない():
+    """owner でないメンバーが他人を外そうとすると拒否されることを検証する（A01）。"""
+    import pytest
+    from app.services import ForbiddenError
+    svc = make()
+    svc.join_household("u2", svc.household_invite_code("u1"))
+    with pytest.raises(ForbiddenError):
+        svc.remove_member("u2", "u1")
+
+
+def test_世帯外の人は外せない():
+    """同じ世帯に属さないユーザーを外そうとすると拒否されることを検証する。"""
+    import pytest
+    from app.services import ValidationError
+    svc = make()
+    svc.resolve_household("u1")
+    svc.resolve_household("stranger")  # 別世帯
+    with pytest.raises(ValidationError):
+        svc.remove_member("u1", "stranger")

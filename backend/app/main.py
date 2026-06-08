@@ -92,6 +92,17 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         svc.join_household(ident.user_id, body.code, email=ident.email)
         return {"household": svc.household_view(ident.user_id)}
 
+    @app.post("/api/household/leave")
+    def leave_household(ident: Identity = Depends(current_identity)):
+        # 現在の世帯から脱退（台帳は家族側に残り、本人は新しい空の世帯になる）。
+        svc.leave_household(ident.user_id)
+        return {"household": svc.household_view(ident.user_id)}
+
+    @app.delete("/api/household/members/{target_user_id}")
+    def remove_member(target_user_id: str, ident: Identity = Depends(current_identity)):
+        # 管理者が家族メンバーを世帯から外す。
+        return {"household": svc.remove_member(ident.user_id, target_user_id)}
+
     @app.get("/api/home")
     def home(uid: str = Depends(current_user)):
         # P0-3: 収支・差分は見せない。主役はお返し期限（pending: 期限つき・残日数昇順）。

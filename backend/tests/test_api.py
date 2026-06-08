@@ -190,3 +190,24 @@ def test_JWT構成時はBearerトークンで認証する(monkeypatch):
     assert r.status_code == 200
     # email がメンバーに反映される
     assert r.json()["household"]["members"][0]["email"] == "z@x.jp"
+
+
+def test_脱退とメンバー削除のHTTP():
+    """HTTPで、参加→管理者がメンバー削除→相手が脱退の流れと世帯境界を検証する。"""
+    c = TestClient(create_app())
+    c.post("/api/records", headers=_h("taro"), json={
+        "amount": 30000, "purpose": "出産祝い", "party_name": "佐藤", "direction": "received"})
+    code = c.get("/api/household", headers=_h("taro")).json()["household"]["invite_code"]
+    c.post("/api/household/join", headers=_h("hanako"), json={"code": code})
+    assert len(c.get("/api/ledger", headers=_h("hanako")).json()["records"]) == 1
+    # 管理者(taro)が hanako を外す
+    r = c.delete("/api/household/members/hanako", headers=_h("taro"))
+    assert r.status_code == 200
+    assert {m["user_id"] for m in r.json()["household"]["members"]} == {"taro"}
+    assert c.get("/api/ledger", headers=_h("hanako")).json()["records"] == []
+    # 管理者以外は他人を外せない（jiro が参加して taro を外そうとする）
+    c.post("/api/household/join", headers=_h("jiro"), json={"code": code})
+    assert c.delete("/api/household/members/taro", headers=_h("jiro")).status_code == 403
+    # jiro 自身が脱退 → taro の台帳が見えなくなる
+    c.post("/api/household/leave", headers=_h("jiro"))
+    assert c.get("/api/ledger", headers=_h("jiro")).json()["records"] == []

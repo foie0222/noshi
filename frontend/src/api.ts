@@ -59,5 +59,8 @@ export const api = {
   household: () => req(`/household`),
   joinHousehold: (code: string) =>
     req(`/household/join`, { method: "POST", body: JSON.stringify({ code }) }),
+  leaveHousehold: () => req(`/household/leave`, { method: "POST" }),
+  removeMember: (userId: string) =>
+    req(`/household/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
   relationships: () => req(`/relationships`),
 };

@@ -124,6 +124,22 @@ export function App() {
       notify("ご家族に参加しました");
     } catch (e: any) { notify(e.message); }
   }
+  async function doRemoveMember(userId: string, label: string) {
+    if (!confirm(`${label} さんをこの家族から外しますか？\nこの方には台帳が見えなくなります。`)) return;
+    try {
+      const r = await api.removeMember(userId);
+      setHousehold(r.household);
+      notify("メンバーを外しました");
+    } catch (e: any) { notify(e.message); }
+  }
+  async function doLeaveHousehold() {
+    if (!confirm("この家族から脱退しますか？\n台帳はご家族側に残り、あなたは新しい空の状態になります。")) return;
+    try {
+      await api.leaveHousehold();
+      notify("脱退しました");
+      location.reload();   // 世帯（データの見え方）が変わるため全体を読み直す
+    } catch (e: any) { notify(e.message); }
+  }
 
   // ---- 記録の修正（AI抽出の誤りを本人が訂正）----
   function startEdit() {
@@ -408,14 +424,30 @@ export function App() {
             <>
               <div className="h" style={{ fontSize: 15 }}>ご家族（共有）</div>
               <div className="card">
-                <div className="muted">この台帳を共有しているメンバー</div>
-                <div style={{ margin: "6px 0 10px" }}>
-                  {household.members.map((m: any) => (
-                    <span key={m.user_id} className="chip on" style={{ marginRight: 6 }}>
-                      {m.email || m.user_id}{m.role === "owner" ? "（管理者）" : ""}
-                    </span>
-                  ))}
-                </div>
+                {(() => {
+                  const me = currentUserId();
+                  const iAmOwner = household.members.some((m: any) => m.user_id === me && m.role === "owner");
+                  return (
+                    <>
+                      <div className="muted">この台帳を共有しているメンバー</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0 10px" }}>
+                        {household.members.map((m: any) => {
+                          const label = m.email || m.user_id;
+                          const isMe = m.user_id === me;
+                          return (
+                            <span key={m.user_id} className="chip on">
+                              {label}{m.role === "owner" ? "（管理者）" : ""}{isMe ? "・あなた" : ""}
+                              {iAmOwner && !isMe && (
+                                <button className="memberx" aria-label={`${label} を外す`}
+                                  onClick={() => doRemoveMember(m.user_id, label)}>✕</button>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="muted">家族を招待するコード（伝えると同じ台帳を共有できます）</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 6px" }}>
                   <code className="invitecode">{household.invite_code}</code>
@@ -432,6 +464,10 @@ export function App() {
                     onClick={doJoinHousehold}>参加</button>
                 </div>
                 <div className="trustnote" style={{ marginTop: 10 }}>🔒 台帳は<b>このご家族だけ</b>が見られます。</div>
+                {household.members.length > 1 && (
+                  <button className="btn ghost danger" style={{ marginTop: 10 }}
+                    onClick={doLeaveHousehold}>この家族から脱退する</button>
+                )}
               </div>
             </>
           )}

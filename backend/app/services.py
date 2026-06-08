@@ -81,6 +81,40 @@ class NoshiService:
         self._audit(user_id, "join_household", h.id)  # A09
         return h
 
+    def leave_household(self, user_id: str) -> Household:
+        """現在の世帯から脱退する。台帳は残る家族側に保持され、本人は新しい空の世帯を持つ。"""
+        m = self.repo.get_membership(user_id)
+        email = ""
+        if m is not None:
+            email = m.email
+            old_hid, was_owner = m.household_id, m.role == "owner"
+            self.repo.delete_membership(user_id)
+            self._audit(user_id, "leave_household", old_hid)  # A09
+            # 管理者が抜けて家族が残るなら、最古参のメンバーに管理者を引き継ぐ
+            if was_owner:
+                remaining = sorted(self.repo.list_members(old_hid), key=lambda x: x.joined_at)
+                if remaining:
+                    heir = remaining[0]
+                    self.repo.put_membership(Membership(
+                        user_id=heir.user_id, household_id=old_hid, role="owner",
+                        email=heir.email, joined_at=heir.joined_at))
+                    self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
+        return self.resolve_household(user_id, email=email)  # 常にどこかの世帯に属する
+
+    def remove_member(self, user_id: str, target_user_id: str) -> dict:
+        """管理者が世帯から家族メンバーを外す。外された人は次回アクセスで新しい世帯になる。"""
+        me = self.repo.get_membership(user_id)
+        if me is None or me.role != "owner":
+            raise ForbiddenError("only the owner can remove members")
+        if target_user_id == user_id:
+            raise ValidationError(["ご自身は「脱退」から行ってください。"])
+        target = self.repo.get_membership(target_user_id)
+        if target is None or target.household_id != me.household_id:
+            raise ValidationError(["その方はこの世帯のメンバーではありません。"])
+        self.repo.delete_membership(target_user_id)
+        self._audit(user_id, "remove_member", target_user_id)  # A09
+        return self.household_view(user_id)
+
     # --- 撮影 → 抽出 ---
     def submit_extraction(self, user_id: str, image_refs: list[str]) -> ExtractionJob:
         out = self.ocr.extract(image_refs)

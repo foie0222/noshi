@@ -32,6 +32,7 @@ class Repository(Protocol):
     def put_membership(self, m: Membership) -> Membership: ...
     def get_membership(self, user_id: str) -> Optional[Membership]: ...
     def list_members(self, household_id: str) -> list[Membership]: ...
+    def delete_membership(self, user_id: str) -> bool: ...
 
 
 class InMemoryRepository:
@@ -115,6 +116,9 @@ class InMemoryRepository:
 
     def list_members(self, household_id: str) -> list[Membership]:
         return [m for m in self._memberships.values() if m.household_id == household_id]
+
+    def delete_membership(self, user_id: str) -> bool:
+        return self._memberships.pop(user_id, None) is not None
 
 
 class DynamoRepository:
@@ -237,6 +241,14 @@ class DynamoRepository:
             KeyConditionExpression=Key("PK").eq(f"HOUSEHOLD#{household_id}") & Key("SK").begins_with("MEMBER#")
         ).get("Items", [])
         return [self._hydrate(Membership, it) for it in items]
+
+    def delete_membership(self, user_id: str) -> bool:
+        m = self.get_membership(user_id)
+        if m is None:
+            return False
+        self.table.delete_item(Key={"PK": f"USER#{user_id}", "SK": "MEMBERSHIP"})
+        self.table.delete_item(Key={"PK": f"HOUSEHOLD#{m.household_id}", "SK": f"MEMBER#{user_id}"})
+        return True
 
 
 def _to_dynamo(value):

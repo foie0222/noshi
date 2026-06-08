@@ -8,7 +8,8 @@
 構想 → 設計 → 実装 → UX改善 → 機能拡張 → IaC まで進めたものです。設計・監査の全記録は `org-ai-kb/` 配下。
 
 ## 主な機能
-- **家族で共有**: 世帯（家族）単位で台帳・お返し・期限を共有。招待コードで家族が参加し、二人三脚で贈答を回す。認証は Amazon Cognito（JWT）。
+- **ログイン**: Amazon Cognito によるメール＋パスワード認証（サインアップ／確認コード／ログイン）。本番APIは JWT 必須。
+- **家族で共有**: 世帯（家族）単位で台帳・お返し・期限を共有。招待コードで家族が参加し、二人三脚で贈答を回す。
 - **撮影 → 記録**: ご祝儀袋等を撮影し AI（Bedrock/Claude Vision）抽出（金額/氏名/関係/用途/日付）。要所だけ確認して保存。
 - **記録の修正**: 抽出/入力の誤りを後から訂正（本人スコープ＋監査、日付は保持）。
 - **お返し期限ダッシュボード**: ホームを「お返しの予定」（残日数の近い順）に。期限超過を強調。
@@ -99,10 +100,12 @@ npx cdk deploy NoshiFrontendStack --require-approval never --outputs-file ./cdk-
 ```
 - Lambda は依存ライブラリ込みでバンドル（`lib/lambda-code.ts`、pip の manylinux wheel・Docker不要）。
 - API は本番で **DynamoDB 永続化＋Bedrock 実OCR** が有効。
-- 認証は既定でスタブ（デモ）。本番の Cognito 強制は `--context enforceAuth=true` ＋フロントの Cognito ログイン実装が前提。
+- 認証: `--context enforceAuth=true` で Cognito JWT を強制（X-User-Id スタブを無効化）。フロントは
+  Cognito ログイン（サインアップ→メール確認コード→ログイン、`VITE_COGNITO_CLIENT_ID` を注入）。
+  ローカル（env 未設定）はスタブ認証＋開発用ユーザー切替のまま。
 
 ## テスト方針（TDD）
-backend=**pytest**（98）/ frontend=**vitest**（30）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
+backend=**pytest**（98）/ frontend=**vitest**（43）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
 半返し・期限・贈与税・おつきあい・お年玉・本人スコープ（OWASP A01）・入力検証（A03）・監査（A09）をテストで担保。
 
 ## セキュリティ（OWASP）

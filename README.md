@@ -106,6 +106,12 @@ npx cdk deploy NoshiFrontendStack --require-approval never --outputs-file ./cdk-
   Cognito ログイン（サインアップ→メール確認コード→ログイン、`VITE_COGNITO_CLIENT_ID` を注入）。
   ローカル（env 未設定）はスタブ認証＋開発用ユーザー切替のまま。
 
+### CI / CD（GitHub Actions）
+- **CI**: PR/Push で backend(ruff/mypy strict/pytest) / frontend(biome/tsc/vitest/build) / infra(cdk synth) を自動検証（`.github/workflows/ci.yml`）。
+- **CD（自動デプロイ）**: `main` への push で、**CI 全通過後に AWS へ自動デプロイ**（backend 5 スタック → フロントを本番APIにビルド → FrontendStack）。
+  - 認証は **GitHub OIDC**（長期キー不使用）。ロール `noshi-github-deploy` を `lib/github-oidc-stack.ts` で作成し、ARN を GitHub Secret `AWS_DEPLOY_ROLE_ARN` に登録。
+  - OIDC スタックは自己参照のため自動デプロイ対象外。初回のみ手動: `npx cdk deploy NoshiGithubOidcStack`。
+
 ## テスト方針（TDD）
 backend=**pytest**（98）/ frontend=**vitest**（43）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
 半返し・期限・贈与税・おつきあい・お年玉・本人スコープ（OWASP A01）・入力検証（A03）・監査（A09）をテストで担保。

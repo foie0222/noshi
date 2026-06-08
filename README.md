@@ -1,5 +1,7 @@
 # noshi 🧧
 
+[![CI](https://github.com/foie0222/noshi/actions/workflows/ci.yml/badge.svg)](https://github.com/foie0222/noshi/actions/workflows/ci.yml)
+
 家族・親族・友人との贈答（もらった／あげた）を AI が一元管理する生成 AI Web プロダクト。
 ご祝儀袋を撮影 → 半返し計算 → お返し提案 → 礼状生成 → 期限管理 までを支援します。
 「贈答を、損得ではなく **関係のメンテナンス** として、ちゃんと続けられる」。

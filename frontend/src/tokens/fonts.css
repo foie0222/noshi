@@ -1,0 +1,10 @@
+/* ===========================================================================
+   noshi — Font faces
+   Japanese webfonts are large; we ship them via Google Fonts so consumers get
+   the full glyph coverage without bundling multi-MB binaries.
+
+   Shippori Mincho B1 — 明朝体 (serif) — headings / logo
+   Zen Kaku Gothic New — ゴシック (sans)  — body / UI
+   =========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap');

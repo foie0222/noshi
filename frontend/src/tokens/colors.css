@@ -1,0 +1,88 @@
+/* ===========================================================================
+   noshi — Color tokens
+   和の落ち着いた配色。生成り背景に深い紺と朱赤のアクセント。
+   Base palette (raw values) → semantic aliases.
+   =========================================================================== */
+
+:root {
+  /* --- Raw palette ------------------------------------------------------- */
+
+  /* Backgrounds — 生成り / オフホワイト (unbleached paper) */
+  --kinari-100: #FAF9F5; /* lightest page base */
+  --kinari-200: #F3EEE2; /* warm page base    */
+
+  /* Card / surface — washi paper warmth */
+  --washi-100: #FFFDF8; /* raised card */
+  --washi-200: #FBF7EE; /* card base   */
+
+  /* Ink — text */
+  --sumi-900: #23211C; /* 墨 — main text / dark button */
+  --sumi-600: #5E574A; /* sub text */
+  --sumi-400: #8A8270; /* muted / placeholder */
+
+  /* 紺 — kon (deep navy indigo), primary */
+  --kon-700: #16293F; /* pressed */
+  --kon-600: #1F3A5A; /* primary */
+  --kon-100: #E4E9F0; /* tint surface */
+
+  /* 朱 — shu (vermilion red), accent / logo / FAB */
+  --shu-700: #8F2C22; /* pressed */
+  --shu-600: #B23A2E; /* accent */
+  --shu-100: #F5E2DD; /* tint surface */
+
+  /* 緑 — midori (moss green), success / received */
+  --midori-700: #45533C; /* pressed */
+  --midori-600: #5B6B4E; /* success */
+  --midori-100: #E7EADE; /* tint surface */
+
+  /* 山吹 — caution / warning (muted amber) */
+  --yamabuki-600: #A9802F;
+  --yamabuki-100: #F2E8D2;
+
+  /* Borders & lines — 砂色 (sand) */
+  --border-200: #D8CDB6; /* default 1px border */
+  --border-100: #E7DFCC; /* faint divider */
+
+  /* Pure */
+  --paper-white: #F6EFE1; /* on-dark text (warm white) */
+
+  /* --- Semantic aliases -------------------------------------------------- */
+
+  /* Surfaces */
+  --bg-page: var(--kinari-200);
+  --bg-page-alt: var(--kinari-100);
+  --surface-card: var(--washi-200);
+  --surface-card-raised: var(--washi-100);
+  --surface-input: var(--washi-100);
+  --surface-overlay: rgba(35, 33, 28, 0.45);
+
+  /* Text */
+  --text-body: var(--sumi-900);
+  --text-sub: var(--sumi-600);
+  --text-muted: var(--sumi-400);
+  --text-on-dark: var(--paper-white);
+  --text-on-primary: var(--paper-white);
+
+  /* Brand roles */
+  --color-primary: var(--kon-600);
+  --color-primary-pressed: var(--kon-700);
+  --color-primary-tint: var(--kon-100);
+
+  --color-accent: var(--shu-600);
+  --color-accent-pressed: var(--shu-700);
+  --color-accent-tint: var(--shu-100);
+
+  --color-success: var(--midori-600);
+  --color-success-pressed: var(--midori-700);
+  --color-success-tint: var(--midori-100);
+
+  --color-warning: var(--yamabuki-600);
+  --color-warning-tint: var(--yamabuki-100);
+
+  /* Lines */
+  --border-default: var(--border-200);
+  --border-faint: var(--border-100);
+
+  /* Dark surface (dark button) */
+  --surface-dark: var(--sumi-900);
+}

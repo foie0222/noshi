@@ -1,0 +1,30 @@
+/* ===========================================================================
+   noshi — Spacing tokens
+   8px ベースの余白スケール。年配の方が押しやすいよう、ゆとりを多めに。
+   =========================================================================== */
+
+:root {
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+
+  /* Semantic */
+  --gutter-screen: 20px;  /* mobile screen side padding */
+  --gap-card: 16px;       /* inner card padding base */
+  --gap-card-lg: 20px;
+  --gap-stack: 12px;      /* between stacked items */
+  --gap-section: 28px;    /* between sections */
+
+  /* Touch — 年配の方も押しやすい最小ヒットエリア */
+  --hit-min: 48px;
+  --nav-height: 64px;
+  --fab-size: 56px;
+}

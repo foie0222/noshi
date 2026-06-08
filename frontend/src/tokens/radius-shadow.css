@@ -1,0 +1,33 @@
+/* ===========================================================================
+   noshi — Radius, borders, shadows
+   角丸はやわらかく。シャドウは淡く、和紙のような軽さ。
+   =========================================================================== */
+
+:root {
+  /* --- Radius ------------------------------------------------------------ */
+  --radius-sm: 8px;    /* small chips */
+  --radius-code: 10px; /* 招待コードチップ */
+  --radius-md: 12px;   /* inputs */
+  --radius-lg: 16px;   /* cards */
+  --radius-xl: 20px;   /* large sheets */
+  --radius-pill: 30px; /* buttons (pill) */
+  --radius-round: 999px; /* member chips, FAB, avatars */
+
+  /* --- Border widths ----------------------------------------------------- */
+  --bw-hairline: 1px;
+  --bw-thick: 1.5px;
+  --border-dashed: 1px dashed var(--border-default); /* 招待コード枠 */
+
+  /* --- Shadows — 淡く上品に ---------------------------------------------- */
+  --shadow-card: 0 1px 2px rgba(35, 33, 28, 0.04), 0 2px 8px rgba(35, 33, 28, 0.05);
+  --shadow-raised: 0 2px 4px rgba(35, 33, 28, 0.06), 0 6px 18px rgba(35, 33, 28, 0.08);
+  --shadow-fab: 0 4px 12px rgba(178, 58, 46, 0.32);
+  --shadow-nav: 0 -1px 0 var(--border-faint), 0 -6px 20px rgba(35, 33, 28, 0.04);
+  --shadow-sheet: 0 -8px 32px rgba(35, 33, 28, 0.14);
+
+  /* --- Motion ------------------------------------------------------------ */
+  --ease-soft: cubic-bezier(0.33, 0.0, 0.2, 1.0); /* @kind other */
+  --dur-fast: 120ms; /* @kind other */
+  --dur-base: 200ms; /* @kind other */
+  --dur-slow: 320ms; /* @kind other */
+}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, currentUserId, type RecordInput, setCurrentUserId, UnauthorizedError } from "./api";
+import { Icon } from "./components/Icon";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -47,7 +48,12 @@ type Screen =
 
 const TrustNote = () => (
   <div className="trustnote">
-    🔒 ここに入れた情報は<b>ご家族だけ</b>が見られます。暗号化して保存します。
+    <span className="ic">
+      <Icon name="lock" size={18} />
+    </span>
+    <div>
+      ここに入れた情報は<b>ご家族だけ</b>が見られます。暗号化して保存します。
+    </div>
   </div>
 );
 
@@ -416,8 +422,8 @@ export function App() {
   const Bar = ({ title, back }: { title: string; back?: Screen }) => (
     <div className="appbar">
       {back ? (
-        <div className="back" onClick={() => go(back)}>
-          ‹
+        <div className="back" onClick={() => go(back)} role="button" aria-label="戻る">
+          <Icon name="arrowLeft" size={22} />
         </div>
       ) : (
         <div style={{ width: 28 }} />
@@ -660,7 +666,10 @@ export function App() {
                 </>
               )}
               <div className="trustnote" style={{ marginTop: 12 }}>
-                🔒 メール認証で、ご家族の台帳を安全に守ります。
+                <span className="ic">
+                  <Icon name="lock" size={18} />
+                </span>
+                <div>メール認証で、ご家族の台帳を安全に守ります。</div>
               </div>
             </div>
           )}
@@ -670,11 +679,16 @@ export function App() {
       {screen === "home" && home && (
         <>
           <Bar title="noshi" />
-          {nudge && <div className="nudge">🎁 {nudge}</div>}
+          {nudge && (
+            <div className="nudge">
+              <Icon name="gift" size={18} />
+              {nudge}
+            </div>
+          )}
           {home.pending.length === 0 && home.recent.length === 0 ? (
             <div className="onboard">
               <div className="onboard-emoji" aria-hidden="true">
-                🧧
+                <Icon name="gift" size={40} strokeWidth={1.6} />
               </div>
               <div className="h" style={{ textAlign: "center" }}>
                 まず1枚、撮ってみましょう
@@ -704,7 +718,11 @@ export function App() {
                   <span
                     className="duebadge"
                     style={{
-                      color: overdue ? "var(--shu)" : soon ? "var(--kin)" : "var(--ink-soft)",
+                      color: overdue
+                        ? "var(--color-accent)"
+                        : soon
+                          ? "var(--color-warning)"
+                          : "var(--text-sub)",
                       fontWeight: overdue || soon ? 700 : 400,
                     }}
                   >
@@ -733,7 +751,7 @@ export function App() {
             ) : (
               <>
                 <div className="dz-emoji" aria-hidden="true">
-                  📷
+                  <Icon name="camera" size={34} strokeWidth={1.8} />
                 </div>
                 <div className="muted">タップして撮影 / 画像を選ぶ</div>
               </>
@@ -822,7 +840,10 @@ export function App() {
                       {warn ? (
                         <span className="reviewbadge">要確認</span>
                       ) : (
-                        <span className="okbadge">✓ 確定</span>
+                        <span className="okbadge">
+                          <Icon name="check" size={13} strokeWidth={2.6} />
+                          確定
+                        </span>
                       )}
                     </label>
                     <input
@@ -924,7 +945,8 @@ export function App() {
                 );
               }}
             >
-              📋 文面をコピー
+              <Icon name="copy" size={18} />
+              文面をコピー
             </button>
           )}
           <button type="button" className="btn primary" onClick={complete}>
@@ -947,7 +969,9 @@ export function App() {
               )}
               {!editDraft ? (
                 <div className="card">
-                  <b style={{ fontFamily: "var(--serif)", fontSize: 17 }}>{event.party_name} 様</b>
+                  <b style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>
+                    {event.party_name} 様
+                  </b>
                   <div className="muted">
                     {event.purpose} ・ {yen(event.amount)} ・{" "}
                     {event.direction === "received" ? "受領" : "贈与"}
@@ -955,10 +979,11 @@ export function App() {
                   <button
                     type="button"
                     className="btn ghost"
-                    style={{ height: 38, marginTop: 8 }}
+                    style={{ minHeight: 38, marginTop: 8 }}
                     onClick={startEdit}
                   >
-                    ✎ 内容を修正
+                    <Icon name="edit" size={16} />
+                    内容を修正
                   </button>
                 </div>
               ) : (
@@ -1075,7 +1100,7 @@ export function App() {
                                   aria-label={`${label} を外す`}
                                   onClick={() => doRemoveMember(m.user_id, label)}
                                 >
-                                  ✕
+                                  <Icon name="close" size={12} strokeWidth={2.4} />
                                 </button>
                               )}
                             </span>
@@ -1125,7 +1150,12 @@ export function App() {
                   </button>
                 </div>
                 <div className="trustnote" style={{ marginTop: 10 }}>
-                  🔒 台帳は<b>このご家族だけ</b>が見られます。
+                  <span className="ic">
+                    <Icon name="lock" size={18} />
+                  </span>
+                  <div>
+                    台帳は<b>このご家族だけ</b>が見られます。
+                  </div>
                 </div>
                 {household.members.length > 1 && (
                   <button
@@ -1185,7 +1215,7 @@ export function App() {
               </div>
               <div style={{ marginTop: 8 }}>
                 {giftTax.over ? (
-                  <span style={{ color: "var(--shu)", fontWeight: 700 }}>
+                  <span style={{ color: "var(--color-accent)", fontWeight: 700 }}>
                     110万円の枠を超えています。確認しましょう。
                   </span>
                 ) : (
@@ -1262,7 +1292,7 @@ export function App() {
                   もらった {yen(r.received)} ／ あげた {yen(r.given)} ・ 最終 {r.last_at || "—"}
                 </div>
                 {r.attention && (
-                  <div className="muted" style={{ marginTop: 4, color: "var(--kin)" }}>
+                  <div className="muted" style={{ marginTop: 4, color: "var(--color-warning)" }}>
                     しばらくお贈りしていません。折を見て一言いかがでしょう。
                   </div>
                 )}
@@ -1305,7 +1335,7 @@ export function App() {
           {authEnabled() ? (
             <div className="card">
               <div className="muted">ログイン中</div>
-              <div style={{ fontFamily: "var(--serif)", margin: "2px 0 10px" }}>
+              <div style={{ fontFamily: "var(--font-display)", margin: "2px 0 10px" }}>
                 {currentEmail() || "—"}
               </div>
               <button type="button" className="btn ghost danger" onClick={doSignOut}>
@@ -1314,7 +1344,7 @@ export function App() {
             </div>
           ) : (
             <div className="card" style={{ borderStyle: "dashed" }}>
-              <div className="muted">🛠 開発用: ログイン中のユーザー（本番は Cognito ログイン）</div>
+              <div className="muted">開発用: ログイン中のユーザー（本番は Cognito ログイン）</div>
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <input
                   className="input"
@@ -1351,6 +1381,7 @@ export function App() {
             aria-label="ホーム"
             onClick={() => go("home")}
           >
+            <Icon name="home" size={23} strokeWidth={screen === "home" ? 2.4 : 2} />
             ホーム
           </button>
           <button
@@ -1359,6 +1390,7 @@ export function App() {
             aria-label="台帳"
             onClick={() => go("ledger")}
           >
+            <Icon name="ledger" size={23} strokeWidth={screen === "ledger" ? 2.4 : 2} />
             台帳
           </button>
           <button
@@ -1367,7 +1399,7 @@ export function App() {
             aria-label="贈答を撮影して記録"
             onClick={startCapture}
           >
-            ＋
+            <Icon name="plus" size={26} strokeWidth={2.4} color="#fff" />
           </button>
           <button
             type="button"
@@ -1375,6 +1407,7 @@ export function App() {
             aria-label="マイページ"
             onClick={() => go("mypage")}
           >
+            <Icon name="user" size={23} strokeWidth={screen === "mypage" ? 2.4 : 2} />
             マイページ
           </button>
           <button type="button" className="spacer" aria-hidden="true" tabIndex={-1}></button>

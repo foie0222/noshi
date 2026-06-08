@@ -40,7 +40,7 @@ Python(FastAPI) + React(TS) + DynamoDB + SQS + S3 / デプロイ AWS（CDK）・
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/python -m pytest                 # 92 tests
+.venv/bin/python -m pytest                 # 98 tests
 .venv/bin/python -m uvicorn app.main:app --reload   # http://localhost:8000
 .venv/bin/python seed_demo.py              # （任意）デモ用に7件投入（要: backend 起動中）
 ```
@@ -84,7 +84,7 @@ npx cdk synth       # CloudFormation を生成（AWS 認証不要・未デプロ
 ```
 
 ## テスト方針（TDD）
-backend=**pytest**（92）/ frontend=**vitest**（30）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
+backend=**pytest**（98）/ frontend=**vitest**（30）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。
 半返し・期限・贈与税・おつきあい・お年玉・本人スコープ（OWASP A01）・入力検証（A03）・監査（A09）をテストで担保。
 
 ## セキュリティ（OWASP）

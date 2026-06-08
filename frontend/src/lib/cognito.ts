@@ -33,6 +33,7 @@ export function cognitoErrorMessage(type: string, fallback = "エラーが発生
   if (t.includes("CodeMismatchException")) return "確認コードが違います。";
   if (t.includes("ExpiredCodeException")) return "確認コードの有効期限が切れました。再送してください。";
   if (t.includes("InvalidPasswordException")) return "パスワードは8文字以上で、英小文字と数字を含めてください。";
+  if (t.includes("LimitExceededException")) return "試行回数が上限に達しました。しばらく待ってからお試しください。";
   if (t.includes("NotAuthorizedException") || t.includes("UserNotFoundException"))
     return "メールアドレスかパスワードが違います。";
   return fallback;
@@ -61,6 +62,17 @@ export async function signUp(email: string, password: string): Promise<void> {
 export async function confirmSignUp(email: string, code: string): Promise<void> {
   await call("ConfirmSignUp", { ClientId: CLIENT_ID, Username: email, ConfirmationCode: code });
 }
+/** パスワード再設定: 確認コードを登録メールへ送る。 */
+export async function forgotPassword(email: string): Promise<void> {
+  await call("ForgotPassword", { ClientId: CLIENT_ID, Username: email });
+}
+/** パスワード再設定: 確認コードと新パスワードで確定する。 */
+export async function confirmForgotPassword(email: string, code: string, newPassword: string): Promise<void> {
+  await call("ConfirmForgotPassword", {
+    ClientId: CLIENT_ID, Username: email, ConfirmationCode: code, Password: newPassword,
+  });
+}
+
 export async function signIn(email: string, password: string): Promise<void> {
   const data = await call("InitiateAuth", {
     AuthFlow: "USER_PASSWORD_AUTH", ClientId: CLIENT_ID,

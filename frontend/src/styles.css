@@ -62,6 +62,8 @@ body {
 .memberx { margin-left: 6px; border: none; background: rgba(255,255,255,.3); color: #fff; border-radius: 999px; width: 18px; height: 18px; line-height: 1; font-size: 11px; cursor: pointer; padding: 0; }
 .memberx:hover { background: rgba(255,255,255,.55); }
 .btn.danger { color: var(--shu); border-color: var(--shu); }
+.linklike { display: block; width: 100%; margin-top: 12px; background: none; border: none; color: var(--ai); font-size: 13px; text-decoration: underline; cursor: pointer; text-align: center; }
+.linklike:disabled { opacity: .5; cursor: default; }
 .reviewbadge { font-size: 10px; color: var(--kin); border: 1px solid var(--kin); border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
 .okbadge { font-size: 10px; color: var(--moss); margin-left: 6px; }
 .trustnote { background: #eef2f4; border: 1px solid #cdd8dd; border-radius: 12px; padding: 10px 12px; margin-top: 12px; font-size: 12px; color: #3a4a52; line-height: 1.6; }

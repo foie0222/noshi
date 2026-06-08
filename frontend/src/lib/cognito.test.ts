@@ -11,6 +11,9 @@ describe("Cognito エラーの日本語化", () => {
   it("確認コード不一致は専用の文言になることを検証する", () => {
     expect(cognitoErrorMessage("CodeMismatchException")).toContain("確認コード");
   });
+  it("試行上限超過は待機を促す文言になることを検証する", () => {
+    expect(cognitoErrorMessage("LimitExceededException")).toContain("しばらく");
+  });
   it("未知のエラーはフォールバック文言を返すことを検証する", () => {
     expect(cognitoErrorMessage("SomethingElse", "既定文言")).toBe("既定文言");
   });

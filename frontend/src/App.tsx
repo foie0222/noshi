@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, RecordInput, currentUserId, setCurrentUserId, UnauthorizedError } from "./api";
-import { authEnabled, isLoggedIn, currentEmail, signIn, signUp, confirmSignUp, signOut } from "./lib/cognito";
+import { authEnabled, isLoggedIn, currentEmail, signIn, signUp, confirmSignUp, signOut, forgotPassword, confirmForgotPassword } from "./lib/cognito";
 import { yen, statusLabel, daysLeftLabel } from "./lib/format";
 import { toneOf } from "./lib/tone";
 import { seasonOf, seasonNudge } from "./lib/season";
@@ -28,7 +28,7 @@ export function App() {
   const [joinCode, setJoinCode] = useState<string>("");
   const devUserRef = useRef<string>(currentUserId());
   // ログイン（Cognito）
-  const [authMode, setAuthMode] = useState<"signin" | "signup" | "confirm">("signin");
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | "confirm" | "forgot" | "reset">("signin");
   const [authEmail, setAuthEmail] = useState<string>("");
   const [authPassword, setAuthPassword] = useState<string>("");
   const [authCode, setAuthCode] = useState<string>("");
@@ -83,6 +83,20 @@ export function App() {
     } catch (e: any) { notify(e.message); } finally { setAuthBusy(false); }
   }
   function doSignOut() { signOut(); go("login"); notify("ログアウトしました"); }
+  async function doForgot() {
+    if (!authEmail.trim()) { notify("メールアドレスを入力してください。"); return; }
+    setAuthBusy(true);
+    try { await forgotPassword(authEmail.trim()); setAuthPassword(""); setAuthCode(""); setAuthMode("reset"); notify("確認コードをメールに送りました"); }
+    catch (e: any) { notify(e.message); } finally { setAuthBusy(false); }
+  }
+  async function doReset() {
+    setAuthBusy(true);
+    try {
+      await confirmForgotPassword(authEmail.trim(), authCode.trim(), authPassword);
+      await signIn(authEmail.trim(), authPassword);  // 再設定後そのままログイン
+      setAuthPassword(""); setAuthCode(""); go("home"); notify("パスワードを再設定しました");
+    } catch (e: any) { notify(e.message); } finally { setAuthBusy(false); }
+  }
   const nudge = seasonNudge(seasonOf(new Date().getMonth() + 1));
 
   function toggleFont() {
@@ -258,20 +272,22 @@ export function App() {
             <button className="btn primary" aria-label="noshi をはじめる" onClick={() => go("home")}>noshi をはじめる</button>
           ) : (
             <div className="card" style={{ marginTop: 16 }}>
-              {authMode !== "confirm" && (
-                <>
-                  <div className="field" style={{ marginTop: 0 }}>
-                    <label htmlFor="auth-email">メールアドレス</label>
-                    <input id="auth-email" className="input" type="email" autoComplete="email"
-                      value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="auth-pw">パスワード</label>
-                    <input id="auth-pw" className="input" type="password"
-                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                      value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="8文字以上・英小文字と数字" />
-                  </div>
-                </>
+              {/* メール: signin/signup/forgot で表示 */}
+              {(authMode === "signin" || authMode === "signup" || authMode === "forgot") && (
+                <div className="field" style={{ marginTop: 0 }}>
+                  <label htmlFor="auth-email">メールアドレス</label>
+                  <input id="auth-email" className="input" type="email" autoComplete="email"
+                    value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" />
+                </div>
+              )}
+              {/* パスワード: signin/signup で表示（reset は下で新パスワードを表示） */}
+              {(authMode === "signin" || authMode === "signup") && (
+                <div className="field">
+                  <label htmlFor="auth-pw">パスワード</label>
+                  <input id="auth-pw" className="input" type="password"
+                    autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                    value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="8文字以上・英小文字と数字" />
+                </div>
               )}
 
               {authMode === "signin" && (
@@ -281,6 +297,40 @@ export function App() {
                   </button>
                   <button className="btn ghost" style={{ marginTop: 8 }} disabled={authBusy}
                     onClick={() => setAuthMode("signup")}>アカウントを作成</button>
+                  <button className="linklike" disabled={authBusy}
+                    onClick={() => setAuthMode("forgot")}>パスワードをお忘れの方</button>
+                </>
+              )}
+
+              {authMode === "forgot" && (
+                <>
+                  <p className="muted">登録メールに確認コードを送ります。</p>
+                  <button className="btn primary" disabled={authBusy} onClick={doForgot}>
+                    {authBusy ? "送信中…" : "確認コードを送る"}
+                  </button>
+                  <button className="btn ghost" style={{ marginTop: 8 }} disabled={authBusy}
+                    onClick={() => setAuthMode("signin")}>ログインに戻る</button>
+                </>
+              )}
+
+              {authMode === "reset" && (
+                <>
+                  <p className="muted">{authEmail} に届いた確認コードと、新しいパスワードを入力してください。</p>
+                  <div className="field" style={{ marginTop: 0 }}>
+                    <label htmlFor="reset-code">確認コード</label>
+                    <input id="reset-code" className="input" inputMode="numeric"
+                      value={authCode} onChange={(e) => setAuthCode(e.target.value)} placeholder="メールの6桁コード" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="reset-pw">新しいパスワード</label>
+                    <input id="reset-pw" className="input" type="password" autoComplete="new-password"
+                      value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="8文字以上・英小文字と数字" />
+                  </div>
+                  <button className="btn primary" disabled={authBusy} onClick={doReset}>
+                    {authBusy ? "再設定中…" : "パスワードを再設定"}
+                  </button>
+                  <button className="btn ghost" style={{ marginTop: 8 }} disabled={authBusy}
+                    onClick={() => setAuthMode("signin")}>ログインに戻る</button>
                 </>
               )}
 

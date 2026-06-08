@@ -1,0 +1,64 @@
+name: "🛠 タスク・技術改善"
+description: 開発タスク、リファクタリング、技術的負債、運用作業など
+title: "[Task] "
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        実装・運用上のタスク向けテンプレートです（ユーザー価値より内部品質や運用が主目的のもの）。
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: やることを一文で
+      placeholder: 例）抽出を SQS ワーカーで非同期化し、大きな画像でもタイムアウトしないようにする
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 背景・目的
+      description: なぜ必要か（現状の課題、リスク、狙い）
+    validations:
+      required: false
+
+  - type: textarea
+    id: todo
+    attributes:
+      label: やること
+      placeholder: |
+        - [ ] worker.py を実装
+        - [ ] capture を非同期フローに変更
+        - [ ] 失敗時の DLQ ハンドリング
+    validations:
+      required: false
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: 完了条件（Done の定義）
+      placeholder: |
+        - [ ] テストが緑（pytest / vitest）
+        - [ ] 本番で動作確認
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 領域
+      options:
+        - バックエンド（FastAPI / ドメイン）
+        - フロントエンド（React / Vite）
+        - インフラ・デプロイ（CDK / AWS）
+        - 認証・セキュリティ（Cognito / OWASP）
+        - データ（DynamoDB）
+        - AI（Bedrock / OCR / 礼状）
+        - テスト・CI
+        - ドキュメント
+        - その他
+    validations:
+      required: true

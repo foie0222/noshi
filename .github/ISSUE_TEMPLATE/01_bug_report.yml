@@ -1,0 +1,97 @@
+name: "🐛 バグ報告"
+description: 期待どおりに動かない不具合を報告します
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        不具合の報告ありがとうございます。再現できると修正が早くなります。
+        まず[既存の Issue](https://github.com/foie0222/noshi/issues?q=is%3Aissue)を検索してから起票してください。
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: どんな不具合かを一文で
+      placeholder: 例）撮影後の確認画面で、全項目が「要確認」になりメッセージが矛盾する
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 該当する機能
+      options:
+        - 撮影・AI抽出（OCR / Bedrock）
+        - 半返し・お返し提案
+        - 礼状（文面生成・コピー）
+        - 期限・ホームのダッシュボード
+        - 台帳・記録（作成 / 修正 / 削除）
+        - 家族共有・世帯（招待 / 参加 / 脱退）
+        - ログイン・認証（Cognito）
+        - 贈与税・お年玉・おつきあい
+        - マイページ・設定
+        - インフラ・デプロイ（CDK / AWS）
+        - UI / UX・文言
+        - その他・不明
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: 環境
+      options:
+        - 本番（CloudFront: https://d1u0sgslky88ja.cloudfront.net）
+        - ローカル開発（localhost）
+        - 不明
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 上から順に実行すると再現する手順
+      placeholder: |
+        1. ログインする
+        2. ＋ボタンから撮影する
+        3. 読み取り後の確認画面を見る
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する挙動
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の挙動
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: スクリーンショット / ログ
+      description: あれば貼り付けてください（コンソール / CloudWatch など）
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 深刻度
+      options:
+        - 致命的（使えない・データ破損）
+        - 高（主要機能が動かない）
+        - 中（回避策あり）
+        - 低（軽微・見た目）
+    validations:
+      required: true

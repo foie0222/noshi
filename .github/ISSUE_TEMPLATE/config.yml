@@ -1,0 +1,6 @@
+# Issue チューザーの設定。テンプレートなしの白紙 Issue は無効化し、起票を構造化する。
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 README / 設計ドキュメント
+    url: https://github.com/foie0222/noshi/blob/main/README.md
+    about: 仕様・構成・AI-DLC の設計記録はこちら（org-ai-kb/ 配下）

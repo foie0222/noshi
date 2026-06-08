@@ -1,0 +1,75 @@
+name: "✨ 機能要望・改善提案"
+description: 新しい機能や、既存機能の改善を提案します
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提案ありがとうございます。「何を作るか」より先に「なぜ必要か（どんな困りごとを解決するか）」が分かると判断しやすくなります。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 解決したい課題・背景
+      description: 誰が、どんな場面で、何に困っているか
+      placeholder: 例）香典返しの礼状は弔事の文面が必要だが、相手や宗派で言い回しを変えたい
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 提案する機能・改善
+      description: どう解決するかのアイデア
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 該当する機能
+      options:
+        - 撮影・AI抽出（OCR / Bedrock）
+        - 半返し・お返し提案
+        - 礼状（文面生成・コピー）
+        - 期限・ホームのダッシュボード
+        - 台帳・記録（作成 / 修正 / 削除）
+        - 家族共有・世帯（招待 / 参加 / 脱退）
+        - ログイン・認証（Cognito）
+        - 贈与税・お年玉・おつきあい
+        - マイページ・設定
+        - インフラ・デプロイ（CDK / AWS）
+        - UI / UX・文言
+        - 新領域・その他
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受け入れ基準（できたと言える条件）
+      description: 箇条書きで。テスト可能だとなお良い
+      placeholder: |
+        - [ ] 礼状生成時に宗派を選べる
+        - [ ] 弔事では慶事の言い回しが出ない
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 代替案・検討した他の方法
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度（提案者の体感）
+      options:
+        - 高（無いと困る）
+        - 中（あると嬉しい）
+        - 低（いつか）
+    validations:
+      required: false

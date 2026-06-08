@@ -1,5 +1,7 @@
 # noshi 🧧
 
+[![CI](https://github.com/foie0222/noshi/actions/workflows/ci.yml/badge.svg)](https://github.com/foie0222/noshi/actions/workflows/ci.yml)
+
 家族・親族・友人との贈答（もらった／あげた）を AI が一元管理する生成 AI Web プロダクト。
 ご祝儀袋を撮影 → 半返し計算 → お返し提案 → 礼状生成 → 期限管理 までを支援します。
 「贈答を、損得ではなく **関係のメンテナンス** として、ちゃんと続けられる」。
@@ -103,6 +105,12 @@ npx cdk deploy NoshiFrontendStack --require-approval never --outputs-file ./cdk-
 - 認証: `--context enforceAuth=true` で Cognito JWT を強制（X-User-Id スタブを無効化）。フロントは
   Cognito ログイン（サインアップ→メール確認コード→ログイン、`VITE_COGNITO_CLIENT_ID` を注入）。
   ローカル（env 未設定）はスタブ認証＋開発用ユーザー切替のまま。
+
+### CI / CD（GitHub Actions）
+- **CI**: PR/Push で backend(ruff/mypy strict/pytest) / frontend(biome/tsc/vitest/build) / infra(cdk synth) を自動検証（`.github/workflows/ci.yml`）。
+- **CD（自動デプロイ）**: `main` への push で、**CI 全通過後に AWS へ自動デプロイ**（backend 5 スタック → フロントを本番APIにビルド → FrontendStack）。
+  - 認証は **GitHub OIDC**（長期キー不使用）。ロール `noshi-github-deploy` を `lib/github-oidc-stack.ts` で作成し、ARN を GitHub Secret `AWS_DEPLOY_ROLE_ARN` に登録。
+  - OIDC スタックは自己参照のため自動デプロイ対象外。初回のみ手動: `npx cdk deploy NoshiGithubOidcStack`。
 
 ## テスト方針（TDD）
 backend=**pytest**（98）/ frontend=**vitest**（43）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。

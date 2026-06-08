@@ -6,10 +6,14 @@ import { AuthStack } from "../lib/auth-stack";
 import { ApiStack } from "../lib/api-stack";
 import { WorkerStack } from "../lib/worker-stack";
 import { FrontendStack } from "../lib/frontend-stack";
+import { GithubOidcStack } from "../lib/github-oidc-stack";
 
 // noshi インフラ（infrastructure-design.md / deployment-architecture.md）。リージョン ap-northeast-1。
 const app = new App();
 const env = { region: "ap-northeast-1" };
+
+// CI/CD: GitHub Actions(OIDC) 用のデプロイロール。初回のみ手動 deploy（自動デプロイ対象外）。
+new GithubOidcStack(app, "NoshiGithubOidcStack", { env, githubRepo: "foie0222/noshi" });
 
 const data = new DataStack(app, "NoshiDataStack", { env });
 const messaging = new MessagingStack(app, "NoshiMessagingStack", { env });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, currentUserId, type RecordInput, setCurrentUserId, UnauthorizedError } from "./api";
 import { Icon } from "./components/Icon";
+import { Logo } from "./components/Logo";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -419,7 +420,7 @@ export function App() {
     }, 1600);
   }
 
-  const Bar = ({ title, back }: { title: string; back?: Screen }) => (
+  const Bar = ({ title, back, logo }: { title: string; back?: Screen; logo?: boolean }) => (
     <div className="appbar">
       {back ? (
         <div className="back" onClick={() => go(back)} role="button" aria-label="戻る">
@@ -428,7 +429,9 @@ export function App() {
       ) : (
         <div style={{ width: 28 }} />
       )}
-      <div className="title">{title}</div>
+      <div className="title">
+        {logo ? <Logo variant="full" size={20} style={{ verticalAlign: "middle" }} /> : title}
+      </div>
       <div style={{ width: 28 }} />
     </div>
   );
@@ -461,7 +464,9 @@ export function App() {
       )}
       {screen === "login" && (
         <>
-          <div className="brand">のし</div>
+          <div className="brand">
+            <Logo variant="full" size={40} />
+          </div>
           <div className="brand-en">N O S H I</div>
           <p className="muted" style={{ textAlign: "center" }}>
             贈答を、ちゃんと続けられる。
@@ -678,7 +683,7 @@ export function App() {
 
       {screen === "home" && home && (
         <>
-          <Bar title="noshi" />
+          <Bar title="noshi" logo />
           {nudge && (
             <div className="nudge">
               <Icon name="gift" size={18} />

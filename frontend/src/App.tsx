@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, currentUserId, type RecordInput, setCurrentUserId, UnauthorizedError } from "./api";
 import { Icon } from "./components/Icon";
 import { Logo } from "./components/Logo";
+import { RelationshipField } from "./components/RelationshipField";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -92,6 +93,7 @@ export function App() {
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null); // 記録の修正中(AI抽出の訂正)
   const [dueEditing, setDueEditing] = useState<boolean>(false); // お返し期限の編集中
   const [dueInput, setDueInput] = useState<string>(""); // 期限編集の入力値(YYYY-MM-DD)
+  const [relOptions, setRelOptions] = useState<string[]>([]); // 続柄マスタの選択肢(#1)
 
   async function onPickImage(file: File | null) {
     const err = validateImageFile(file);
@@ -235,7 +237,25 @@ export function App() {
         .then((r) => setHousehold(r.household))
         .catch(handleErr);
     }
+    // 続柄マスタは記録の確認/詳細で使う。未取得なら一度だけ読み込む（#1）。
+    if ((screen === "review" || screen === "event") && relOptions.length === 0) {
+      api
+        .relationshipMaster()
+        .then((m) => setRelOptions(m.options))
+        .catch(handleErr);
+    }
   }, [screen]);
+
+  // 続柄を世帯マスタへ追加し、選択肢を更新したうえでその値を選ぶ（#1）。
+  async function addRelationship(name: string, select: (v: string) => void) {
+    try {
+      const m = await api.addRelationship(name);
+      setRelOptions(m.options);
+      select(name);
+    } catch (e) {
+      notify(errMsg(e));
+    }
+  }
 
   // ---- 撮影 → 抽出 ----
   async function doCapture() {
@@ -361,6 +381,7 @@ export function App() {
       purpose: event.purpose,
       party_name: event.party_name,
       occurred_at: event.occurred_at || "",
+      relationship: event.relationship || "",
     });
   }
   async function saveEdit() {
@@ -380,6 +401,7 @@ export function App() {
         purpose: editDraft.purpose.trim(),
         party_name: editDraft.party_name.trim(),
         occurred_at: editDraft.occurred_at.trim(), // もらった日。期限の自動計算に反映される
+        relationship: editDraft.relationship.trim(), // 続柄（#1）
       });
       const r = await api.getEvent(event.id); // 修正後の表示を取り直す（期限も再計算）
       setEvent(r.event);
@@ -858,7 +880,7 @@ export function App() {
                 const warn = !!fr[k];
                 return (
                   <div className="field" key={k}>
-                    <label>
+                    <label htmlFor={`rev-${k}`}>
                       {labels[k]}
                       {warn ? (
                         <span className="reviewbadge">要確認</span>
@@ -869,11 +891,24 @@ export function App() {
                         </span>
                       )}
                     </label>
-                    <input
-                      className={`input${warn ? " warn" : ""}`}
-                      value={draft[k] ?? ""}
-                      onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
-                    />
+                    {k === "relationship" ? (
+                      <RelationshipField
+                        id={`rev-${k}`}
+                        value={draft.relationship ?? ""}
+                        options={relOptions}
+                        onChange={(v) => setDraft({ ...draft, relationship: v })}
+                        onAdd={(name) =>
+                          addRelationship(name, (v) => setDraft({ ...draft, relationship: v }))
+                        }
+                      />
+                    ) : (
+                      <input
+                        id={`rev-${k}`}
+                        className={`input${warn ? " warn" : ""}`}
+                        value={draft[k] ?? ""}
+                        onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -1059,6 +1094,20 @@ export function App() {
                       onChange={(e) => setEditDraft({ ...editDraft, occurred_at: e.target.value })}
                     />
                     <span className="muted">変更すると、お返し期限が自動で計算し直されます。</span>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-relationship">続柄</label>
+                    <RelationshipField
+                      id="edit-relationship"
+                      value={editDraft.relationship}
+                      options={relOptions}
+                      onChange={(v) => setEditDraft({ ...editDraft, relationship: v })}
+                      onAdd={(name) =>
+                        addRelationship(name, (v) =>
+                          setEditDraft((d) => (d ? { ...d, relationship: v } : d)),
+                        )
+                      }
+                    />
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button

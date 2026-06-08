@@ -294,3 +294,45 @@ def test_他人のイベントの期限は上書きできない():
     )
     with pytest.raises(ForbiddenError):
         svc.set_event_due("attacker", ev.id, "2026-06-15")
+
+
+def test_続柄マスタは既定リストを返す():
+    """続柄マスタが既定の続柄（親・友人 等）を含むことを検証する（#1）。"""
+    svc = make_service()
+    m = svc.relationship_master("u1")
+    assert "親" in m["options"] and "友人" in m["options"]
+    assert m["defaults"] == list(m["options"])  # 追加前は既定のみ
+
+
+def test_世帯独自の続柄を追加して選択肢に出る():
+    """世帯独自の続柄を追加でき、マスタの options 末尾に現れることを検証する（#1）。"""
+    svc = make_service()
+    m = svc.add_relationship("u1", "ママ友")
+    assert "ママ友" in m["options"]
+    assert "ママ友" not in m["defaults"]  # 既定ではなく世帯独自
+
+
+def test_追加した続柄は同じ世帯の家族に共有される():
+    """ある世帯メンバーが追加した続柄が、同じ世帯の別メンバーにも見えることを検証する（#1, 世帯スコープ）。"""
+    svc = make_service()
+    code = svc.household_invite_code("owner")
+    svc.join_household("family", code)
+    svc.add_relationship("owner", "茶道仲間")
+    assert "茶道仲間" in svc.relationship_master("family")["options"]
+
+
+def test_既定と重複する続柄や空文字は追加されない():
+    """既定に既にある続柄・空文字の追加が無視（重複排除）されることを検証する（#1）。"""
+    svc = make_service()
+    svc.add_relationship("u1", "友人")  # 既定と重複
+    svc.add_relationship("u1", "  ")  # 空白のみ
+    m = svc.relationship_master("u1")
+    assert m["options"].count("友人") == 1
+    assert "" not in m["options"] and "  " not in m["options"]
+
+
+def test_別世帯の続柄は見えない():
+    """別世帯で追加した続柄が他世帯のマスタに現れないことを検証する（A01, 世帯分離）。"""
+    svc = make_service()
+    svc.add_relationship("u1", "山岳会")
+    assert "山岳会" not in svc.relationship_master("u2")["options"]

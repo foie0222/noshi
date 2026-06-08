@@ -14,6 +14,7 @@ import type {
   LedgerResponse,
   Letter,
   Relationship,
+  RelationshipMaster,
   Suggestion,
 } from "./types";
 
@@ -78,7 +79,13 @@ export const api = {
     }),
   updateRecord: (
     recordId: string,
-    r: { amount: number; purpose: string; party_name: string; occurred_at?: string },
+    r: {
+      amount: number;
+      purpose: string;
+      party_name: string;
+      occurred_at?: string;
+      relationship?: string;
+    },
   ) =>
     req<{ record: GiftRecord }>(`/records/${recordId}`, {
       method: "PATCH",
@@ -126,4 +133,10 @@ export const api = {
       method: "DELETE",
     }),
   relationships: () => req<{ relationships: Relationship[] }>("/relationships"),
+  relationshipMaster: () => req<RelationshipMaster>("/relationship-master"),
+  addRelationship: (name: string) =>
+    req<RelationshipMaster>("/relationship-master", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
 };

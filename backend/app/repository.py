@@ -41,6 +41,9 @@ class Repository(Protocol):
     def get_membership(self, user_id: str) -> Membership | None: ...
     def list_members(self, household_id: str) -> list[Membership]: ...
     def delete_membership(self, user_id: str) -> bool: ...
+    # --- 世帯独自の続柄マスタ（#1）---
+    def add_household_relationship(self, household_id: str, name: str) -> None: ...
+    def list_household_relationships(self, household_id: str) -> list[str]: ...
 
 
 class InMemoryRepository:
@@ -53,6 +56,7 @@ class InMemoryRepository:
         self._audit: list[AuditEntry] = []
         self._households: dict[str, Household] = {}
         self._memberships: dict[str, Membership] = {}  # user_id -> Membership
+        self._relationships: dict[str, list[str]] = {}  # household_id -> 続柄（追加順）
 
     # --- records ---
     def put_record(self, rec: GiftRecord) -> GiftRecord:
@@ -127,6 +131,15 @@ class InMemoryRepository:
 
     def delete_membership(self, user_id: str) -> bool:
         return self._memberships.pop(user_id, None) is not None
+
+    # --- 世帯独自の続柄マスタ ---
+    def add_household_relationship(self, household_id: str, name: str) -> None:
+        names = self._relationships.setdefault(household_id, [])
+        if name not in names:
+            names.append(name)
+
+    def list_household_relationships(self, household_id: str) -> list[str]:
+        return list(self._relationships.get(household_id, []))
 
 
 class DynamoRepository:
@@ -279,6 +292,29 @@ class DynamoRepository:
         self.table.delete_item(Key={"PK": f"USER#{user_id}", "SK": "MEMBERSHIP"})
         self.table.delete_item(Key={"PK": f"HOUSEHOLD#{m.household_id}", "SK": f"MEMBER#{user_id}"})
         return True
+
+    # --- 世帯独自の続柄マスタ ---
+    def add_household_relationship(self, household_id: str, name: str) -> None:
+        import time
+
+        key = {"PK": f"HOUSEHOLD#{household_id}", "SK": f"REL#{name}"}
+        # 既存はそのまま（重複追加で added_at を上書きして順序が崩れるのを防ぐ）。
+        if self.table.get_item(Key=key).get("Item"):
+            return
+        self.table.put_item(
+            Item={**key, "type": "relationship", "name": name, "added_at": _to_dynamo(time.time())}
+        )
+
+    def list_household_relationships(self, household_id: str) -> list[str]:
+        from boto3.dynamodb.conditions import Key
+
+        items = self.table.query(
+            KeyConditionExpression=Key("PK").eq(f"HOUSEHOLD#{household_id}")
+            & Key("SK").begins_with("REL#")
+        ).get("Items", [])
+        # 追加順（added_at 昇順）で返す。古いデータに added_at が無い場合は末尾。
+        items.sort(key=lambda it: float(it.get("added_at", 0)))
+        return [str(it["name"]) for it in items]
 
 
 def _to_dynamo(value: Any) -> Any:

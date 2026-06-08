@@ -6,6 +6,7 @@ import { seasonOf, seasonNudge } from "./lib/season";
 import { otoshidamaRange } from "./lib/otoshidama";
 import { validateImageFile, fileToDataUrl } from "./lib/image";
 import { copyText } from "./lib/clipboard";
+import { reviewMessage } from "./lib/review";
 
 type Screen =
   | "login" | "home" | "capture" | "review" | "ledger"
@@ -289,9 +290,7 @@ export function App() {
             <Bar title="内容を確認" back="capture" />
             {draft.image && <img className="review-image" src={draft.image} alt="撮影した画像" />}
             <p className="muted" style={{ marginTop: 6 }}>
-              {reviewCount > 0
-                ? `ほぼ読み取れました。${reviewCount}か所だけ確認してください。`
-                : "読み取れました。問題なければ保存できます。"}
+              {reviewMessage(reviewCount, fields.length)}
             </p>
             <div className="field">
               <label>種類</label>

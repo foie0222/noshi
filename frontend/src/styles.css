@@ -216,6 +216,40 @@ body {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-tint);
 }
+
+/* セレクト（デザインシステムの Select に準拠: 既定の矢印を消しラインの chevron を重ねる） */
+.select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-height: var(--hit-min);
+  border: var(--bw-thick) solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 13px 44px 13px 16px;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--text-body);
+  background: var(--surface-input);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-tint);
+}
+.select-chevron {
+  position: absolute;
+  right: 14px;
+  pointer-events: none;
+  color: var(--text-sub);
+  display: inline-flex;
+}
 .input.warn {
   border-color: var(--color-warning);
   box-shadow: 0 0 0 3px var(--color-warning-tint);

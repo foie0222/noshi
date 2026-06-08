@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "./Icon";
 
 /**
  * RelationshipField — 続柄の選択フィールド（#1）。
@@ -67,22 +68,27 @@ export function RelationshipField({
   }
 
   return (
-    <select
-      id={id}
-      className="input"
-      value={value}
-      onChange={(e) => {
-        if (e.target.value === "__add__") setAdding(true);
-        else onChange(e.target.value);
-      }}
-    >
-      <option value="">未選択</option>
-      {opts.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-      <option value="__add__">＋ 新しい続柄を追加</option>
-    </select>
+    <div className="select-wrap">
+      <select
+        id={id}
+        className="select"
+        value={value}
+        onChange={(e) => {
+          if (e.target.value === "__add__") setAdding(true);
+          else onChange(e.target.value);
+        }}
+      >
+        <option value="">未選択</option>
+        {opts.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+        <option value="__add__">＋ 新しい続柄を追加</option>
+      </select>
+      <span className="select-chevron">
+        <Icon name="chevronDown" size={20} />
+      </span>
+    </div>
   );
 }

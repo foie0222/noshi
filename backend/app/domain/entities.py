@@ -83,6 +83,7 @@ class GiftEvent:
     record_id: str
     status: str = "received"  # received / considering / done（自由遷移）
     override_return_amount: int | None = None
+    override_due: str | None = None  # 手動上書きのお返し期限(YYYY-MM-DD)。None なら自動計算
     suggestion_id: str | None = None
     letter_id: str | None = None
     id: str = field(default_factory=_id)

@@ -7,6 +7,7 @@ PrivacyService / AccessControlService）を単一の NoshiService に集約（MV
 
 from __future__ import annotations
 
+import datetime
 from typing import Any
 
 from app.domain import rules
@@ -22,6 +23,14 @@ from app.domain.entities import (
 )
 from app.ports import GiftCatalogPort, OcrLlmPort
 from app.repository import Repository
+
+
+def _parse_date(value: str | None) -> datetime.date | None:
+    """YYYY-MM-DD を date に変換する。空/不正は None（呼び出し側で既定へフォールバック）。"""
+    try:
+        return datetime.date.fromisoformat((value or "")[:10])
+    except ValueError:
+        return None
 
 
 class ValidationError(Exception):
@@ -307,7 +316,9 @@ class NoshiService:
         rec = self.repo.get_record(scope, ev.record_id)
         purpose = rec.purpose if rec else ""
         occurred_at = rec.occurred_at if rec else ""
-        due = rules.due_date(occurred_at, purpose)  # BR-3-DUE
+        default_due = rules.due_date(occurred_at, purpose)  # BR-3-DUE（用途・受領日からの既定）
+        override = _parse_date(ev.override_due)  # 手動上書きがあれば優先
+        due = override or default_due
         return {
             "id": ev.id,
             "status": ev.status,
@@ -318,10 +329,27 @@ class NoshiService:
             "direction": rec.direction if rec else "received",
             "occurred_at": occurred_at,
             "due_at": due.isoformat() if due else None,
+            "due_default": default_due.isoformat() if default_due else None,
+            "due_overridden": override is not None,
             "days_left": rules.days_left(due),
             "suggestion_id": ev.suggestion_id,
             "letter_id": ev.letter_id,
         }
+
+    def set_event_due(self, user_id: str, event_id: str, due_at: str | None) -> GiftEvent:
+        """お返し期限を手動で上書き/解除する（#2）。
+
+        空文字/None で上書きを解除し、用途・受領日からの自動計算へ戻す。
+        値があれば YYYY-MM-DD 形式を要求する（本人スコープ強制）。
+        """
+        ev = self._require_event(user_id, self._scope(user_id), event_id)
+        value = (due_at or "").strip()
+        if value and _parse_date(value) is None:
+            raise ValidationError([f"期限は YYYY-MM-DD 形式で入力してください: {value}"])
+        ev.override_due = value or None
+        self.repo.put_event(ev)
+        self._audit(user_id, "set_event_due", event_id)  # A09
+        return ev
 
     def pending_views(self, user_id: str) -> list[dict[str, Any]]:
         """未完了お返しを、相手・用途・金額・期限つきで、残日数の近い順に返す。

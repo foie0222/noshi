@@ -146,6 +146,50 @@ def test_他人のイベントには触れない():
     assert r.status_code == 403
 
 
+def test_お返し期限をPUTで上書きし解除できる():
+    """PUT /api/events/{id}/due で期限を上書きでき、null で既定に戻ることを検証する（#2）。"""
+    c = TestClient(create_app())
+    rec = c.post(
+        "/api/records",
+        headers=_h(),
+        json={
+            "amount": 10000,
+            "purpose": "出産祝い",
+            "party_name": "佐藤",
+            "direction": "received",
+            "occurred_at": "2026-05-01",
+        },
+    ).json()
+    eid = rec["event"]["id"]
+    # 上書き
+    r = c.put(f"/api/events/{eid}/due", headers=_h(), json={"due_at": "2026-06-20"})
+    assert r.status_code == 200
+    ev = r.json()["event"]
+    assert ev["due_at"] == "2026-06-20" and ev["due_overridden"] is True
+    assert ev["due_default"] == "2026-05-31"
+    # 解除（null で既定へ復帰）
+    ev2 = c.put(f"/api/events/{eid}/due", headers=_h(), json={"due_at": None}).json()["event"]
+    assert ev2["due_overridden"] is False and ev2["due_at"] == "2026-05-31"
+
+
+def test_不正な期限のPUTは422になる():
+    """YYYY-MM-DD でない期限の上書きが422で拒否されることを検証する（#2, BR-VAL/A03）。"""
+    c = TestClient(create_app())
+    rec = c.post(
+        "/api/records",
+        headers=_h(),
+        json={
+            "amount": 10000,
+            "purpose": "出産祝い",
+            "party_name": "佐藤",
+            "direction": "received",
+        },
+    ).json()
+    eid = rec["event"]["id"]
+    r = c.put(f"/api/events/{eid}/due", headers=_h(), json={"due_at": "2026/06/20"})
+    assert r.status_code == 422
+
+
 def test_汎用エラーは内部情報を漏らさない():
     """403応答が内部情報（スタックトレース等）を含まない汎用メッセージであることを検証する（A03）。"""
     c = TestClient(create_app())

@@ -386,6 +386,15 @@ body {
   justify-content: space-between;
   align-items: center;
 }
+.detailrows {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--bw-hairline) solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
 .duebadge {
   font-size: var(--fs-sm);
   white-space: nowrap;

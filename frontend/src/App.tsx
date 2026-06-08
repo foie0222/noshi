@@ -90,6 +90,8 @@ export function App() {
   const [capturedImage, setCapturedImage] = useState<string>(""); // 撮影/選択した画像(dataURL)
   const [extracting, setExtracting] = useState<boolean>(false);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null); // 記録の修正中(AI抽出の訂正)
+  const [dueEditing, setDueEditing] = useState<boolean>(false); // お返し期限の編集中
+  const [dueInput, setDueInput] = useState<string>(""); // 期限編集の入力値(YYYY-MM-DD)
 
   async function onPickImage(file: File | null) {
     const err = validateImageFile(file);
@@ -290,6 +292,7 @@ export function App() {
       const r = await api.getEvent(eventId);
       setEvent(r.event);
       setEditDraft(null);
+      setDueEditing(false);
       go("event");
     } catch (e) {
       notify(errMsg(e));
@@ -300,6 +303,7 @@ export function App() {
       const r = await api.eventForRecord(recordId);
       setEvent(r.event);
       setEditDraft(null);
+      setDueEditing(false);
       go("event");
     } catch (e) {
       notify(errMsg(e));
@@ -356,6 +360,7 @@ export function App() {
       amount: String(event.amount),
       purpose: event.purpose,
       party_name: event.party_name,
+      occurred_at: event.occurred_at || "",
     });
   }
   async function saveEdit() {
@@ -374,11 +379,24 @@ export function App() {
         amount,
         purpose: editDraft.purpose.trim(),
         party_name: editDraft.party_name.trim(),
+        occurred_at: editDraft.occurred_at.trim(), // もらった日。期限の自動計算に反映される
       });
-      const r = await api.getEvent(event.id); // 修正後の表示を取り直す
+      const r = await api.getEvent(event.id); // 修正後の表示を取り直す（期限も再計算）
       setEvent(r.event);
       setEditDraft(null);
       notify("修正しました");
+    } catch (e) {
+      notify(errMsg(e));
+    }
+  }
+
+  // ---- お返し期限の手動上書き / 既定に戻す ----
+  async function changeDue(dueAt: string | null) {
+    if (!event) return;
+    try {
+      const r = await api.setEventDue(event.id, dueAt);
+      setEvent(r.event);
+      notify(dueAt ? "期限を変更しました" : "期限を既定に戻しました");
     } catch (e) {
       notify(errMsg(e));
     }
@@ -981,6 +999,12 @@ export function App() {
                     {event.purpose} ・ {yen(event.amount)} ・{" "}
                     {event.direction === "received" ? "受領" : "贈与"}
                   </div>
+                  <div className="detailrows">
+                    <div className="between">
+                      <span className="muted">もらった日</span>
+                      <span>{event.occurred_at || "—"}</span>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     className="btn ghost"
@@ -996,29 +1020,46 @@ export function App() {
                   <div className="h" style={{ fontSize: 14 }}>
                     内容を修正
                   </div>
-                  <label className="field">
-                    相手のお名前
+                  <div className="field">
+                    <label htmlFor="edit-party">相手のお名前</label>
                     <input
+                      id="edit-party"
+                      className="input"
                       value={editDraft.party_name}
                       onChange={(e) => setEditDraft({ ...editDraft, party_name: e.target.value })}
                     />
-                  </label>
-                  <label className="field">
-                    用途
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-purpose">用途</label>
                     <input
+                      id="edit-purpose"
+                      className="input"
                       value={editDraft.purpose}
                       onChange={(e) => setEditDraft({ ...editDraft, purpose: e.target.value })}
                     />
-                  </label>
-                  <label className="field">
-                    金額（円）
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-amount">金額（円）</label>
                     <input
+                      id="edit-amount"
+                      className="input"
                       type="number"
                       inputMode="numeric"
                       value={editDraft.amount}
                       onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}
                     />
-                  </label>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-occurred">もらった日</label>
+                    <input
+                      id="edit-occurred"
+                      className="input"
+                      type="date"
+                      value={editDraft.occurred_at}
+                      onChange={(e) => setEditDraft({ ...editDraft, occurred_at: e.target.value })}
+                    />
+                    <span className="muted">変更すると、お返し期限が自動で計算し直されます。</span>
+                  </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       type="button"
@@ -1058,13 +1099,94 @@ export function App() {
                 ))}
               </div>
               {event.direction === "received" && (
-                <button
-                  type="button"
-                  className={mourning ? "btn" : "btn shu"}
-                  onClick={() => startReturn(event)}
-                >
-                  {mourning ? "お返し（香典返し）を進める" : "お返しの続き（半返し→提案→礼状）"}
-                </button>
+                <>
+                  <div className="h" style={{ fontSize: 14 }}>
+                    お返し期限
+                  </div>
+                  <div className="card">
+                    {!dueEditing ? (
+                      <div className="between">
+                        <span>
+                          {event.due_at ? event.due_at : "期限なし（お返し不要）"}
+                          {event.due_overridden && (
+                            <span className="reviewbadge" style={{ marginLeft: 6 }}>
+                              変更済
+                            </span>
+                          )}
+                          {event.due_at && (
+                            <span className="muted" style={{ marginLeft: 8 }}>
+                              {daysLeftLabel(event.days_left)}
+                            </span>
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          style={{ width: "auto", minHeight: 36, marginTop: 0, padding: "0 14px" }}
+                          onClick={() => {
+                            setDueInput(event.due_at ?? "");
+                            setDueEditing(true);
+                          }}
+                        >
+                          変更
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="field" style={{ marginTop: 0 }}>
+                          <label htmlFor="due-input">お返し期限</label>
+                          <input
+                            id="due-input"
+                            className="input"
+                            type="date"
+                            value={dueInput}
+                            onChange={(e) => setDueInput(e.target.value)}
+                          />
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            type="button"
+                            className="btn primary"
+                            style={{ flex: 1 }}
+                            onClick={async () => {
+                              await changeDue(dueInput || null);
+                              setDueEditing(false);
+                            }}
+                          >
+                            この日に変更
+                          </button>
+                          <button
+                            type="button"
+                            className="btn ghost"
+                            style={{ flex: 1 }}
+                            onClick={() => setDueEditing(false)}
+                          >
+                            やめる
+                          </button>
+                        </div>
+                        {event.due_overridden && (
+                          <button
+                            type="button"
+                            className="linklike"
+                            onClick={async () => {
+                              await changeDue(null);
+                              setDueEditing(false);
+                            }}
+                          >
+                            既定（自動計算）に戻す
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className={mourning ? "btn" : "btn shu"}
+                    onClick={() => startReturn(event)}
+                  >
+                    {mourning ? "お返し（香典返し）を進める" : "お返しの続き（半返し→提案→礼状）"}
+                  </button>
+                </>
               )}
             </div>
           );

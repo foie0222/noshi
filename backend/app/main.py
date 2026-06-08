@@ -18,6 +18,7 @@ from app.ports import GiftCatalogMock, OcrLlmMock, OcrLlmPort
 from app.repository import InMemoryRepository, Repository
 from app.schemas import (
     CaptureIn,
+    DueIn,
     JoinHouseholdIn,
     LetterIn,
     RecordIn,
@@ -265,6 +266,14 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         event_id: str, body: StatusIn, uid: str = Depends(current_user)
     ) -> dict[str, Any]:
         svc.set_event_status(uid, event_id, body.status)
+        return {"event": svc.event_view(uid, event_id)}
+
+    @app.put("/api/events/{event_id}/due")
+    def set_event_due(
+        event_id: str, body: DueIn, uid: str = Depends(current_user)
+    ) -> dict[str, Any]:
+        # お返し期限の手動上書き/解除（#2）。本人スコープ＋監査。
+        svc.set_event_due(uid, event_id, body.due_at)
         return {"event": svc.event_view(uid, event_id)}
 
     @app.get("/api/events/{event_id}")

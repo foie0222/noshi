@@ -1,11 +1,10 @@
 # AGENTS.md
 
 noshi — 家族・親族・友人との贈答（もらった／あげた）を AI で一元管理する Web プロダクト。
-**このファイルが開発方針の正本です。** `CLAUDE.md` はこれを参照するだけのポインタです。
 
 ## 構成
 - `backend/` — FastAPI（domain / services / repository / ports）。DynamoDB・Amazon Bedrock。
-- `frontend/` — React + TypeScript (Vite)。和の意匠（生成り／水引／明朝）。
+- `frontend/` — React + TypeScript (Vite)。
 - `infra/cdk/` — AWS CDK（Data / Auth / Messaging / Api / Worker / Frontend）。
 - `org-ai-kb/` — AI-DLC の設計ドキュメント・監査ログ。
 

@@ -76,12 +76,30 @@ npm test            # vitest 30（日本語の検証説明つき）
 npm run dev         # http://localhost:5173 （/api を backend にプロキシ）
 ```
 
-### infra（CDK / 検証のみ）
+### infra（CDK）
 ```bash
 cd infra/cdk
 npm install
-npx cdk synth       # CloudFormation を生成（AWS 認証不要・未デプロイ）
+npx cdk synth       # CloudFormation を生成（AWS 認証不要）
 ```
+
+### AWS へデプロイ（フルスタック公開）
+```bash
+aws login                                   # 認証（Bedrock/Cognito 等の権限が必要）
+.venv/bin/pip install "botocore[crt]"       # aws login 資格情報用
+cd infra/cdk && npm install
+# 1) バックエンド（DynamoDB/Cognito/SQS/Lambda+API GW/Worker）
+npx cdk deploy NoshiDataStack NoshiAuthStack NoshiMessagingStack NoshiApiStack NoshiWorkerStack \
+  --require-approval never --outputs-file ./cdk-outputs.json
+# 2) 取得した ApiUrl でフロントをビルド → 配信（S3+CloudFront）
+API=$(python3 -c "import json;print(json.load(open('cdk-outputs.json'))['NoshiApiStack']['ApiUrl'])")
+( cd ../../frontend && VITE_API_BASE="$API" npx vite build )
+npx cdk deploy NoshiFrontendStack --require-approval never --outputs-file ./cdk-outputs-frontend.json
+# 出力された SiteUrl(CloudFront) が公開URL。撤去は: npx cdk destroy --all
+```
+- Lambda は依存ライブラリ込みでバンドル（`lib/lambda-code.ts`、pip の manylinux wheel・Docker不要）。
+- API は本番で **DynamoDB 永続化＋Bedrock 実OCR** が有効。
+- 認証は既定でスタブ（デモ）。本番の Cognito 強制は `--context enforceAuth=true` ＋フロントの Cognito ログイン実装が前提。
 
 ## テスト方針（TDD）
 backend=**pytest**（98）/ frontend=**vitest**（30）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。

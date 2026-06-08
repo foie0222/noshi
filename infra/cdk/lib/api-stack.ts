@@ -49,11 +49,13 @@ export class ApiStack extends Stack {
     props.table.grantReadWriteData(apiFn);
     props.queue.grantSendMessages(apiFn);
     props.imageBucket.grantReadWrite(apiFn);
-    // Bedrock(Claude) 推論呼び出しのみ許可（OCR/礼状生成）
+    // Bedrock(Claude) 推論呼び出しのみ許可（OCR/礼状生成）。
+    // jp./apac. 等のクロスリージョン推論プロファイルは複数リージョンの基盤モデルへ
+    // ルーティングするため、foundation-model は全リージョン(*)を許可する。
     apiFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ["bedrock:InvokeModel"],
-      resources: [`arn:aws:bedrock:${this.region}::foundation-model/*`,
-                  `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`],
+      resources: ["arn:aws:bedrock:*::foundation-model/*",
+                  `arn:aws:bedrock:*:${this.account}:inference-profile/*`],
     }));
 
     const api = new apigw.HttpApi(this, "NoshiHttpApi", {

@@ -1004,22 +1004,6 @@ export function App() {
                       <span className="muted">もらった日</span>
                       <span>{event.occurred_at || "—"}</span>
                     </div>
-                    {event.due_at && (
-                      <div className="between">
-                        <span className="muted">お返し期限</span>
-                        <span>
-                          {event.due_at}
-                          {event.due_overridden && (
-                            <span className="reviewbadge" style={{ marginLeft: 6 }}>
-                              変更済
-                            </span>
-                          )}
-                          <span className="muted" style={{ marginLeft: 8 }}>
-                            {daysLeftLabel(event.days_left)}
-                          </span>
-                        </span>
-                      </div>
-                    )}
                   </div>
                   <button
                     type="button"

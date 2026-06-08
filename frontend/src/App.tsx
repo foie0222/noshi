@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api, RecordInput, currentUserId, setCurrentUserId } from "./api";
+import { api, RecordInput, currentUserId, setCurrentUserId, UnauthorizedError } from "./api";
+import { authEnabled, isLoggedIn, currentEmail, signIn, signUp, confirmSignUp, signOut } from "./lib/cognito";
 import { yen, statusLabel, daysLeftLabel } from "./lib/format";
 import { toneOf } from "./lib/tone";
 import { seasonOf, seasonNudge } from "./lib/season";
@@ -26,6 +27,12 @@ export function App() {
   const [household, setHousehold] = useState<any>(null);
   const [joinCode, setJoinCode] = useState<string>("");
   const devUserRef = useRef<string>(currentUserId());
+  // ログイン（Cognito）
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | "confirm">("signin");
+  const [authEmail, setAuthEmail] = useState<string>("");
+  const [authPassword, setAuthPassword] = useState<string>("");
+  const [authCode, setAuthCode] = useState<string>("");
+  const [authBusy, setAuthBusy] = useState<boolean>(false);
   const [relationships, setRelationships] = useState<any[] | null>(null);
   const [otoshiAge, setOtoshiAge] = useState<string>("");
   const [draft, setDraft] = useState<any>(null);            // 抽出/手入力中のレコード
@@ -50,6 +57,32 @@ export function App() {
 
   const notify = (m: string) => { setToast(m); setTimeout(() => setToast(""), 1500); };
   const go = (s: Screen) => setScreen(s);
+  // 401（トークン切れ等）はログイン画面へ戻す。それ以外はトースト表示。
+  const handleErr = (e: any) => {
+    if (e instanceof UnauthorizedError) { signOut(); go("login"); notify("もう一度ログインしてください"); }
+    else notify(e?.message || "エラーが発生しました");
+  };
+
+  // ---- ログイン（Cognito）----
+  async function doSignIn() {
+    setAuthBusy(true);
+    try { await signIn(authEmail.trim(), authPassword); setAuthPassword(""); go("home"); }
+    catch (e: any) { notify(e.message); } finally { setAuthBusy(false); }
+  }
+  async function doSignUp() {
+    setAuthBusy(true);
+    try { await signUp(authEmail.trim(), authPassword); setAuthMode("confirm"); notify("確認コードをメールに送りました"); }
+    catch (e: any) { notify(e.message); } finally { setAuthBusy(false); }
+  }
+  async function doConfirm() {
+    setAuthBusy(true);
+    try {
+      await confirmSignUp(authEmail.trim(), authCode.trim());
+      await signIn(authEmail.trim(), authPassword);  // 確認後そのままログイン
+      setAuthPassword(""); setAuthCode(""); go("home");
+    } catch (e: any) { notify(e.message); } finally { setAuthBusy(false); }
+  }
+  function doSignOut() { signOut(); go("login"); notify("ログアウトしました"); }
   const nudge = seasonNudge(seasonOf(new Date().getMonth() + 1));
 
   function toggleFont() {
@@ -61,14 +94,19 @@ export function App() {
   async function loadHome() { setHome(await api.home()); }
   async function loadLedger() { setLedger(await api.ledger()); }
 
+  // 起動時: ログイン必須環境で未ログインなら login 画面に固定。
   useEffect(() => {
-    if (screen === "home") loadHome().catch((e) => notify(e.message));
-    if (screen === "ledger") loadLedger().catch((e) => notify(e.message));
+    if (authEnabled() && !isLoggedIn() && screen !== "login") go("login");
+  }, [screen]);
+
+  useEffect(() => {
+    if (screen === "home") loadHome().catch(handleErr);
+    if (screen === "ledger") loadLedger().catch(handleErr);
     if (screen === "mypage") {
-      api.giftTax().then(setGiftTax).catch((e) => notify(e.message));
-      api.annual().then(setAnnual).catch((e) => notify(e.message));
-      api.relationships().then((r) => setRelationships(r.relationships)).catch((e) => notify(e.message));
-      api.household().then((r) => setHousehold(r.household)).catch((e) => notify(e.message));
+      api.giftTax().then(setGiftTax).catch(handleErr);
+      api.annual().then(setAnnual).catch(handleErr);
+      api.relationships().then((r) => setRelationships(r.relationships)).catch(handleErr);
+      api.household().then((r) => setHousehold(r.household)).catch(handleErr);
     }
   }, [screen]);
 
@@ -215,7 +253,65 @@ export function App() {
           <div className="brand">のし</div>
           <div className="brand-en">N O S H I</div>
           <p className="muted" style={{ textAlign: "center" }}>贈答を、ちゃんと続けられる。</p>
-          <button className="btn primary" aria-label="noshi をはじめる" onClick={() => go("home")}>noshi をはじめる</button>
+
+          {!authEnabled() ? (
+            <button className="btn primary" aria-label="noshi をはじめる" onClick={() => go("home")}>noshi をはじめる</button>
+          ) : (
+            <div className="card" style={{ marginTop: 16 }}>
+              {authMode !== "confirm" && (
+                <>
+                  <div className="field" style={{ marginTop: 0 }}>
+                    <label htmlFor="auth-email">メールアドレス</label>
+                    <input id="auth-email" className="input" type="email" autoComplete="email"
+                      value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="auth-pw">パスワード</label>
+                    <input id="auth-pw" className="input" type="password"
+                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                      value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="8文字以上・英小文字と数字" />
+                  </div>
+                </>
+              )}
+
+              {authMode === "signin" && (
+                <>
+                  <button className="btn primary" disabled={authBusy} onClick={doSignIn}>
+                    {authBusy ? "ログイン中…" : "ログイン"}
+                  </button>
+                  <button className="btn ghost" style={{ marginTop: 8 }} disabled={authBusy}
+                    onClick={() => setAuthMode("signup")}>アカウントを作成</button>
+                </>
+              )}
+
+              {authMode === "signup" && (
+                <>
+                  <button className="btn primary" disabled={authBusy} onClick={doSignUp}>
+                    {authBusy ? "送信中…" : "登録（確認コードを送る）"}
+                  </button>
+                  <button className="btn ghost" style={{ marginTop: 8 }} disabled={authBusy}
+                    onClick={() => setAuthMode("signin")}>ログインに戻る</button>
+                </>
+              )}
+
+              {authMode === "confirm" && (
+                <>
+                  <p className="muted">{authEmail} に届いた確認コードを入力してください。</p>
+                  <div className="field" style={{ marginTop: 0 }}>
+                    <label htmlFor="auth-code">確認コード</label>
+                    <input id="auth-code" className="input" inputMode="numeric"
+                      value={authCode} onChange={(e) => setAuthCode(e.target.value)} placeholder="メールの6桁コード" />
+                  </div>
+                  <button className="btn primary" disabled={authBusy} onClick={doConfirm}>
+                    {authBusy ? "確認中…" : "確認して はじめる"}
+                  </button>
+                  <button className="btn ghost" style={{ marginTop: 8 }} disabled={authBusy}
+                    onClick={() => setAuthMode("signin")}>ログインに戻る</button>
+                </>
+              )}
+              <div className="trustnote" style={{ marginTop: 12 }}>🔒 メール認証で、ご家族の台帳を安全に守ります。</div>
+            </div>
+          )}
         </>
       )}
 
@@ -567,20 +663,29 @@ export function App() {
             <div className="muted" style={{ marginTop: 8 }}>贈り先の情報も含め、ご家族のデータはいつでも書き出し・削除できます。</div>
           </div>
 
-          <div className="card" style={{ marginTop: 16, borderStyle: "dashed" }}>
-            <div className="muted">🛠 開発用: ログイン中のユーザー（本番は Cognito ログインに置換）</div>
-            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <input className="input" style={{ flex: 1 }} defaultValue={currentUserId()} aria-label="ユーザー識別子"
-                onChange={(e) => (devUserRef.current = e.target.value)} />
-              <button className="btn" style={{ width: "auto", padding: "0 14px" }}
-                onClick={() => { setCurrentUserId(devUserRef.current ?? currentUserId()); location.reload(); }}>
-                切替
-              </button>
+          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>アカウント</div>
+          {authEnabled() ? (
+            <div className="card">
+              <div className="muted">ログイン中</div>
+              <div style={{ fontFamily: "var(--serif)", margin: "2px 0 10px" }}>{currentEmail() || "—"}</div>
+              <button className="btn ghost danger" onClick={doSignOut}>ログアウト</button>
             </div>
-            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-              別の人に切替→相手の招待コードで「参加」すると、同じ台帳が共有されます。
+          ) : (
+            <div className="card" style={{ borderStyle: "dashed" }}>
+              <div className="muted">🛠 開発用: ログイン中のユーザー（本番は Cognito ログイン）</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <input className="input" style={{ flex: 1 }} defaultValue={currentUserId()} aria-label="ユーザー識別子"
+                  onChange={(e) => (devUserRef.current = e.target.value)} />
+                <button className="btn" style={{ width: "auto", padding: "0 14px" }}
+                  onClick={() => { setCurrentUserId(devUserRef.current ?? currentUserId()); location.reload(); }}>
+                  切替
+                </button>
+              </div>
+              <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                別の人に切替→相手の招待コードで「参加」すると、同じ台帳が共有されます。
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 

@@ -1,4 +1,6 @@
-// noshi API クライアント。ローカルはスタブ認証（X-User-Id）。本番は Cognito の Bearer トークン。
+// noshi API クライアント。本番は Cognito の Bearer トークン、ローカルはスタブ認証（X-User-Id）。
+
+import { authEnabled, getIdToken } from "./lib/cognito";
 
 // 開発用: 家族共有を体験できるよう識別子を切替可能（localStorage）。本番はトークンの sub を使う。
 export function currentUserId(): string {
@@ -12,15 +14,24 @@ export function setCurrentUserId(id: string) {
 // 未設定（ローカル）は同一オリジンの /api を Vite プロキシ経由で叩く。
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 
+export class UnauthorizedError extends Error {}
+
+function authHeaders(): Record<string, string> {
+  // Cognito 有効時は Bearer トークン。それ以外は開発用スタブ。
+  if (authEnabled()) return { Authorization: `Bearer ${getIdToken()}` };
+  return { "X-User-Id": currentUserId() };
+}
+
 async function req(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API_BASE}/api${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-User-Id": currentUserId(),
+      ...authHeaders(),
       ...(init.headers || {}),
     },
   });
+  if (res.status === 401) throw new UnauthorizedError("ログインが必要です");
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(typeof body.detail === "string" ? body.detail : "リクエストに失敗しました");

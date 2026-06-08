@@ -1,0 +1,46 @@
+/* ===========================================================================
+   noshi — Typography tokens
+   見出し・ロゴ: Shippori Mincho B1 (明朝 serif)
+   本文・UI:    Zen Kaku Gothic New (ゴシック sans)
+   コード/招待: monospace, letter-spacing 3px
+   年配の方も読みやすい大きめのサイズ・行間。
+   =========================================================================== */
+
+:root {
+  /* --- Families ---------------------------------------------------------- */
+  --font-serif: 'Shippori Mincho B1', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --font-sans: 'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  --font-mono: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+
+  /* Semantic family aliases */
+  --font-display: var(--font-serif); /* headings & logo */
+  --font-body: var(--font-sans);     /* body & UI       */
+  --font-code: var(--font-mono);     /* codes & numerals */
+
+  /* --- Weights ----------------------------------------------------------- */
+  --fw-regular: 400; /* @kind font */
+  --fw-medium: 500;  /* @kind font */
+  --fw-bold: 700;    /* @kind font */
+  --fw-heavy: 800;   /* @kind font */
+
+  /* --- Type scale (px) — generous for older readers ---------------------- */
+  --fs-display: 32px; /* hero headline (serif) */
+  --fs-h1: 26px;      /* screen title (serif)  */
+  --fs-h2: 21px;      /* section title (serif) */
+  --fs-h3: 18px;      /* card title (sans bold) */
+  --fs-body: 16px;    /* body                  */
+  --fs-base: 15px;    /* UI default            */
+  --fs-sm: 13px;      /* labels / meta         */
+  --fs-xs: 11px;      /* nav labels / fine     */
+
+  /* --- Line heights ------------------------------------------------------ */
+  --lh-tight: 1.3;   /* @kind font */
+  --lh-snug: 1.55;   /* @kind font */
+  --lh-relaxed: 1.9; /* @kind font */
+
+  /* --- Letter spacing ---------------------------------------------------- */
+  --ls-tight: -0.01em; /* @kind font */
+  --ls-normal: 0;      /* @kind font */
+  --ls-wide: 0.04em;   /* @kind font */
+  --ls-code: 3px;      /* @kind font */
+}

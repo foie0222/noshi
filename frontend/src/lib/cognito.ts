@@ -43,7 +43,13 @@ export function cognitoErrorMessage(type: string, fallback = "エラーが発生
   return fallback;
 }
 
-async function call(target: string, body: object): Promise<any> {
+interface CognitoResponse {
+  AuthenticationResult?: { IdToken?: string };
+  __type?: string;
+  message?: string;
+}
+
+async function call(target: string, body: object): Promise<CognitoResponse> {
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
@@ -52,7 +58,7 @@ async function call(target: string, body: object): Promise<any> {
     },
     body: JSON.stringify(body),
   });
-  const data = await res.json().catch(() => ({}));
+  const data: CognitoResponse = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(cognitoErrorMessage(data.__type || "", data.message));
   return data;
 }

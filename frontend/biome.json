@@ -19,7 +19,6 @@
 		"rules": {
 			"recommended": true,
 			"suspicious": {
-				"noExplicitAny": "off",
 				"noArrayIndexKey": "warn"
 			},
 			"style": {

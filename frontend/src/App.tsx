@@ -18,6 +18,20 @@ import { otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
 import { seasonNudge, seasonOf } from "./lib/season";
 import { toneOf } from "./lib/tone";
+import {
+  type AnnualSummary,
+  type Draft,
+  type EditDraft,
+  type EventView,
+  errMsg,
+  type GiftTax,
+  type HomeResponse,
+  type Household,
+  type LedgerResponse,
+  type Range,
+  type Relationship,
+  type Suggestion,
+} from "./types";
 
 type Screen =
   | "login"
@@ -40,11 +54,11 @@ const TrustNote = () => (
 export function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [toast, setToast] = useState<string>("");
-  const [home, setHome] = useState<any>(null);
-  const [ledger, setLedger] = useState<any>(null);
-  const [giftTax, setGiftTax] = useState<any>(null);
-  const [annual, setAnnual] = useState<any>(null);
-  const [household, setHousehold] = useState<any>(null);
+  const [home, setHome] = useState<HomeResponse | null>(null);
+  const [ledger, setLedger] = useState<LedgerResponse | null>(null);
+  const [giftTax, setGiftTax] = useState<GiftTax | null>(null);
+  const [annual, setAnnual] = useState<AnnualSummary | null>(null);
+  const [household, setHousehold] = useState<Household | null>(null);
   const [joinCode, setJoinCode] = useState<string>("");
   const devUserRef = useRef<string>(currentUserId());
   // ログイン（Cognito）
@@ -55,12 +69,12 @@ export function App() {
   const [authPassword, setAuthPassword] = useState<string>("");
   const [authCode, setAuthCode] = useState<string>("");
   const [authBusy, setAuthBusy] = useState<boolean>(false);
-  const [relationships, setRelationships] = useState<any[] | null>(null);
+  const [relationships, setRelationships] = useState<Relationship[] | null>(null);
   const [otoshiAge, setOtoshiAge] = useState<string>("");
-  const [draft, setDraft] = useState<any>(null); // 抽出/手入力中のレコード
-  const [event, setEvent] = useState<any>(null); // 進行中のお返し対象
-  const [range, setRange] = useState<any>(null);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [draft, setDraft] = useState<Draft | null>(null); // 抽出/手入力中のレコード
+  const [event, setEvent] = useState<EventView | null>(null); // 進行中のお返し対象
+  const [range, setRange] = useState<Range | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [letterText, setLetterText] = useState<string>("");
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
@@ -68,7 +82,7 @@ export function App() {
   const [celebrate, setCelebrate] = useState<boolean>(false); // 水引の完了演出
   const [capturedImage, setCapturedImage] = useState<string>(""); // 撮影/選択した画像(dataURL)
   const [extracting, setExtracting] = useState<boolean>(false);
-  const [editDraft, setEditDraft] = useState<any>(null); // 記録の修正中(AI抽出の訂正)
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null); // 記録の修正中(AI抽出の訂正)
 
   async function onPickImage(file: File | null) {
     const err = validateImageFile(file);
@@ -90,12 +104,12 @@ export function App() {
   };
   const go = (s: Screen) => setScreen(s);
   // 401（トークン切れ等）はログイン画面へ戻す。それ以外はトースト表示。
-  const handleErr = (e: any) => {
+  const handleErr = (e: unknown) => {
     if (e instanceof UnauthorizedError) {
       signOut();
       go("login");
       notify("もう一度ログインしてください");
-    } else notify(e?.message || "エラーが発生しました");
+    } else notify(errMsg(e));
   };
 
   // ---- ログイン（Cognito）----
@@ -105,8 +119,8 @@ export function App() {
       await signIn(authEmail.trim(), authPassword);
       setAuthPassword("");
       go("home");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     } finally {
       setAuthBusy(false);
     }
@@ -117,8 +131,8 @@ export function App() {
       await signUp(authEmail.trim(), authPassword);
       setAuthMode("confirm");
       notify("確認コードをメールに送りました");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     } finally {
       setAuthBusy(false);
     }
@@ -131,8 +145,8 @@ export function App() {
       setAuthPassword("");
       setAuthCode("");
       go("home");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     } finally {
       setAuthBusy(false);
     }
@@ -154,8 +168,8 @@ export function App() {
       setAuthCode("");
       setAuthMode("reset");
       notify("確認コードをメールに送りました");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     } finally {
       setAuthBusy(false);
     }
@@ -169,8 +183,8 @@ export function App() {
       setAuthCode("");
       go("home");
       notify("パスワードを再設定しました");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     } finally {
       setAuthBusy(false);
     }
@@ -191,10 +205,12 @@ export function App() {
   }
 
   // 起動時: ログイン必須環境で未ログインなら login 画面に固定。
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 画面遷移時のみ判定する意図
   useEffect(() => {
     if (authEnabled() && !isLoggedIn() && screen !== "login") go("login");
-  }, [screen, go]);
+  }, [screen]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 画面遷移時のみ再取得する意図
   useEffect(() => {
     if (screen === "home") loadHome().catch(handleErr);
     if (screen === "ledger") loadLedger().catch(handleErr);
@@ -210,7 +226,7 @@ export function App() {
         .then((r) => setHousehold(r.household))
         .catch(handleErr);
     }
-  }, [screen, loadLedger, loadHome, handleErr]);
+  }, [screen]);
 
   // ---- 撮影 → 抽出 ----
   async function doCapture() {
@@ -229,8 +245,8 @@ export function App() {
         image: capturedImage,
       });
       go("review");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     } finally {
       setExtracting(false);
     }
@@ -242,6 +258,7 @@ export function App() {
   }
 
   async function saveRecord() {
+    if (!draft) return;
     try {
       const input: RecordInput = {
         amount: Number(draft.amount),
@@ -255,8 +272,8 @@ export function App() {
       setEvent(res.event);
       notify("記録しました");
       go("home");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     }
   }
 
@@ -267,8 +284,8 @@ export function App() {
       setEvent(r.event);
       setEditDraft(null);
       go("event");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     }
   }
   async function openEventForRecord(recordId: string) {
@@ -277,8 +294,8 @@ export function App() {
       setEvent(r.event);
       setEditDraft(null);
       go("event");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     }
   }
 
@@ -294,8 +311,8 @@ export function App() {
       setHousehold(r.household);
       setJoinCode("");
       notify("ご家族に参加しました");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     }
   }
   async function doRemoveMember(userId: string, label: string) {
@@ -305,8 +322,8 @@ export function App() {
       const r = await api.removeMember(userId);
       setHousehold(r.household);
       notify("メンバーを外しました");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     }
   }
   async function doLeaveHousehold() {
@@ -320,13 +337,14 @@ export function App() {
       await api.leaveHousehold();
       notify("脱退しました");
       location.reload(); // 世帯（データの見え方）が変わるため全体を読み直す
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     }
   }
 
   // ---- 記録の修正（AI抽出の誤りを本人が訂正）----
   function startEdit() {
+    if (!event) return;
     setEditDraft({
       amount: String(event.amount),
       purpose: event.purpose,
@@ -334,6 +352,7 @@ export function App() {
     });
   }
   async function saveEdit() {
+    if (!editDraft || !event) return;
     try {
       const amount = Number(editDraft.amount);
       if (!amount || amount <= 0) {
@@ -353,35 +372,39 @@ export function App() {
       setEvent(r.event);
       setEditDraft(null);
       notify("修正しました");
-    } catch (e: any) {
-      notify(e.message);
+    } catch (e) {
+      notify(errMsg(e));
     }
   }
 
   // ---- お返し ----
-  async function startReturn(ev: any) {
+  async function startReturn(ev: EventView) {
     setEvent(ev);
     const r = await api.halfReturn(ev.amount, ev.purpose);
     setRange({ ...r, amount: ev.amount, purpose: ev.purpose });
     go("half");
   }
   async function loadSuggestions() {
+    if (!event || !range) return;
     const r = await api.suggestions(event.id, range.recommended, "友人", range.purpose);
     setSuggestions(r.suggestions);
     go("suggest");
   }
-  async function chooseSuggestion(s: any) {
+  async function chooseSuggestion(s: Suggestion) {
+    if (!event) return;
     await api.selectSuggestion(event.id, s);
     notify("お返しを選びました");
     go("letter");
   }
   async function makeLetter() {
+    if (!event || !range) return;
     // 弔事(香典等)は弔事トーンで生成。慶事と同じ文面にしない。
     const tone = toneOf(range.purpose) === "mourning" ? "弔事" : "丁寧";
     const r = await api.letter(event.id, range.purpose, "友人", tone);
     setLetterText(r.letter.body_text);
   }
   async function complete() {
+    if (!event) return;
     await api.setStatus(event.id, "done");
     setCelebrate(true); // 水引が結ばれる演出（reduced-motion 尊重）
     setTimeout(() => {
@@ -671,7 +694,7 @@ export function App() {
               )}
             </>
           )}
-          {home.pending.map((e: any) => {
+          {home.pending.map((e) => {
             const overdue = e.days_left !== null && e.days_left < 0;
             const soon = e.days_left !== null && e.days_left <= 3;
             return (
@@ -752,7 +775,7 @@ export function App() {
             "purpose",
             "occurred_at",
           ] as const;
-          const labels: any = {
+          const labels: Record<string, string> = {
             amount: "金額",
             party_name: "お相手",
             relationship: "続柄",
@@ -822,7 +845,7 @@ export function App() {
         <>
           <Bar title="贈答の台帳" />
           {ledger.records.length === 0 && <p className="muted">記録がありません</p>}
-          {ledger.records.map((r: any) => (
+          {ledger.records.map((r) => (
             <div className="listitem" key={r.id} onClick={() => openEventForRecord(r.id)}>
               <span className={`dirpill dir-${r.direction}`}>
                 {r.direction === "received" ? "受領" : "贈与"}
@@ -1029,7 +1052,7 @@ export function App() {
                 {(() => {
                   const me = currentUserId();
                   const iAmOwner = household.members.some(
-                    (m: any) => m.user_id === me && m.role === "owner",
+                    (m) => m.user_id === me && m.role === "owner",
                   );
                   return (
                     <>
@@ -1037,7 +1060,7 @@ export function App() {
                       <div
                         style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0 10px" }}
                       >
-                        {household.members.map((m: any) => {
+                        {household.members.map((m) => {
                           const label = m.email || m.user_id;
                           const isMe = m.user_id === me;
                           return (
@@ -1224,7 +1247,7 @@ export function App() {
               まだ記録がありません。
             </p>
           )}
-          {relationships?.map((r: any) => {
+          {relationships?.map((r) => {
             const label =
               r.status === "owe" ? "もらい多め" : r.status === "ahead" ? "お贈り多め" : "均衡";
             return (

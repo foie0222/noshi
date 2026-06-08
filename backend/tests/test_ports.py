@@ -1,5 +1,6 @@
 """外部ポート（OCR/LLM・カタログ）のモック実装のテスト。"""
-from app.ports import OcrLlmMock, GiftCatalogMock
+
+from app.ports import GiftCatalogMock, OcrLlmMock
 
 
 def test_抽出モックは候補と信頼度を返す():

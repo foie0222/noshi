@@ -3,12 +3,13 @@
 各フィールドの機微度分類は functional-design/domain-entities.md に対応:
 restricted=認証情報 / confidential=第三者PII・金額 / internal=集計・状態。
 """
+
 from __future__ import annotations
 
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any
 
 
 def _id() -> str:
@@ -22,6 +23,7 @@ def _now() -> float:
 def _invite_code() -> str:
     # 家族に口頭/メッセージで伝えやすい短い英数字コード（紛らわしい文字を除外）。
     import random
+
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     return "".join(random.choice(alphabet) for _ in range(6))
 
@@ -29,6 +31,7 @@ def _invite_code() -> str:
 @dataclass
 class Household:
     """世帯（家族の共有単位）。記録・お返しは User ではなく Household に属する。"""
+
     name: str = "わたしの家"
     invite_code: str = field(default_factory=_invite_code)  # 共有参加用コード
     id: str = field(default_factory=_id)
@@ -38,6 +41,7 @@ class Household:
 @dataclass
 class Membership:
     """ユーザーの世帯への所属（誰がどの世帯の owner/member か）。"""
+
     user_id: str
     household_id: str
     role: str = "member"  # owner / member
@@ -78,9 +82,9 @@ class GiftEvent:
     user_id: str
     record_id: str
     status: str = "received"  # received / considering / done（自由遷移）
-    override_return_amount: Optional[int] = None
-    suggestion_id: Optional[str] = None
-    letter_id: Optional[str] = None
+    override_return_amount: int | None = None
+    suggestion_id: str | None = None
+    letter_id: str | None = None
     id: str = field(default_factory=_id)
 
 
@@ -88,9 +92,9 @@ class GiftEvent:
 class ExtractionJob:
     user_id: str
     status: str = "pending"  # pending / completed / failed
-    candidates: dict = field(default_factory=dict)  # confidential（確定前）
+    candidates: dict[str, Any] = field(default_factory=dict)  # confidential（確定前）
     confidence: float = 0.0
-    field_confidence: dict = field(default_factory=dict)  # 項目別信頼度（P0-2）
+    field_confidence: dict[str, float] = field(default_factory=dict)  # 項目別信頼度（P0-2）
     id: str = field(default_factory=_id)
 
 

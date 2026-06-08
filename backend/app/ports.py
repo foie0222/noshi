@@ -3,28 +3,29 @@
 application-design/external-dependencies.md の OcrLlmPort / GiftCatalogPort に対応。
 本番は実プロバイダのアダプタ、MVP/テストはモック。送信データは最小化（OWASP）。
 """
+
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class OcrLlmPort(Protocol):
-    def extract(self, image_refs: list[str]) -> dict: ...
+    def extract(self, image_refs: list[str]) -> dict[str, Any]: ...
     def generate_letter(self, purpose: str, relationship: str, tone: str) -> str: ...
 
 
 class GiftCatalogPort(Protocol):
-    def suggest(self, budget: int, relationship: str, purpose: str) -> list[dict]: ...
+    def suggest(self, budget: int, relationship: str, purpose: str) -> list[dict[str, Any]]: ...
 
 
 class OcrLlmMock:
     """決定論的なダミー抽出・定型礼状（MVP/テスト用）。"""
 
-    def extract(self, image_refs: list[str]) -> dict:
+    def extract(self, image_refs: list[str]) -> dict[str, Any]:
         # 項目別の信頼度（P0-2: 高信頼はそのまま、低信頼の氏名だけ要確認）
         field_confidence = {
             "amount": 0.97,
-            "party_name": 0.58,   # 氏名だけ自信が低い → 要確認
+            "party_name": 0.58,  # 氏名だけ自信が低い → 要確認
             "relationship": 0.91,
             "purpose": 0.95,
             "occurred_at": 0.93,
@@ -46,10 +47,10 @@ class OcrLlmMock:
         # 故人の供養・忌明けに沿った文面にする（BR-LTR-TONE）。
         if tone == "弔事":
             return (
-                f"この度は、ご丁寧なお心遣いを賜り、誠にありがとうございました。"
-                f"おかげをもちまして、四十九日の法要を滞りなく相済ませました。"
-                f"供養のしるしに心ばかりの品をお送りいたします。"
-                f"略儀ながら書中をもちまして謹んで御礼申し上げます。"
+                "この度は、ご丁寧なお心遣いを賜り、誠にありがとうございました。"
+                "おかげをもちまして、四十九日の法要を滞りなく相済ませました。"
+                "供養のしるしに心ばかりの品をお送りいたします。"
+                "略儀ながら書中をもちまして謹んで御礼申し上げます。"
             )
         prefix = "拝啓　" if tone == "丁寧" else ""
         return (
@@ -62,7 +63,7 @@ class OcrLlmMock:
 class GiftCatalogMock:
     """固定のお返し品候補（提案のみ・外部参照）。"""
 
-    def suggest(self, budget: int, relationship: str, purpose: str) -> list[dict]:
+    def suggest(self, budget: int, relationship: str, purpose: str) -> list[dict[str, Any]]:
         base = [
             ("上質な和茶の詰合せ", "茶葉アソート"),
             ("今治タオルギフト", "上質タオルセット"),

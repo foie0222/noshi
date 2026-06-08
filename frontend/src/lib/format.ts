@@ -18,7 +18,7 @@ export function daysLeftLabel(days: number | null): string {
 }
 
 export function yen(n: number): string {
-  return "¥" + n.toLocaleString("ja-JP");
+  return `¥${n.toLocaleString("ja-JP")}`;
 }
 
 export function diffLabel(n: number): string {

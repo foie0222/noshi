@@ -3,9 +3,8 @@
 ネットワークを使わず、注入したダミー Bedrock クライアントで、
 リクエスト組み立て（画像ブロック・トーン指示）と応答パース（JSON抽出）を検証する。
 """
-import json
 
-import pytest
+import json
 
 from app.adapters import BedrockOcrLlm, parse_data_url
 
@@ -35,12 +34,22 @@ def test_dataURLを形式とバイト列に分解する():
 
 def test_抽出は画像ブロックを送りJSON応答を候補に変換する():
     """extract が画像ブロックを converse に渡し、モデルのJSON応答を候補と信頼度に変換することを検証する。"""
-    reply = json.dumps({
-        "amount": 30000, "party_name": "佐藤 花子", "relationship": "友人",
-        "purpose": "出産祝い", "occurred_at": "2026-05-20",
-        "field_confidence": {"amount": 0.95, "party_name": 0.6, "relationship": 0.8,
-                             "purpose": 0.9, "occurred_at": 0.85},
-    })
+    reply = json.dumps(
+        {
+            "amount": 30000,
+            "party_name": "佐藤 花子",
+            "relationship": "友人",
+            "purpose": "出産祝い",
+            "occurred_at": "2026-05-20",
+            "field_confidence": {
+                "amount": 0.95,
+                "party_name": 0.6,
+                "relationship": 0.8,
+                "purpose": 0.9,
+                "occurred_at": 0.85,
+            },
+        }
+    )
     fake = FakeBedrock(reply)
     out = BedrockOcrLlm(client=fake).extract([TINY])
     # 画像ブロックが送られている
@@ -63,7 +72,9 @@ def test_抽出はマークダウン括りのJSONも解釈する():
 def test_礼状生成はモデル本文を返す():
     """generate_letter が converse を呼び、モデルの本文を返すことを検証する。"""
     fake = FakeBedrock("謹んで御礼申し上げます。")
-    text = BedrockOcrLlm(client=fake).generate_letter(purpose="香典", relationship="知人", tone="弔事")
+    text = BedrockOcrLlm(client=fake).generate_letter(
+        purpose="香典", relationship="知人", tone="弔事"
+    )
     assert text == "謹んで御礼申し上げます。"
 
 

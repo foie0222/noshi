@@ -1,8 +1,9 @@
 """サービス層のテスト。中核ループと本人スコープ強制・監査を検証する。"""
+
 import pytest
+from app.ports import GiftCatalogMock, OcrLlmMock
 from app.repository import InMemoryRepository
-from app.ports import OcrLlmMock, GiftCatalogMock
-from app.services import NoshiService, ForbiddenError, ValidationError
+from app.services import ForbiddenError, NoshiService, ValidationError
 
 
 def make_service():
@@ -12,7 +13,9 @@ def make_service():
 def test_記録を作成すると台帳と受領イベントができる():
     """贈答レコードを作成すると台帳に1件入り、対応する受領イベントが生成されることを検証する。"""
     svc = make_service()
-    rec, ev = svc.create_record("u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received")
+    rec, ev = svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
     assert len(svc.list_records("u1")) == 1
     assert ev.record_id == rec.id and ev.status == "received"
 
@@ -21,13 +24,17 @@ def test_不正な入力は検証エラーになる():
     """金額0など不正な入力での記録作成がValidationErrorになることを検証する（BR-VAL）。"""
     svc = make_service()
     with pytest.raises(ValidationError):
-        svc.create_record("u1", amount=0, purpose="出産祝い", party_name="佐藤", direction="received")
+        svc.create_record(
+            "u1", amount=0, purpose="出産祝い", party_name="佐藤", direction="received"
+        )
 
 
 def test_他人のイベントのステータスは変更できない():
     """他ユーザーのイベントのステータス変更がForbiddenErrorで拒否されることを検証する（A01）。"""
     svc = make_service()
-    _, ev = svc.create_record("u1", amount=10000, purpose="香典", party_name="田中", direction="received")
+    _, ev = svc.create_record(
+        "u1", amount=10000, purpose="香典", party_name="田中", direction="received"
+    )
     with pytest.raises(ForbiddenError):
         svc.set_event_status("attacker", ev.id, "done")
 
@@ -35,7 +42,9 @@ def test_他人のイベントのステータスは変更できない():
 def test_レコード削除で監査ログが残る():
     """贈答レコードの削除がAuditEntryとして監査記録されることを検証する（A09, S-13）。"""
     svc = make_service()
-    rec, _ = svc.create_record("u1", amount=5000, purpose="お中元", party_name="山田", direction="received")
+    rec, _ = svc.create_record(
+        "u1", amount=5000, purpose="お中元", party_name="山田", direction="received"
+    )
     svc.delete_record("u1", rec.id)
     actions = [a.action for a in svc.repo.audit_entries]
     assert "delete_record" in actions
@@ -52,7 +61,9 @@ def test_抽出ジョブは候補と要確認フラグを返す():
 def test_お返しフローで半返しと提案と礼状が紐づく():
     """半返し算出→提案選択→礼状生成までがイベントに紐づくことを検証する（S-5,6,7）。"""
     svc = make_service()
-    _, ev = svc.create_record("u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received")
+    _, ev = svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
     rng = svc.half_return(30000, "出産祝い")
     assert rng.recommended == 15000
     suggestions = svc.suggest_returns("u1", ev.id, rng.recommended, "友人", "出産祝い")
@@ -74,14 +85,28 @@ def test_あげた贈答はお返し対象に出ない():
 def test_お返し不要の用途は未完了に出ない():
     """お中元（お返し不要）は受領でも未完了お返しに出ないことを検証する（BR-3-DUE-2）。"""
     svc = make_service()
-    svc.create_record("u1", amount=5000, purpose="お中元", party_name="山田", direction="received", occurred_at="2026-07-01")
+    svc.create_record(
+        "u1",
+        amount=5000,
+        purpose="お中元",
+        party_name="山田",
+        direction="received",
+        occurred_at="2026-07-01",
+    )
     assert svc.pending_views("u1") == []
 
 
 def test_未完了ビューは期限と残日数を含む():
     """未完了お返しのビューが期限(due_at)と残日数(days_left)を含むことを検証する（P0-1）。"""
     svc = make_service()
-    svc.create_record("u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received", occurred_at="2026-05-01")
+    svc.create_record(
+        "u1",
+        amount=30000,
+        purpose="出産祝い",
+        party_name="佐藤",
+        direction="received",
+        occurred_at="2026-05-01",
+    )
     v = svc.pending_views("u1")[0]
     assert v["due_at"] == "2026-05-31"
     assert "days_left" in v
@@ -90,9 +115,30 @@ def test_未完了ビューは期限と残日数を含む():
 def test_未完了は期限の近い順に並ぶ():
     """未完了お返しが残日数の昇順（期限が近い順）に並ぶことを検証する（BR-3-DUE-5）。"""
     svc = make_service()
-    svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="A", direction="received", occurred_at="2026-05-10")  # 6/9
-    svc.create_record("u1", amount=10000, purpose="香典", party_name="B", direction="received", occurred_at="2026-05-01")      # 6/19
-    svc.create_record("u1", amount=10000, purpose="結婚祝い", party_name="C", direction="received", occurred_at="2026-05-05")  # 6/4
+    svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="出産祝い",
+        party_name="A",
+        direction="received",
+        occurred_at="2026-05-10",
+    )  # 6/9
+    svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="香典",
+        party_name="B",
+        direction="received",
+        occurred_at="2026-05-01",
+    )  # 6/19
+    svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="結婚祝い",
+        party_name="C",
+        direction="received",
+        occurred_at="2026-05-05",
+    )  # 6/4
     order = [v["party_name"] for v in svc.pending_views("u1")]
     assert order == ["C", "A", "B"]  # 6/4 < 6/9 < 6/19
 
@@ -100,7 +146,9 @@ def test_未完了は期限の近い順に並ぶ():
 def test_未完了ビューは相手と用途と金額を含む():
     """未完了イベントの表示用ビューが、イベントIDではなく相手・用途・金額を含むことを検証する（UX）。"""
     svc = make_service()
-    svc.create_record("u1", amount=30000, purpose="出産祝い", party_name="佐藤 花子", direction="received")
+    svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", party_name="佐藤 花子", direction="received"
+    )
     views = svc.pending_views("u1")
     assert len(views) == 1
     v = views[0]
@@ -113,7 +161,9 @@ def test_未完了ビューは相手と用途と金額を含む():
 def test_イベントビューは記録情報で表示できる():
     """単一イベントの表示用ビューが紐づく記録の相手・用途・金額を含むことを検証する（UX）。"""
     svc = make_service()
-    _, ev = svc.create_record("u1", amount=5000, purpose="お中元", party_name="山田 一郎", direction="received")
+    _, ev = svc.create_record(
+        "u1", amount=5000, purpose="お中元", party_name="山田 一郎", direction="received"
+    )
     v = svc.event_view("u1", ev.id)
     assert v["party_name"] == "山田 一郎" and v["amount"] == 5000
 
@@ -121,7 +171,9 @@ def test_イベントビューは記録情報で表示できる():
 def test_記録から対応するイベントを引ける():
     """台帳の記録IDから対応する贈答イベントを取得できることを検証する（ledger→お返しフロー）。"""
     svc = make_service()
-    rec, ev = svc.create_record("u1", amount=10000, purpose="香典", party_name="田中", direction="received")
+    rec, ev = svc.create_record(
+        "u1", amount=10000, purpose="香典", party_name="田中", direction="received"
+    )
     found = svc.event_for_record("u1", rec.id)
     assert found is not None and found.id == ev.id
 
@@ -137,8 +189,12 @@ def test_他人の台帳は見えない():
 def test_記録を修正すると金額と相手が更新され監査が残る():
     """保存済みレコードの金額・相手・用途をupdate_recordで修正でき、監査に残ることを検証する（S-13, A09）。"""
     svc = make_service()
-    rec, _ = svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received")
-    updated = svc.update_record("u1", rec.id, amount=30000, purpose="結婚祝い", party_name="佐藤花子")
+    rec, _ = svc.create_record(
+        "u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
+    updated = svc.update_record(
+        "u1", rec.id, amount=30000, purpose="結婚祝い", party_name="佐藤花子"
+    )
     assert updated.amount == 30000
     assert updated.purpose == "結婚祝い"
     assert updated.party_name == "佐藤花子"
@@ -149,7 +205,9 @@ def test_記録を修正すると金額と相手が更新され監査が残る()
 def test_他人の記録は修正できない():
     """他ユーザーのレコード修正がForbiddenErrorで拒否されることを検証する（A01）。"""
     svc = make_service()
-    rec, _ = svc.create_record("u1", amount=10000, purpose="香典", party_name="田中", direction="received")
+    rec, _ = svc.create_record(
+        "u1", amount=10000, purpose="香典", party_name="田中", direction="received"
+    )
     with pytest.raises(ForbiddenError):
         svc.update_record("attacker", rec.id, amount=20000, purpose="香典", party_name="田中")
 
@@ -157,6 +215,8 @@ def test_他人の記録は修正できない():
 def test_不正な値での修正は検証エラーになる():
     """金額0など不正な値でのレコード修正がValidationErrorになることを検証する（BR-VAL）。"""
     svc = make_service()
-    rec, _ = svc.create_record("u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received")
+    rec, _ = svc.create_record(
+        "u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
     with pytest.raises(ValidationError):
         svc.update_record("u1", rec.id, amount=0, purpose="出産祝い", party_name="佐藤")

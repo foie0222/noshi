@@ -33,12 +33,21 @@ cd infra/cdk && npm install && npx cdk synth
 - **TDD 必須**: 失敗するテストを先に書き、最小実装で通す（Red → Green → Refactor）。
 - テストは **「何を検証するか」を日本語の一文**で記述する（例: `def test_半返しは香典で半額になる():`）。
 - 本人／世帯スコープ（OWASP A01）を必ず守る。エラーは汎用文言で返し内部情報を漏らさない。
-- lint / format / 型チェック（ruff・biome・mypy strict）は #10 で整備予定。
+- lint / format / 型: **ruff**（backend）/ **biome**（frontend）/ **mypy strict**（backend `app/`）。
+
+## lint / format / pre-commit
+コミット前に自動チェックされる（厳格: format 自動修正・lint/型エラーはブロック）。
+```bash
+pip install pre-commit && pre-commit install   # 初回のみ
+backend/.venv/bin/ruff check backend && backend/.venv/bin/ruff format --check backend
+backend/.venv/bin/mypy --config-file backend/pyproject.toml   # ※ cd backend で実行
+( cd frontend && npm run lint )                # biome
+```
 
 ## コミット / PR
 - 1 つの論点ごとにコミット。メッセージは要点を簡潔に。
 - Issue 単位で `issue-<番号>` ブランチを切り、PR で `main` に入れる。
-- 変更はテスト緑（pytest / vitest、必要に応じ `cdk synth`）を確認してから。
+- 変更はテスト緑（pytest / vitest、必要に応じ `cdk synth`）と pre-commit 通過を確認してから。
 
 ## セキュリティ
 - 秘密情報（鍵・トークン・パスワード）はコミットしない。

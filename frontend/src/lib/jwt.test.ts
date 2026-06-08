@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { decodeJwtPayload, isExpired } from "./jwt";
 
 // テスト用に署名なしの JWT を組み立てる（payload だけ読めれば良い）。
@@ -10,7 +10,9 @@ function makeJwt(payload: object): string {
 
 describe("JWT ペイロードのデコード", () => {
   it("sub と email を取り出せることを検証する", () => {
-    const p = decodeJwtPayload(makeJwt({ sub: "user-1", email: "taro@example.jp", exp: 9999999999 }));
+    const p = decodeJwtPayload(
+      makeJwt({ sub: "user-1", email: "taro@example.jp", exp: 9999999999 }),
+    );
     expect(p?.sub).toBe("user-1");
     expect(p?.email).toBe("taro@example.jp");
   });

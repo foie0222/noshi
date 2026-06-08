@@ -4,11 +4,14 @@
 - BR-EX: 抽出の信頼度しきい値
 - BR-VAL: 贈答レコードの入力検証
 """
+
 from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any
+
+from app.domain.entities import GiftRecord
 
 CONFIDENCE_THRESHOLD = 0.7
 
@@ -17,7 +20,7 @@ _DUE_DAYS_DEFAULT = 30
 _DUE_NONE = ("お中元", "お歳暮")
 
 
-def due_date(occurred_at: str, purpose: str) -> Optional[datetime.date]:
+def due_date(occurred_at: str, purpose: str) -> datetime.date | None:
     """受領日と用途から標準お返し期限を算出する（BR-3-DUE）。お返し不要なら None。"""
     p = purpose or ""
     if any(k in p for k in _DUE_NONE):
@@ -30,11 +33,12 @@ def due_date(occurred_at: str, purpose: str) -> Optional[datetime.date]:
     return base + datetime.timedelta(days=days)
 
 
-def days_left(due: Optional[datetime.date], today: Optional[datetime.date] = None) -> Optional[int]:
+def days_left(due: datetime.date | None, today: datetime.date | None = None) -> int | None:
     """期限日と基準日から残日数を返す（超過は負値）。期限なしは None。"""
     if due is None:
         return None
     return (due - (today or datetime.date.today())).days
+
 
 # 用途 → (推奨比率, レンジ下限比率)。お中元/お歳暮は返礼不要。
 _DEFAULT_RATIO = 0.5
@@ -103,7 +107,7 @@ def tone(purpose: str) -> str:
     return "mourning" if any(k in p for k in _MOURNING_KEYWORDS) else "celebration"
 
 
-def gift_tax_summary(records, year: int) -> dict:
+def gift_tax_summary(records: list[GiftRecord], year: int) -> dict[str, Any]:
     """暦年の「もらった」対象合計と110万円枠への残額・超過を返す（BR-4-TAX）。
 
     社会通念上の贈答（香典・お中元・お歳暮等）と given・対象年外は集計から除外する。
@@ -129,7 +133,7 @@ def gift_tax_summary(records, year: int) -> dict:
     }
 
 
-def annual_summary(records, year: int) -> dict:
+def annual_summary(records: list[GiftRecord], year: int) -> dict[str, Any]:
     """指定年のやりとりを集計して年間振り返りを返す（本人データのみ）。
 
     occurred_at の先頭4桁が指定年のレコードのみを対象に、受領/あげたの件数・合計、
@@ -149,10 +153,12 @@ def annual_summary(records, year: int) -> dict:
 
 
 RELATIONSHIP_ATTENTION_DAYS = 180  # 「気になる関係」の経過日数しきい値
-_BALANCE_TOLERANCE = 0.2           # |差分|/総額 がこれ以下なら均衡
+_BALANCE_TOLERANCE = 0.2  # |差分|/総額 がこれ以下なら均衡
 
 
-def relationship_balance(records, today=None):
+def relationship_balance(
+    records: list[GiftRecord], today: datetime.date | None = None
+) -> list[dict[str, Any]]:
     """相手別に もらった/あげた/差分/最終やりとり日 を集計し、偏りを分類する（BR-6-BALANCE）。
 
     損得ではなく「関係のメンテナンス」のための気づき。本人データのみを渡す前提（A01）。
@@ -161,7 +167,7 @@ def relationship_balance(records, today=None):
     import datetime
 
     today = today or datetime.date.today()
-    parties: dict[str, dict] = {}
+    parties: dict[str, dict[str, Any]] = {}
     for r in records:
         name = getattr(r, "party_name", "") or ""
         if not name:
@@ -181,9 +187,9 @@ def relationship_balance(records, today=None):
         if total == 0 or abs(diff) <= total * _BALANCE_TOLERANCE:
             status = "balanced"
         elif diff > 0:
-            status = "owe"     # もらい超過
+            status = "owe"  # もらい超過
         else:
-            status = "ahead"   # あげ超過
+            status = "ahead"  # あげ超過
         attention = False
         if status == "owe" and p["last_at"]:
             try:

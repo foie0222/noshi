@@ -50,3 +50,4 @@ infra/cdk/node_modules/
 infra/cdk/cdk.out/
 infra/cdk/dist/
 infra/cdk/package-lock.json
+infra/cdk/cdk-outputs*.json

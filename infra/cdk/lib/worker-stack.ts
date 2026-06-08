@@ -4,6 +4,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as sqs from "aws-cdk-lib/aws-sqs";
+import { backendLambdaCode } from "./lambda-code";
 
 interface WorkerStackProps extends StackProps { table: dynamodb.Table; queue: sqs.Queue; }
 
@@ -16,12 +17,10 @@ export class WorkerStack extends Stack {
     const worker = new lambda.Function(this, "ExtractionWorker", {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: "app.worker.handler", // backend/app/worker.py
-      code: lambda.Code.fromAsset("../../backend", {
-        exclude: [".venv", "__pycache__", "**/__pycache__", "tests", ".pytest_cache", "*.md"],
-      }),
+      code: backendLambdaCode(),
       timeout: Duration.seconds(30),
       memorySize: 512,
-      environment: { NOSHI_TABLE: props.table.tableName },
+      environment: { NOSHI_TABLE: props.table.tableName, NOSHI_USE_DYNAMO: "1" },
     });
     props.table.grantReadWriteData(worker);
     worker.addEventSource(new SqsEventSource(props.queue, { batchSize: 5 }));

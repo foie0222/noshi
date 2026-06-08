@@ -8,8 +8,12 @@ export function setCurrentUserId(id: string) {
   localStorage.setItem("noshi-user", id.trim() || "demo-user");
 }
 
+// 本番は CloudFront とは別オリジンの API Gateway を叩く（ビルド時に VITE_API_BASE を注入）。
+// 未設定（ローカル）は同一オリジンの /api を Vite プロキシ経由で叩く。
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
+
 async function req(path: string, init: RequestInit = {}) {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}/api${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

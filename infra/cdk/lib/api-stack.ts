@@ -1,4 +1,4 @@
-import { Stack, StackProps, Duration } from "aws-cdk-lib";
+import { Stack, StackProps, Duration, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
@@ -7,6 +7,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
+import { backendLambdaCode } from "./lambda-code";
 
 interface ApiStackProps extends StackProps {
   table: dynamodb.Table;
@@ -20,25 +21,27 @@ interface ApiStackProps extends StackProps {
  * 最小権限 IAM（必要な DynamoDB/SQS/S3 アクションのみ付与）。
  */
 export class ApiStack extends Stack {
+  public readonly apiUrl: string;
+
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
     const apiFn = new lambda.Function(this, "BffFn", {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: "app.lambda_handler.handler", // Mangum(app) — backend/app/lambda_handler.py
-      // backend/ をアセット同梱（.venv/tests/キャッシュは除外）。本番デプロイ時は依存(fastapi/mangum/boto3)を
-      // Lambda Layer もしくは bundling で同梱する（requirements.txt 参照）。
-      code: lambda.Code.fromAsset("../../backend", {
-        exclude: [".venv", "__pycache__", "**/__pycache__", "tests", ".pytest_cache", "*.md"],
-      }),
+      code: backendLambdaCode(), // 依存ライブラリ込みでバンドル（fastapi/mangum/pyjwt 等）
+
       timeout: Duration.seconds(15),
       memorySize: 256,
       environment: {
         NOSHI_TABLE: props.table.tableName,
+        NOSHI_USE_DYNAMO: "1",                   // 本番は DynamoDB 永続化（必須）
         EXTRACTION_QUEUE_URL: props.queue.queueUrl,
         IMAGE_BUCKET: props.imageBucket.bucketName,
-        NOSHI_COGNITO_POOL_ID: props.userPoolId, // JWT 検証を Cognito に切替
         NOSHI_USE_BEDROCK: "1",                  // 実 OCR/LLM（Bedrock/Claude）
+        // Cognito 認証の強制は context `enforceAuth=true` で有効化（要: フロントの Cognito ログイン）。
+        // 既定（デモ公開）はスタブ認証のまま——フロントの「ユーザー切替」で家族共有を体験可能。
+        ...(this.node.tryGetContext("enforceAuth") ? { NOSHI_COGNITO_POOL_ID: props.userPoolId } : {}),
       },
     });
 
@@ -66,5 +69,8 @@ export class ApiStack extends Stack {
       methods: [apigw.HttpMethod.ANY],
       integration: new HttpLambdaIntegration("BffIntegration", apiFn),
     });
+
+    this.apiUrl = api.apiEndpoint;
+    new CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
   }
 }

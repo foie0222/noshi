@@ -53,12 +53,16 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # JWT 構成済み(Cognito/HS256)なら Bearer トークンを検証。未構成なら
         # 開発用 X-User-Id スタブにフォールバック。どちらも無ければ 401（A07）。
         from app.auth import auth_configured, decode_identity, AuthError
-        if auth_configured() and authorization:
+        if auth_configured():
+            # 本番: Cognito/JWT 必須。X-User-Id スタブは受け付けない（なりすまし防止）。
+            if not authorization:
+                raise HTTPException(status_code=401, detail="authentication required")
             token = authorization[7:] if authorization.lower().startswith("bearer ") else authorization
             try:
                 return decode_identity(token)
             except AuthError:
                 raise HTTPException(status_code=401, detail="authentication required")
+        # ローカル開発: スタブ認証（X-User-Id）。
         if x_user_id:
             return Identity(user_id=x_user_id)
         raise HTTPException(status_code=401, detail="authentication required")

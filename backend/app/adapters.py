@@ -6,12 +6,14 @@ OcrLlmPort の本番実装として Amazon Bedrock（Claude）を使う。
 
 ネットワーク依存は client 注入でテスト可能にする。送信は画像と最小限の指示のみ（OWASP）。
 """
+
 from __future__ import annotations
 
 import base64
 import json
 import os
 import re
+from typing import Any
 
 # Bedrock Converse が受け付ける画像フォーマット
 _SUPPORTED = {"jpeg", "jpg", "png", "gif", "webp"}
@@ -48,17 +50,18 @@ def parse_data_url(image: str) -> tuple[str, bytes]:
     return fmt, base64.b64decode(payload)
 
 
-def _extract_json(text: str) -> dict:
+def _extract_json(text: str) -> dict[str, Any]:
     """モデル応答からJSONオブジェクトを頑健に取り出す（```括りや前後の文章を許容）。"""
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     raw = fenced.group(1) if fenced else None
     if raw is None:
         start, end = text.find("{"), text.rfind("}")
-        raw = text[start:end + 1] if start != -1 and end != -1 else "{}"
+        raw = text[start : end + 1] if start != -1 and end != -1 else "{}"
     try:
-        return json.loads(raw)
+        loaded = json.loads(raw)
     except json.JSONDecodeError:
         return {}
+    return loaded if isinstance(loaded, dict) else {}
 
 
 class BedrockOcrLlm:
@@ -66,35 +69,38 @@ class BedrockOcrLlm:
 
     _FIELDS = ("amount", "party_name", "relationship", "purpose", "occurred_at")
 
-    def __init__(self, model_id: str | None = None, client=None, region: str | None = None):
+    def __init__(self, model_id: str | None = None, client: Any = None, region: str | None = None):
         self.model_id = model_id or os.environ.get(
-            "NOSHI_BEDROCK_MODEL", "jp.anthropic.claude-sonnet-4-5-20250929-v1:0")
+            "NOSHI_BEDROCK_MODEL", "jp.anthropic.claude-sonnet-4-5-20250929-v1:0"
+        )
         self.region = region or os.environ.get("AWS_REGION", "ap-northeast-1")
         self._client = client
 
     @property
-    def client(self):
+    def client(self) -> Any:
         if self._client is None:
             import boto3  # 遅延 import（テストは client 注入で不要）
+
             self._client = boto3.client("bedrock-runtime", region_name=self.region)
         return self._client
 
-    def _converse(self, content: list[dict], system: str, max_tokens: int) -> str:
+    def _converse(self, content: list[dict[str, Any]], system: str, max_tokens: int) -> str:
         r = self.client.converse(
             modelId=self.model_id,
             system=[{"text": system}],
             messages=[{"role": "user", "content": content}],
             inferenceConfig={"maxTokens": max_tokens, "temperature": 0},
         )
-        return r["output"]["message"]["content"][0]["text"]
+        text: str = r["output"]["message"]["content"][0]["text"]
+        return text
 
-    def extract(self, images: list[str]) -> dict:
+    def extract(self, images: list[str]) -> dict[str, Any]:
         if not images:
             raise ValueError("画像がありません。")
         fmt, data = parse_data_url(images[0])
         if fmt not in _SUPPORTED:
             raise ValueError(f"対応していない画像形式です: {fmt}（JPEG/PNG/GIF/WEBP のみ）")
-        content = [
+        content: list[dict[str, Any]] = [
             {"image": {"format": "jpeg" if fmt == "jpg" else fmt, "source": {"bytes": data}}},
             {"text": _EXTRACT_PROMPT},
         ]
@@ -128,11 +134,13 @@ class BedrockOcrLlm:
             f"用途: {purpose} / 相手との関係: {relationship or '不明'} / 文体: {tone}\n"
             "氏名や宛名は入れず、本文のみを返してください。"
         )
-        return self._converse([{"text": prompt}], "あなたは日本の礼儀作法に通じた文章家です。",
-                              max_tokens=400).strip()
+        content: list[dict[str, Any]] = [{"text": prompt}]
+        return self._converse(
+            content, "あなたは日本の礼儀作法に通じた文章家です。", max_tokens=400
+        ).strip()
 
 
-def _clamp(v) -> float:
+def _clamp(v: Any) -> float:
     try:
         f = float(v)
     except (TypeError, ValueError):

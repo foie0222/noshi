@@ -1,5 +1,7 @@
 """ドメインの業務ルール（半返し計算・入力検証）のテスト。"""
+
 import datetime
+
 import pytest
 from app.domain import rules
 
@@ -25,6 +27,7 @@ def test_相手別バランスを集計する():
 def test_もらい超過は気になる関係になる():
     """もらい超過かつ最終やりとりが180日超なら attention=True になることを検証する（BR-6-BALANCE-3）。"""
     import datetime
+
     r = _rec(50000, "結婚祝い", "received", "2025-06-01")
     r.party_name = "いとこ"
     bal = rules.relationship_balance([r], today=datetime.date(2026, 6, 1))
@@ -36,8 +39,11 @@ def test_もらい超過は気になる関係になる():
 def test_均衡な関係はbalanced():
     """もらった/あげたが概ね均衡なら status=balanced になることを検証する（BR-6-BALANCE-2）。"""
     import datetime
-    a = _rec(10000, "出産祝い", "received", "2026-05-01"); a.party_name = "友人"
-    b = _rec(10000, "結婚祝い", "given", "2026-05-02"); b.party_name = "友人"
+
+    a = _rec(10000, "出産祝い", "received", "2026-05-01")
+    a.party_name = "友人"
+    b = _rec(10000, "結婚祝い", "given", "2026-05-02")
+    b.party_name = "友人"
     bal = rules.relationship_balance([a, b], today=datetime.date(2026, 6, 1))
     assert bal[0]["status"] == "balanced"
 
@@ -56,17 +62,24 @@ def test_慶事の用途はcelebrationに分類される():
 
 def _rec(amount, purpose, direction="received", occurred_at="2026-03-01"):
     from app.domain.entities import GiftRecord
-    return GiftRecord(user_id="u", party_name="x", amount=amount, purpose=purpose,
-                      direction=direction, occurred_at=occurred_at)
+
+    return GiftRecord(
+        user_id="u",
+        party_name="x",
+        amount=amount,
+        purpose=purpose,
+        direction=direction,
+        occurred_at=occurred_at,
+    )
 
 
 def test_贈与税集計は社会通念上の贈答を除外する():
     """贈与税の対象集計が香典・お中元・お歳暮を除外することを検証する（BR-4-TAX-1）。"""
     recs = [
         _rec(1000000, "出産祝い"),
-        _rec(300000, "香典"),       # 除外
-        _rec(5000, "お中元"),       # 除外
-        _rec(5000, "お歳暮"),       # 除外
+        _rec(300000, "香典"),  # 除外
+        _rec(5000, "お中元"),  # 除外
+        _rec(5000, "お歳暮"),  # 除外
     ]
     s = rules.gift_tax_summary(recs, year=2026)
     assert s["total"] == 1000000
@@ -77,7 +90,7 @@ def test_贈与税集計は暦年と受領に限定する():
     recs = [
         _rec(500000, "出産祝い", occurred_at="2026-05-01"),
         _rec(400000, "結婚祝い", direction="given", occurred_at="2026-05-01"),  # given 除外
-        _rec(900000, "新築祝い", occurred_at="2025-12-31"),                      # 別年 除外
+        _rec(900000, "新築祝い", occurred_at="2025-12-31"),  # 別年 除外
     ]
     s = rules.gift_tax_summary(recs, year=2026)
     assert s["total"] == 500000
@@ -175,9 +188,13 @@ def test_低信頼の抽出項目は要確認になる():
 
 def test_贈答レコードの入力検証():
     """金額が正・必須項目ありのレコードは検証を通り、金額0は弾かれることを検証する（BR-VAL）。"""
-    ok = rules.validate_record(amount=3000, purpose="出産祝い", party_name="佐藤", direction="received")
+    ok = rules.validate_record(
+        amount=3000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
     assert ok == []
-    errs = rules.validate_record(amount=0, purpose="出産祝い", party_name="佐藤", direction="received")
+    errs = rules.validate_record(
+        amount=0, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
     assert errs  # 金額0はエラー
 
 
@@ -206,8 +223,11 @@ def test_年間振り返りは別の年を含めない():
 
 def test_年間振り返りは相手の人数を数える():
     """その年にやりとりした相手のユニーク人数を数えることを検証する。"""
-    a = _rec(10000, "出産祝い", "received", "2026-01-10"); a.party_name = "叔母"
-    b = _rec(5000, "お年賀", "received", "2026-02-01"); b.party_name = "叔母"
-    c = _rec(8000, "結婚祝い", "given", "2026-03-01"); c.party_name = "友人"
+    a = _rec(10000, "出産祝い", "received", "2026-01-10")
+    a.party_name = "叔母"
+    b = _rec(5000, "お年賀", "received", "2026-02-01")
+    b.party_name = "叔母"
+    c = _rec(8000, "結婚祝い", "given", "2026-03-01")
+    c.party_name = "友人"
     s = rules.annual_summary([a, b, c], 2026)
     assert s["party_count"] == 2

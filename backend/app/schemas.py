@@ -1,4 +1,5 @@
 """API 入出力スキーマ（pydantic）。入力検証はエッジ（A03）で行う。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

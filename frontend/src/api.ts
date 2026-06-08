@@ -53,18 +53,22 @@ export const api = {
   ledger: () => req("/ledger"),
   capture: (image?: string) =>
     req("/capture", { method: "POST", body: JSON.stringify({ image: image ?? null }) }),
-  createRecord: (r: RecordInput) =>
-    req("/records", { method: "POST", body: JSON.stringify(r) }),
+  createRecord: (r: RecordInput) => req("/records", { method: "POST", body: JSON.stringify(r) }),
   updateRecord: (recordId: string, r: { amount: number; purpose: string; party_name: string }) =>
     req(`/records/${recordId}`, { method: "PATCH", body: JSON.stringify(r) }),
   halfReturn: (amount: number, purpose: string) =>
     req(`/returns/half-return?amount=${amount}&purpose=${encodeURIComponent(purpose)}`),
   suggestions: (eventId: string, budget: number, relationship: string, purpose: string) =>
-    req(`/events/${eventId}/suggestions?budget=${budget}&relationship=${encodeURIComponent(relationship)}&purpose=${encodeURIComponent(purpose)}`),
+    req(
+      `/events/${eventId}/suggestions?budget=${budget}&relationship=${encodeURIComponent(relationship)}&purpose=${encodeURIComponent(purpose)}`,
+    ),
   selectSuggestion: (eventId: string, s: any) =>
     req(`/events/${eventId}/suggestion`, { method: "POST", body: JSON.stringify(s) }),
   letter: (eventId: string, purpose: string, relationship: string, tone: string) =>
-    req(`/events/${eventId}/letter`, { method: "POST", body: JSON.stringify({ purpose, relationship, tone }) }),
+    req(`/events/${eventId}/letter`, {
+      method: "POST",
+      body: JSON.stringify({ purpose, relationship, tone }),
+    }),
   setStatus: (eventId: string, status: string) =>
     req(`/events/${eventId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   getEvent: (eventId: string) => req(`/events/${eventId}`),

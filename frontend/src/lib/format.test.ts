@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { yen, diffLabel, summarize, statusLabel, daysLeftLabel } from "./format";
+import { describe, expect, it } from "vitest";
+import { daysLeftLabel, diffLabel, statusLabel, summarize, yen } from "./format";
 
 describe("残日数の表示", () => {
   it("残日数が正なら「のこり◯日」と表示することを検証する", () => {

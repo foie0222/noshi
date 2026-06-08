@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { reviewMessage } from "./review";
 
 describe("読み取り確認メッセージ（件数に応じた出し分け）", () => {

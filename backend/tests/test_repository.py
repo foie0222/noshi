@@ -1,5 +1,6 @@
 """データ層（InMemoryRepository）のテスト。本人スコープと CRUD を検証する。"""
-from app.domain.entities import GiftRecord, GiftEvent
+
+from app.domain.entities import GiftEvent, GiftRecord
 from app.repository import InMemoryRepository
 
 

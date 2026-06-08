@@ -4,12 +4,11 @@
 DynamoDB の型（Decimal）を跨いでも金額が int として復元され、float を含む
 ジョブも保存できることを検証する。
 """
-import boto3
-import pytest
-from moto import mock_aws
 
-from app.domain.entities import GiftRecord, GiftEvent, ExtractionJob
+import pytest
+from app.domain.entities import ExtractionJob, GiftEvent, GiftRecord
 from app.repository import DynamoRepository, create_table
+from moto import mock_aws
 
 
 @pytest.fixture
@@ -48,7 +47,8 @@ def test_一覧は本人のレコードだけを返す(table_name):
 def test_別インスタンスから保存済みデータが読める(table_name):
     """別の Repository インスタンス（=別プロセス相当）が先の書き込みを読めることを検証する（永続化）。"""
     DynamoRepository(table_name=table_name).put_record(
-        GiftRecord(user_id="u1", party_name="叔母", amount=5000, purpose="お年賀"))
+        GiftRecord(user_id="u1", party_name="叔母", amount=5000, purpose="お年賀")
+    )
     fresh = DynamoRepository(table_name=table_name)
     assert len(fresh.list_records("u1")) == 1
 
@@ -56,8 +56,9 @@ def test_別インスタンスから保存済みデータが読める(table_name
 def test_float信頼度を含むジョブを保存できる(table_name):
     """float の信頼度を持つ ExtractionJob を保存・取得できることを検証する（Decimal変換）。"""
     repo = DynamoRepository(table_name=table_name)
-    job = ExtractionJob(user_id="u1", confidence=0.82,
-                        field_confidence={"amount": 0.9, "purpose": 0.6})
+    job = ExtractionJob(
+        user_id="u1", confidence=0.82, field_confidence={"amount": 0.9, "purpose": 0.6}
+    )
     repo.put_job(job)
     got = repo.get_job("u1", job.id)
     assert got is not None
@@ -77,6 +78,7 @@ def test_未完了イベントはdoneを除外する(table_name):
 def test_世帯と招待コードで往復できる(table_name):
     """世帯を保存し、招待コードから逆引きで同じ世帯を取得できることを検証する（家族共有）。"""
     from app.domain.entities import Household
+
     repo = DynamoRepository(table_name=table_name)
     h = Household(name="井上家")
     repo.put_household(h)
@@ -87,6 +89,7 @@ def test_世帯と招待コードで往復できる(table_name):
 def test_メンバーシップと世帯メンバー一覧(table_name):
     """メンバーシップを保存し、ユーザー引き・世帯メンバー一覧引きの両方ができることを検証する。"""
     from app.domain.entities import Membership
+
     repo = DynamoRepository(table_name=table_name)
     repo.put_membership(Membership(user_id="u1", household_id="H", role="owner"))
     repo.put_membership(Membership(user_id="u2", household_id="H", role="member"))

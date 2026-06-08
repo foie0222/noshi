@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { seasonOf, seasonNudge } from "./season";
+import { describe, expect, it } from "vitest";
+import { seasonNudge, seasonOf } from "./season";
 
 describe("季節判定", () => {
   it("6〜8月はお中元(ochugen)と判定することを検証する", () => {

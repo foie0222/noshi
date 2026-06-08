@@ -1,0 +1,41 @@
+# pre-commit: コミット前に format/lint/型チェックを実行する（厳格: 全て pass しないとコミット不可）。
+# 導入: pip install pre-commit && pre-commit install
+# 前提: backend/.venv（ruff/mypy 入り）, frontend/node_modules（biome 入り）。
+exclude: '^(org-ai-kb/|\.kiro/)'
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      # backend: ruff（format → 自動修正、lint → 自動修正/エラーでブロック）
+      - id: ruff-format
+        name: ruff format (backend)
+        entry: backend/.venv/bin/ruff format
+        language: system
+        files: ^backend/.*\.py$
+      - id: ruff-check
+        name: ruff lint (backend)
+        entry: backend/.venv/bin/ruff check --fix
+        language: system
+        files: ^backend/.*\.py$
+      # backend: mypy strict（app/ 全体・型エラーでブロック）
+      - id: mypy
+        name: mypy strict (backend)
+        entry: bash -c 'cd backend && .venv/bin/mypy'
+        language: system
+        files: ^backend/app/.*\.py$
+        pass_filenames: false
+      # frontend: biome（format 自動修正 + lint、エラーでブロック）
+      - id: biome
+        name: biome check (frontend)
+        entry: bash -c 'cd frontend && npx --no-install biome check --write src'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false

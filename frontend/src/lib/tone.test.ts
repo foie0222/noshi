@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { toneOf } from "./tone";
 
 describe("弔事/慶事トーン分類", () => {

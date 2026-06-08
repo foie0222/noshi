@@ -7,10 +7,12 @@
 
 本番（Cognito）への差し替えはコード変更不要——環境変数だけで切り替わる。
 """
+
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 
 class AuthError(Exception):
@@ -19,7 +21,7 @@ class AuthError(Exception):
 
 @dataclass(frozen=True)
 class Identity:
-    user_id: str          # Cognito の sub（不変のユーザー識別子）
+    user_id: str  # Cognito の sub（不変のユーザー識別子）
     email: str = ""
 
 
@@ -27,25 +29,33 @@ class Identity:
 _jwks_client = None
 
 
-def _verify_hs256(token: str, secret: str) -> dict:
+def _verify_hs256(token: str, secret: str) -> dict[str, Any]:
     import jwt
+
     try:
-        return jwt.decode(token, secret, algorithms=["HS256"],
-                          options={"require": ["exp"], "verify_aud": False})
+        return jwt.decode(
+            token, secret, algorithms=["HS256"], options={"require": ["exp"], "verify_aud": False}
+        )
     except jwt.PyJWTError as e:
         raise AuthError(f"invalid token: {e}") from e
 
 
-def _verify_cognito(token: str, pool_id: str, region: str) -> dict:
+def _verify_cognito(token: str, pool_id: str, region: str) -> dict[str, Any]:
     global _jwks_client
     import jwt
+
     issuer = f"https://cognito-idp.{region}.amazonaws.com/{pool_id}"
     if _jwks_client is None:
         _jwks_client = jwt.PyJWKClient(f"{issuer}/.well-known/jwks.json")
     try:
         signing_key = _jwks_client.get_signing_key_from_jwt(token)
-        claims = jwt.decode(token, signing_key.key, algorithms=["RS256"],
-                            issuer=issuer, options={"verify_aud": False, "require": ["exp"]})
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            issuer=issuer,
+            options={"verify_aud": False, "require": ["exp"]},
+        )
     except jwt.PyJWTError as e:
         raise AuthError(f"invalid token: {e}") from e
     # アクセストークン/IDトークンのみ受理（A07）

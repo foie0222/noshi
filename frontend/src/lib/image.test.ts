@@ -1,11 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { validateImageFile, MAX_IMAGE_BYTES } from "./image";
+import { describe, expect, it } from "vitest";
+import { MAX_IMAGE_BYTES, validateImageFile } from "./image";
 
-function fakeFile(type: string, size: number): File {
+function _fakeFile(type: string, size: number): File {
   // size バイトのダミー（中身は問わない）
   const blob = new Blob([new Uint8Array(Math.min(size, 1024))], { type });
-  return new File([blob], "x", { type, lastModified: 0 }) as File &
-    { size: number };
+  return new File([blob], "x", { type, lastModified: 0 }) as File & { size: number };
 }
 
 describe("画像ファイルの検証（BR-VAL-1）", () => {

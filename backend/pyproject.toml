@@ -1,0 +1,26 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+ignore = ["E501"]  # 行長は formatter に委ねる
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI の依存性注入は引数デフォルトでの関数呼び出しが定型（B008 の対象外にする）
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", "fastapi.Path"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["app"]
+ignore_missing_imports = false
+
+# 型スタブの無い外部ライブラリ
+[[tool.mypy.overrides]]
+module = ["boto3.*", "botocore.*", "mangum.*", "jwt.*"]
+ignore_missing_imports = true

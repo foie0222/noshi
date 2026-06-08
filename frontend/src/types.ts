@@ -24,6 +24,8 @@ export interface EventView {
   direction: Direction;
   occurred_at: string;
   due_at: string | null;
+  due_default: string | null;
+  due_overridden: boolean;
   days_left: number | null;
   suggestion_id: string | null;
   letter_id: string | null;
@@ -143,6 +145,7 @@ export interface EditDraft {
   amount: string;
   purpose: string;
   party_name: string;
+  occurred_at: string;
 }
 
 /** 不明な例外から表示用メッセージを取り出す。 */

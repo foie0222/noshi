@@ -220,3 +220,77 @@ def test_不正な値での修正は検証エラーになる():
     )
     with pytest.raises(ValidationError):
         svc.update_record("u1", rec.id, amount=0, purpose="出産祝い", party_name="佐藤")
+
+
+def test_もらった日を変えると期限が再計算される():
+    """occurred_at をupdate_recordで変更すると、イベントビューのお返し期限が再計算されることを検証する（#2）。"""
+    svc = make_service()
+    rec, ev = svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="出産祝い",
+        party_name="佐藤",
+        direction="received",
+        occurred_at="2026-05-01",
+    )
+    assert svc.event_view("u1", ev.id)["due_at"] == "2026-05-31"  # +30日
+    svc.update_record(
+        "u1", rec.id, amount=10000, purpose="出産祝い", party_name="佐藤", occurred_at="2026-06-01"
+    )
+    assert svc.event_view("u1", ev.id)["due_at"] == "2026-07-01"  # 再計算
+
+
+def test_お返し期限をデフォルトから上書きできる():
+    """set_event_due で期限を手動上書きでき、ビューに due_overridden と既定値も含まれることを検証する（#2）。"""
+    svc = make_service()
+    _, ev = svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="出産祝い",
+        party_name="佐藤",
+        direction="received",
+        occurred_at="2026-05-01",
+    )
+    svc.set_event_due("u1", ev.id, "2026-06-15")
+    v = svc.event_view("u1", ev.id)
+    assert v["due_at"] == "2026-06-15"  # 上書きが効く
+    assert v["due_overridden"] is True
+    assert v["due_default"] == "2026-05-31"  # 既定は保持して提示
+
+
+def test_期限上書きをクリアするとデフォルトに戻る():
+    """空文字/None で set_event_due すると上書きが消え、既定の自動計算に戻ることを検証する（#2）。"""
+    svc = make_service()
+    _, ev = svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="出産祝い",
+        party_name="佐藤",
+        direction="received",
+        occurred_at="2026-05-01",
+    )
+    svc.set_event_due("u1", ev.id, "2026-06-15")
+    svc.set_event_due("u1", ev.id, "")  # クリア
+    v = svc.event_view("u1", ev.id)
+    assert v["due_overridden"] is False
+    assert v["due_at"] == "2026-05-31"  # 既定に復帰
+
+
+def test_不正な期限の上書きは検証エラーになる():
+    """YYYY-MM-DD でない期限の上書きが ValidationError になることを検証する（#2, BR-VAL）。"""
+    svc = make_service()
+    _, ev = svc.create_record(
+        "u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
+    with pytest.raises(ValidationError):
+        svc.set_event_due("u1", ev.id, "2026/06/15")
+
+
+def test_他人のイベントの期限は上書きできない():
+    """他ユーザーのイベントの期限上書きが ForbiddenError で拒否されることを検証する（A01）。"""
+    svc = make_service()
+    _, ev = svc.create_record(
+        "u1", amount=10000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
+    with pytest.raises(ForbiddenError):
+        svc.set_event_due("attacker", ev.id, "2026-06-15")

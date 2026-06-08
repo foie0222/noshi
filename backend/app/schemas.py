@@ -36,6 +36,11 @@ class StatusIn(BaseModel):
     status: str = Field(pattern="^(received|considering|done)$")
 
 
+class DueIn(BaseModel):
+    # お返し期限の手動上書き。null/"" で上書き解除（自動計算へ戻す）。
+    due_at: str | None = None
+
+
 class SelectSuggestionIn(BaseModel):
     title: str
     summary: str = ""

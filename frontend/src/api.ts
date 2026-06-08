@@ -76,10 +76,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(r),
     }),
-  updateRecord: (recordId: string, r: { amount: number; purpose: string; party_name: string }) =>
+  updateRecord: (
+    recordId: string,
+    r: { amount: number; purpose: string; party_name: string; occurred_at?: string },
+  ) =>
     req<{ record: GiftRecord }>(`/records/${recordId}`, {
       method: "PATCH",
       body: JSON.stringify(r),
+    }),
+  setEventDue: (eventId: string, dueAt: string | null) =>
+    req<{ event: EventView }>(`/events/${eventId}/due`, {
+      method: "PUT",
+      body: JSON.stringify({ due_at: dueAt }),
     }),
   halfReturn: (amount: number, purpose: string) =>
     req<HalfReturn>(`/returns/half-return?amount=${amount}&purpose=${encodeURIComponent(purpose)}`),

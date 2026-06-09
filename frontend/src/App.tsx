@@ -23,7 +23,7 @@ import {
   signOut,
   signUp,
 } from "./lib/cognito";
-import { daysLeftLabel, statusLabel, yen } from "./lib/format";
+import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
 import { otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
@@ -907,7 +907,7 @@ export function App() {
             return (
               <div className="card tap" key={e.id} onClick={() => openEvent(e.id)}>
                 <div className="between">
-                  <b>{e.party_name} 様</b>
+                  <b>{withHonor(e.party_name)}</b>
                   <span
                     className="duebadge"
                     style={{
@@ -1205,7 +1205,7 @@ export function App() {
               {!editDraft ? (
                 <div className="card">
                   <div className="between">
-                    <b className="detail-name">{event.party_name} 様</b>
+                    <b className="detail-name">{withHonor(event.party_name)}</b>
                     <button
                       type="button"
                       className="card-edit"
@@ -1491,7 +1491,7 @@ export function App() {
             return (
               <div className="card" key={r.party_name}>
                 <div className="between">
-                  <b className="val">{r.party_name} 様</b>
+                  <b className="val">{withHonor(r.party_name)}</b>
                   <span className={`balbadge ${r.status}`}>
                     {r.attention ? "気になる関係" : label}
                   </span>

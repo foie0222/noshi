@@ -29,6 +29,7 @@ export interface EventView {
   due_overridden: boolean;
   days_left: number | null;
   suggestion_id: string | null;
+  image_url: string | null;
 }
 
 export interface PartySummary {

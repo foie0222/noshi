@@ -20,6 +20,7 @@ from app.domain.entities import (
     Membership,
     ReturnSuggestion,
 )
+from app.images import ImageStore
 from app.ports import GiftCatalogPort, OcrLlmPort
 from app.repository import Repository
 
@@ -45,10 +46,25 @@ class ForbiddenError(Exception):
 
 
 class NoshiService:
-    def __init__(self, repo: Repository, ocr: OcrLlmPort, catalog: GiftCatalogPort):
+    def __init__(
+        self,
+        repo: Repository,
+        ocr: OcrLlmPort,
+        catalog: GiftCatalogPort,
+        images: ImageStore | None = None,
+    ):
         self.repo = repo
         self.ocr = ocr
         self.catalog = catalog
+        self.images = images or ImageStore()  # 既定は環境変数 NOSHI_IMAGE_BUCKET を読む
+
+    # --- 撮影画像（S3・署名付きURL）（#35）---
+    def image_upload_url(self, user_id: str, content_type: str) -> dict[str, Any]:
+        """アップロード用の署名付きPUT URLと、保存先キーを払い出す（世帯スコープ）。"""
+        if content_type not in ("image/jpeg", "image/png", "image/webp"):
+            raise ValidationError(["対応していない画像形式です。"])
+        key = self.images.new_key(self._scope(user_id), content_type)
+        return {"url": self.images.upload_url(key, content_type), "key": key}
 
     # --- 監査 ---
     def _audit(self, actor_id: str, action: str, target_ref: str) -> None:
@@ -262,6 +278,7 @@ class NoshiService:
             direction=direction,
             occurred_at=extra.get("occurred_at", ""),
             relationship=extra.get("relationship", ""),
+            image_key=extra.get("image_key", ""),
         )
         self.repo.put_record(rec)
         # received のみお返しイベントを生成（BR-3-GIVEN: given は対象外）
@@ -329,18 +346,27 @@ class NoshiService:
             rec.occurred_at = extra["occurred_at"]
         if "relationship" in extra:
             rec.relationship = extra["relationship"]
+        if "image_key" in extra:
+            new_key = extra["image_key"] or ""
+            # 差し替え/削除なら旧オブジェクトを後始末（#35）
+            if rec.image_key and rec.image_key != new_key and self.images.enabled():
+                self.images.delete(rec.image_key)
+            rec.image_key = new_key
         self.repo.put_record(rec)
         self._audit(user_id, "update_record", record_id)  # A09
         return rec
 
     def delete_record(self, user_id: str, record_id: str) -> bool:
         scope = self._scope(user_id)
-        if self.repo.get_record(scope, record_id) is None:
+        rec = self.repo.get_record(scope, record_id)
+        if rec is None:
             raise ForbiddenError("not your record")
         # 紐づくお返しイベントも削除（孤立させない、#36）。
         for ev in self.repo.list_events(scope):
             if ev.record_id == record_id:
                 self.repo.delete_event(scope, ev.id)
+        if rec.image_key and self.images.enabled():  # 画像も後始末（#35）
+            self.images.delete(rec.image_key)
         ok = self.repo.delete_record(scope, record_id)
         self._audit(user_id, "delete_record", record_id)  # A09
         return ok
@@ -393,6 +419,7 @@ class NoshiService:
         default_due = rules.due_date(occurred_at, purpose)  # BR-3-DUE（用途・受領日からの既定）
         override = _parse_date(ev.override_due)  # 手動上書きがあれば優先
         due = override or default_due
+        image_key = rec.image_key if rec else ""
         return {
             "id": ev.id,
             "status": ev.status,
@@ -408,6 +435,10 @@ class NoshiService:
             "due_overridden": override is not None,
             "days_left": rules.days_left(due),
             "suggestion_id": ev.suggestion_id,
+            # 撮影画像（署名付きGET URL、#35）。S3 無効時や未設定時は None。
+            "image_url": (
+                self.images.view_url(image_key) if image_key and self.images.enabled() else None
+            ),
         }
 
     def set_event_due(self, user_id: str, event_id: str, due_at: str | None) -> GiftEvent:

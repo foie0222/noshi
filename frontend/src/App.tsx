@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { api, currentUserId, type RecordInput, setCurrentUserId, UnauthorizedError } from "./api";
+import {
+  api,
+  currentUserId,
+  type RecordInput,
+  setCurrentUserId,
+  UnauthorizedError,
+  uploadToS3,
+} from "./api";
 import { Drawer } from "./components/Drawer";
 import { Icon, type IconName } from "./components/Icon";
 import { Logo } from "./components/Logo";
@@ -17,7 +24,7 @@ import {
   signUp,
 } from "./lib/cognito";
 import { daysLeftLabel, statusLabel, yen } from "./lib/format";
-import { fileToDataUrl, validateImageFile } from "./lib/image";
+import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
 import { otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
 import { seasonNudge, seasonOf } from "./lib/season";
@@ -373,9 +380,24 @@ export function App() {
     go("review");
   }
 
+  // data URL の画像を縮小し、署名付きURLでS3へ上げてキーを返す（#35）。
+  // S3 未設定（ローカル/501）等で失敗しても記録は続行できるよう "" を返す。
+  async function uploadImage(dataUrl: string): Promise<string> {
+    if (!dataUrl) return "";
+    try {
+      const blob = await downscaleImage(dataUrl);
+      const { url, key } = await api.imageUploadUrl("image/jpeg");
+      await uploadToS3(url, blob, "image/jpeg");
+      return key;
+    } catch {
+      return ""; // 画像は任意。保存できなくても記録は残す。
+    }
+  }
+
   async function saveRecord() {
     if (!draft) return;
     try {
+      const image_key = await uploadImage(draft.image);
       const input: RecordInput = {
         amount: Number(draft.amount),
         purpose: draft.purpose,
@@ -383,6 +405,7 @@ export function App() {
         direction: draft.direction,
         occurred_at: draft.occurred_at || "",
         relationship: draft.relationship || "",
+        image_key,
       };
       const res = await api.createRecord(input);
       setEvent(res.event);
@@ -522,6 +545,37 @@ export function App() {
       notify(dueAt ? "期限を変更しました" : "期限を既定に戻しました");
     } catch (e) {
       notify(errMsg(e));
+    }
+  }
+
+  // ---- 詳細の写真を追加/差し替え/削除（#35）。file=null で削除。----
+  async function changeImage(file: File | null) {
+    if (!event) return;
+    let image_key = "";
+    if (file) {
+      const err = validateImageFile(file);
+      if (err) {
+        notify(err);
+        return;
+      }
+      image_key = await uploadImage(await fileToDataUrl(file));
+      if (!image_key) {
+        notify("写真を保存できませんでした。");
+        return;
+      }
+    }
+    try {
+      await api.updateRecord(event.record_id, {
+        amount: event.amount,
+        purpose: event.purpose,
+        party_name: event.party_name,
+        image_key,
+      });
+      const r = await api.getEvent(event.id);
+      setEvent(r.event);
+      notify(file ? "写真を変更しました" : "写真を削除しました");
+    } catch (e) {
+      handleErr(e);
     }
   }
 
@@ -1181,6 +1235,34 @@ export function App() {
                       <span className="muted">もらった日</span>
                       <span>{event.occurred_at || "—"}</span>
                     </div>
+                  </div>
+                  <div className="detail-photo">
+                    {event.image_url && (
+                      <img className="detail-image" src={event.image_url} alt="贈答の写真" />
+                    )}
+                    <div className="detail-photo-actions">
+                      <label className="photo-btn" htmlFor="detail-photo-input">
+                        <Icon name="camera" size={16} />
+                        {event.image_url ? "写真を差し替え" : "写真を追加"}
+                      </label>
+                      {event.image_url && (
+                        <button
+                          type="button"
+                          className="photo-btn danger"
+                          onClick={() => changeImage(null)}
+                        >
+                          <Icon name="trash" size={16} />
+                          削除
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      id="detail-photo-input"
+                      className="visually-hidden"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => changeImage(e.target.files?.[0] ?? null)}
+                    />
                   </div>
                 </div>
               ) : (

@@ -965,3 +965,44 @@ body {
 .card-edit:hover {
   background: var(--color-primary-tint);
 }
+
+/* 贈答詳細の写真（#35） */
+.detail-photo {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--bw-hairline) solid var(--border-faint);
+}
+.detail-image {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: var(--bw-hairline) solid var(--border-default);
+  background: var(--surface-card-raised);
+  display: block;
+}
+.detail-photo-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+}
+.photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 38px;
+  padding: 0 16px;
+  border: var(--bw-thick) solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+.photo-btn.danger {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}

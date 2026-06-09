@@ -19,6 +19,7 @@ from app.repository import InMemoryRepository, Repository
 from app.schemas import (
     CaptureIn,
     DueIn,
+    ImageUploadIn,
     JoinHouseholdIn,
     PurposeIn,
     RecordIn,
@@ -174,9 +175,17 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
             direction=body.direction,
             occurred_at=body.occurred_at,
             relationship=body.relationship,
+            image_key=body.image_key,
         )
         # given はお返しイベントを持たない（ev is None）。安全に null を返す（FR-8-1）。
         return {"record": vars(rec), "event": vars(ev) if ev is not None else None}
+
+    @app.post("/api/images/upload-url")
+    def image_upload_url(body: ImageUploadIn, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #35: 撮影画像の署名付きPUT URLを払い出す。S3 未設定（ローカル）は 501。
+        if not svc.images.enabled():
+            raise HTTPException(status_code=501, detail="画像保存は未設定です。")
+        return svc.image_upload_url(uid, body.content_type)
 
     @app.get("/api/relationships")
     def relationships(uid: str = Depends(current_user)) -> dict[str, Any]:
@@ -238,7 +247,11 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # None のフィールドは渡さない＝既存値を保持（金額のみ修正で日付が消えないように）。
         extra = {
             k: v
-            for k, v in (("occurred_at", body.occurred_at), ("relationship", body.relationship))
+            for k, v in (
+                ("occurred_at", body.occurred_at),
+                ("relationship", body.relationship),
+                ("image_key", body.image_key),
+            )
             if v is not None
         }
         rec = svc.update_record(

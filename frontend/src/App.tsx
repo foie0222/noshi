@@ -30,6 +30,7 @@ import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
 import { seasonNudge, seasonOf } from "./lib/season";
 import { toneOf } from "./lib/tone";
+import { hasErrors, recordErrors } from "./lib/validate";
 import {
   type AnnualSummary,
   type Draft,
@@ -127,6 +128,8 @@ export function App() {
   const [purOptions, setPurOptions] = useState<string[]>([]); // 用途マスタの選択肢(#37)
   const [purDefaults, setPurDefaults] = useState<string[]>([]); // 既定（削除不可の判定用）
   const [parties, setParties] = useState<Party[]>([]); // 相手マスタ(#47)
+  const [reviewTried, setReviewTried] = useState<boolean>(false); // 保存を試みたか(#50: 検証表示)
+  const [editTried, setEditTried] = useState<boolean>(false);
   const [mySection, setMySection] = useState<MySection>("household"); // マイページのサブページ(#3)
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false); // マイページのドロワー
 
@@ -373,6 +376,7 @@ export function App() {
         image: capturedImage,
         party_id: "", // 確認画面で相手を選ぶ/作る（#47）
       });
+      setReviewTried(false);
       go("review");
     } catch (e) {
       notify(errMsg(e));
@@ -399,6 +403,7 @@ export function App() {
       image: "",
       party_id: "",
     });
+    setReviewTried(false);
     go("review");
   }
 
@@ -418,8 +423,13 @@ export function App() {
 
   async function saveRecord() {
     if (!draft) return;
-    if (!draft.party_id) {
-      notify("相手を選んでください。");
+    const errs = recordErrors({
+      amount: String(draft.amount ?? ""),
+      purpose: draft.purpose ?? "",
+      partyId: draft.party_id,
+    });
+    if (hasErrors(errs)) {
+      setReviewTried(true); // 各項目の下にインライン表示（#50）
       return;
     }
     try {
@@ -525,6 +535,7 @@ export function App() {
   // ---- 記録の修正（AI抽出の誤りを本人が訂正）----
   function startEdit() {
     if (!event) return;
+    setEditTried(false);
     setEditDraft({
       amount: String(event.amount),
       purpose: event.purpose,
@@ -534,16 +545,17 @@ export function App() {
   }
   async function saveEdit() {
     if (!editDraft || !event) return;
+    const errs = recordErrors({
+      amount: editDraft.amount,
+      purpose: editDraft.purpose,
+      partyId: editDraft.party_id,
+    });
+    if (hasErrors(errs)) {
+      setEditTried(true); // インライン表示（#50）
+      return;
+    }
     try {
       const amount = Number(editDraft.amount);
-      if (!amount || amount <= 0) {
-        notify("金額は1円以上で入力してください。");
-        return;
-      }
-      if (!editDraft.purpose.trim() || !editDraft.party_id) {
-        notify("用途と相手は必須です。");
-        return;
-      }
       await api.updateRecord(event.record_id, {
         amount,
         purpose: editDraft.purpose.trim(),
@@ -1036,6 +1048,13 @@ export function App() {
           };
           const fr = draft.field_review || {};
           const reviewCount = fields.filter((k) => fr[k]).length;
+          const errs = reviewTried
+            ? recordErrors({
+                amount: String(draft.amount ?? ""),
+                purpose: draft.purpose ?? "",
+                partyId: draft.party_id,
+              })
+            : {};
           return (
             <>
               <Bar title={draft.image ? "内容を確認" : "あげた物を記録"} back="capture" />
@@ -1083,9 +1102,12 @@ export function App() {
                   onAddRelationship={addRelationship}
                   onDeleteRelationship={deleteRelationship}
                 />
+                {errs.party && <span className="field-error">{errs.party}</span>}
               </div>
               {fields.map((k) => {
                 const warn = !!fr[k];
+                const err =
+                  k === "amount" ? errs.amount : k === "purpose" ? errs.purpose : undefined;
                 return (
                   <div className="field" key={k}>
                     <label htmlFor={`rev-${k}`}>
@@ -1115,11 +1137,12 @@ export function App() {
                     ) : (
                       <input
                         id={`rev-${k}`}
-                        className={`input${warn ? " warn" : ""}`}
+                        className={`input${warn || err ? " warn" : ""}`}
                         value={draft[k] ?? ""}
                         onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
                       />
                     )}
+                    {err && <span className="field-error">{err}</span>}
                   </div>
                 );
               })}
@@ -1308,6 +1331,9 @@ export function App() {
                       onAddRelationship={addRelationship}
                       onDeleteRelationship={deleteRelationship}
                     />
+                    {editTried && !editDraft.party_id && (
+                      <span className="field-error">お相手を選んでください。</span>
+                    )}
                   </div>
                   <div className="field">
                     <label htmlFor="edit-purpose">用途</label>
@@ -1323,17 +1349,23 @@ export function App() {
                       }
                       onDelete={deletePurpose}
                     />
+                    {editTried && !editDraft.purpose.trim() && (
+                      <span className="field-error">用途を選んでください。</span>
+                    )}
                   </div>
                   <div className="field">
                     <label htmlFor="edit-amount">金額（円）</label>
                     <input
                       id="edit-amount"
-                      className="input"
+                      className={`input${editTried && (!editDraft.amount.trim() || Number(editDraft.amount) <= 0) ? " warn" : ""}`}
                       type="number"
                       inputMode="numeric"
                       value={editDraft.amount}
                       onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}
                     />
+                    {editTried && (!editDraft.amount.trim() || Number(editDraft.amount) <= 0) && (
+                      <span className="field-error">金額は1円以上で入力してください。</span>
+                    )}
                   </div>
                   <div className="field">
                     <label htmlFor="edit-occurred">

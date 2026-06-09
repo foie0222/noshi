@@ -1006,3 +1006,11 @@ body {
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
+
+/* 入力検証のインライン表示（#50） */
+.field-error {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--fs-sm);
+  color: var(--color-accent);
+}

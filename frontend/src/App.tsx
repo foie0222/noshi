@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, currentUserId, type RecordInput, setCurrentUserId, UnauthorizedError } from "./api";
-import { Icon } from "./components/Icon";
+import { Drawer } from "./components/Drawer";
+import { Icon, type IconName } from "./components/Icon";
 import { Logo } from "./components/Logo";
 import { RelationshipField } from "./components/RelationshipField";
 import { copyText } from "./lib/clipboard";
@@ -49,6 +50,26 @@ type Screen =
   | "relations"
   | "mypage";
 
+// マイページのサブページ（#3: ハンバーガー→ドロワーで切替）。
+type MySection =
+  | "household"
+  | "annual"
+  | "gifttax"
+  | "otoshidama"
+  | "display"
+  | "privacy"
+  | "account";
+
+const MY_SECTIONS: { key: MySection; label: string; icon: IconName }[] = [
+  { key: "household", label: "ご家族", icon: "users" },
+  { key: "annual", label: "年間振り返り", icon: "calendar" },
+  { key: "gifttax", label: "贈与税の目安", icon: "scale" },
+  { key: "otoshidama", label: "お年玉の目安", icon: "gift" },
+  { key: "display", label: "表示設定", icon: "settings" },
+  { key: "privacy", label: "プライバシー", icon: "lock" },
+  { key: "account", label: "アカウント", icon: "user" },
+];
+
 const TrustNote = () => (
   <div className="trustnote">
     <span className="ic">
@@ -96,6 +117,8 @@ export function App() {
   const [dueInput, setDueInput] = useState<string>(""); // 期限編集の入力値(YYYY-MM-DD)
   const [relOptions, setRelOptions] = useState<string[]>([]); // 続柄マスタの選択肢(#1)
   const [relDefaults, setRelDefaults] = useState<string[]>([]); // 既定（削除不可の判定用）
+  const [mySection, setMySection] = useState<MySection>("household"); // マイページのサブページ(#3)
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false); // マイページのドロワー
 
   async function onPickImage(file: File | null) {
     const err = validateImageFile(file);
@@ -1301,12 +1324,21 @@ export function App() {
 
       {screen === "mypage" && (
         <>
-          <Bar title="マイページ" />
-          {household && (
+          <div className="mypage-head">
+            <button
+              type="button"
+              className="hamburger"
+              aria-label="メニュー"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Icon name="menu" size={24} />
+            </button>
+            <span className="title">
+              {MY_SECTIONS.find((s) => s.key === mySection)?.label ?? "マイページ"}
+            </span>
+          </div>
+          {mySection === "household" && household && (
             <>
-              <div className="h" style={{ fontSize: 15 }}>
-                ご家族（共有）
-              </div>
               <div className="card">
                 {(() => {
                   const me = currentUserId();
@@ -1404,7 +1436,7 @@ export function App() {
               </div>
             </>
           )}
-          {annual && (
+          {mySection === "annual" && annual && (
             <>
               <div className="h" style={{ fontSize: 15 }}>
                 {annual.year}年の振り返り
@@ -1438,10 +1470,7 @@ export function App() {
               </div>
             </>
           )}
-          <div className="h" style={{ fontSize: 15 }}>
-            贈与税の目安
-          </div>
-          {giftTax && (
+          {mySection === "gifttax" && giftTax && (
             <div className="card">
               <div className="muted">今年もらった（対象）合計</div>
               <div className="amount" style={{ fontSize: 20 }}>
@@ -1464,114 +1493,128 @@ export function App() {
               </div>
             </div>
           )}
-          <div className="h" style={{ fontSize: 15 }}>
-            お年玉の目安
-          </div>
-          <div className="card">
-            <div className="field" style={{ marginTop: 0 }}>
-              <label htmlFor="otoshi-age">お子さんの年齢</label>
-              <input
-                id="otoshi-age"
-                className="input"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={25}
-                placeholder="例）8"
-                value={otoshiAge}
-                aria-label="お子さんの年齢"
-                onChange={(e) => setOtoshiAge(e.target.value)}
-              />
-            </div>
-            {otoshiAge !== "" &&
-              !Number.isNaN(Number(otoshiAge)) &&
-              (() => {
-                const r = otoshidamaRange(Number(otoshiAge));
-                return (
-                  <div style={{ marginTop: 12 }}>
-                    <div className="muted">{r.bracket}</div>
-                    <div className="range" style={{ fontSize: 22 }}>
-                      {r.low === r.high ? yen(r.low) : `${yen(r.low)}〜${yen(r.high)}`}
-                    </div>
-                    <div className="muted" style={{ marginTop: 4 }}>
-                      {r.note}
-                    </div>
-                  </div>
-                );
-              })()}
-            <div className="disclaimer">※ 家庭・地域で異なる一般的な目安です。</div>
-          </div>
-
-          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>
-            表示
-          </div>
-          <div className="card">
-            <div className="between">
-              <span>文字を大きくする</span>
-              <button
-                type="button"
-                className={`toggle${fontLarge ? " on" : ""}`}
-                role="switch"
-                aria-checked={fontLarge}
-                aria-label="文字を大きくする"
-                onClick={toggleFont}
-              >
-                <span className="knob" />
-              </button>
-            </div>
-          </div>
-
-          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>
-            プライバシー
-          </div>
-          <div className="card">
-            <TrustNote />
-            <div className="muted" style={{ marginTop: 8 }}>
-              贈り先の情報も含め、ご家族のデータはいつでも書き出し・削除できます。
-            </div>
-          </div>
-
-          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>
-            アカウント
-          </div>
-          {authEnabled() ? (
+          {mySection === "otoshidama" && (
             <div className="card">
-              <div className="muted">ログイン中</div>
-              <div style={{ fontFamily: "var(--font-display)", margin: "2px 0 10px" }}>
-                {currentEmail() || "—"}
-              </div>
-              <button type="button" className="btn ghost danger" onClick={doSignOut}>
-                ログアウト
-              </button>
-            </div>
-          ) : (
-            <div className="card" style={{ borderStyle: "dashed" }}>
-              <div className="muted">開発用: ログイン中のユーザー（本番は Cognito ログイン）</div>
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <div className="field" style={{ marginTop: 0 }}>
+                <label htmlFor="otoshi-age">お子さんの年齢</label>
                 <input
+                  id="otoshi-age"
                   className="input"
-                  style={{ flex: 1 }}
-                  defaultValue={currentUserId()}
-                  aria-label="ユーザー識別子"
-                  onChange={(e) => (devUserRef.current = e.target.value)}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={25}
+                  placeholder="例）8"
+                  value={otoshiAge}
+                  aria-label="お子さんの年齢"
+                  onChange={(e) => setOtoshiAge(e.target.value)}
                 />
+              </div>
+              {otoshiAge !== "" &&
+                !Number.isNaN(Number(otoshiAge)) &&
+                (() => {
+                  const r = otoshidamaRange(Number(otoshiAge));
+                  return (
+                    <div style={{ marginTop: 12 }}>
+                      <div className="muted">{r.bracket}</div>
+                      <div className="range" style={{ fontSize: 22 }}>
+                        {r.low === r.high ? yen(r.low) : `${yen(r.low)}〜${yen(r.high)}`}
+                      </div>
+                      <div className="muted" style={{ marginTop: 4 }}>
+                        {r.note}
+                      </div>
+                    </div>
+                  );
+                })()}
+              <div className="disclaimer">※ 家庭・地域で異なる一般的な目安です。</div>
+            </div>
+          )}
+
+          {mySection === "display" && (
+            <div className="card">
+              <div className="between">
+                <span>文字を大きくする</span>
                 <button
                   type="button"
-                  className="btn"
-                  style={{ width: "auto", padding: "0 14px" }}
-                  onClick={() => {
-                    setCurrentUserId(devUserRef.current ?? currentUserId());
-                    location.reload();
-                  }}
+                  className={`toggle${fontLarge ? " on" : ""}`}
+                  role="switch"
+                  aria-checked={fontLarge}
+                  aria-label="文字を大きくする"
+                  onClick={toggleFont}
                 >
-                  切替
+                  <span className="knob" />
                 </button>
-              </div>
-              <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                別の人に切替→相手の招待コードで「参加」すると、同じ台帳が共有されます。
               </div>
             </div>
           )}
+
+          {mySection === "privacy" && (
+            <div className="card">
+              <TrustNote />
+              <div className="muted" style={{ marginTop: 8 }}>
+                贈り先の情報も含め、ご家族のデータはいつでも書き出し・削除できます。
+              </div>
+            </div>
+          )}
+
+          {mySection === "account" &&
+            (authEnabled() ? (
+              <div className="card">
+                <div className="muted">ログイン中</div>
+                <div style={{ fontFamily: "var(--font-display)", margin: "2px 0 10px" }}>
+                  {currentEmail() || "—"}
+                </div>
+                <button type="button" className="btn ghost danger" onClick={doSignOut}>
+                  ログアウト
+                </button>
+              </div>
+            ) : (
+              <div className="card" style={{ borderStyle: "dashed" }}>
+                <div className="muted">開発用: ログイン中のユーザー（本番は Cognito ログイン）</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <input
+                    className="input"
+                    style={{ flex: 1 }}
+                    defaultValue={currentUserId()}
+                    aria-label="ユーザー識別子"
+                    onChange={(e) => (devUserRef.current = e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ width: "auto", padding: "0 14px" }}
+                    onClick={() => {
+                      setCurrentUserId(devUserRef.current ?? currentUserId());
+                      location.reload();
+                    }}
+                  >
+                    切替
+                  </button>
+                </div>
+                <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                  別の人に切替→相手の招待コードで「参加」すると、同じ台帳が共有されます。
+                </div>
+              </div>
+            ))}
+
+          <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="マイページ">
+            {MY_SECTIONS.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                className={`drawer-item${mySection === s.key ? " on" : ""}`}
+                onClick={() => {
+                  setMySection(s.key);
+                  setDrawerOpen(false);
+                }}
+              >
+                <span className="ic">
+                  <Icon name={s.icon} size={20} />
+                </span>
+                {s.label}
+              </button>
+            ))}
+          </Drawer>
         </>
       )}
 

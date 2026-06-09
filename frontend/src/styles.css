@@ -818,3 +818,116 @@ body {
   margin-top: var(--space-3);
   background: var(--surface-card-raised);
 }
+
+/* ---- マイページのドロワー（#3） ----------------------------------------- */
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--surface-overlay);
+  display: flex;
+}
+.drawer-panel {
+  width: 82%;
+  max-width: 320px;
+  height: 100%;
+  background: var(--surface-card-raised);
+  box-shadow: var(--shadow-sheet);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  animation: drawer-in var(--dur-slow) var(--ease-soft);
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer-panel {
+    animation: none;
+  }
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--bw-hairline) solid var(--border-faint);
+}
+.drawer-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+}
+.drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.drawer-body {
+  padding: var(--space-2);
+}
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--hit-min);
+  padding: 12px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--text-body);
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+.drawer-item:hover {
+  background: var(--color-primary-tint);
+}
+.drawer-item.on {
+  color: var(--color-primary);
+  font-weight: var(--fw-bold);
+  background: var(--color-primary-tint);
+}
+.drawer-item .ic {
+  color: var(--text-sub);
+  display: inline-flex;
+}
+.drawer-item.on .ic {
+  color: var(--color-primary);
+}
+/* マイページのヘッダー（ハンバーガー＋見出し） */
+.mypage-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 56px;
+}
+.mypage-head .hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  color: var(--text-body);
+  cursor: pointer;
+}
+.mypage-head .title {
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h3);
+}

@@ -19,7 +19,7 @@ describe("残日数の表示", () => {
 describe("ステータス表示", () => {
   it("英語のステータス値を日本語ラベルに変換することを検証する", () => {
     expect(statusLabel("received")).toBe("受領");
-    expect(statusLabel("considering")).toBe("検討中");
+    expect(statusLabel("considering")).toBe("対応中"); // #4: 検討中→対応中（キーは据え置き）
     expect(statusLabel("done")).toBe("完了");
   });
 

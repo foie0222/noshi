@@ -81,7 +81,8 @@ class GiftRecord:
 class GiftEvent:
     user_id: str
     record_id: str
-    status: str = "received"  # received / considering / done（自由遷移）
+    # received(受領) / considering(対応中=発注・手配・準備中) / done(完了)（自由遷移、#4）
+    status: str = "received"
     override_return_amount: int | None = None
     override_due: str | None = None  # 手動上書きのお返し期限(YYYY-MM-DD)。None なら自動計算
     suggestion_id: str | None = None

@@ -33,6 +33,7 @@ class RecordUpdateIn(BaseModel):
 
 
 class StatusIn(BaseModel):
+    # considering は表示上「対応中」（発注・手配・準備中）。キーは互換のため据え置き（#4）。
     status: str = Field(pattern="^(received|considering|done)$")
 
 

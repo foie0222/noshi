@@ -1,8 +1,10 @@
 // 表示用フォーマット（純粋関数）
 
+// お返しの状態: 受領 → 対応中（発注・手配・準備中）→ 完了（お渡し済み）（#4）。
+// 内部キー considering は据え置き、表示名のみ「対応中」に（データ移行不要）。
 const STATUS_LABELS: Record<string, string> = {
   received: "受領",
-  considering: "検討中",
+  considering: "対応中",
   done: "完了",
 };
 

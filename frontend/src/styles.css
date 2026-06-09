@@ -428,11 +428,11 @@ body {
   background: var(--surface-card-raised);
   border-top: var(--bw-hairline) solid var(--border-faint);
   box-shadow: var(--shadow-nav);
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   align-items: center;
 }
 .tabbar button {
-  flex: 1;
   border: none;
   background: none;
   display: flex;
@@ -451,10 +451,10 @@ body {
   font-weight: var(--fw-bold);
 }
 .tabbar .fab {
-  flex: none;
+  justify-self: center;
   width: var(--fab-size);
   height: var(--fab-size);
-  margin: 0 var(--space-2) -34px;
+  margin: -34px 0 0;
   border-radius: var(--radius-round);
   background: var(--color-accent);
   color: #fff;

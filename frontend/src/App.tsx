@@ -46,6 +46,7 @@ type Screen =
   | "suggest"
   | "letter"
   | "event"
+  | "relations"
   | "mypage";
 
 const TrustNote = () => (
@@ -226,13 +227,15 @@ export function App() {
   useEffect(() => {
     if (screen === "home") loadHome().catch(handleErr);
     if (screen === "ledger") loadLedger().catch(handleErr);
-    if (screen === "mypage") {
-      api.giftTax().then(setGiftTax).catch(handleErr);
-      api.annual().then(setAnnual).catch(handleErr);
+    if (screen === "relations") {
       api
         .relationships()
         .then((r) => setRelationships(r.relationships))
         .catch(handleErr);
+    }
+    if (screen === "mypage") {
+      api.giftTax().then(setGiftTax).catch(handleErr);
+      api.annual().then(setAnnual).catch(handleErr);
       api
         .household()
         .then((r) => setHousehold(r.household))
@@ -1260,6 +1263,42 @@ export function App() {
           );
         })()}
 
+      {screen === "relations" && (
+        <>
+          <Bar title="おつきあい" />
+          <p className="muted" style={{ marginTop: 6 }}>
+            相手別の収支バランス。気になる関係をそっとお知らせします。
+          </p>
+          {relationships && relationships.length === 0 && (
+            <p className="muted" style={{ marginTop: 16 }}>
+              まだ記録がありません。贈答を記録すると、ここにおつきあいが表示されます。
+            </p>
+          )}
+          {relationships?.map((r) => {
+            const label =
+              r.status === "owe" ? "もらい多め" : r.status === "ahead" ? "お贈り多め" : "均衡";
+            return (
+              <div className="card" key={r.party_name}>
+                <div className="between">
+                  <b className="val">{r.party_name} 様</b>
+                  <span className={`balbadge ${r.status}`}>
+                    {r.attention ? "気になる関係" : label}
+                  </span>
+                </div>
+                <div className="muted" style={{ marginTop: 4 }}>
+                  もらった {yen(r.received)} ／ あげた {yen(r.given)} ・ 最終 {r.last_at || "—"}
+                </div>
+                {r.attention && (
+                  <div className="muted" style={{ marginTop: 4, color: "var(--color-warning)" }}>
+                    しばらくお贈りしていません。折を見て一言いかがでしょう。
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
+
       {screen === "mypage" && (
         <>
           <Bar title="マイページ" />
@@ -1464,38 +1503,6 @@ export function App() {
           </div>
 
           <div className="h" style={{ fontSize: 15, marginTop: 20 }}>
-            おつきあい
-          </div>
-          <p className="muted">関係のメンテナンス。気になる関係をそっとお知らせします。</p>
-          {relationships && relationships.length === 0 && (
-            <p className="muted" style={{ marginTop: 8 }}>
-              まだ記録がありません。
-            </p>
-          )}
-          {relationships?.map((r) => {
-            const label =
-              r.status === "owe" ? "もらい多め" : r.status === "ahead" ? "お贈り多め" : "均衡";
-            return (
-              <div className="card" key={r.party_name}>
-                <div className="between">
-                  <b className="val">{r.party_name} 様</b>
-                  <span className={`balbadge ${r.status}`}>
-                    {r.attention ? "気になる関係" : label}
-                  </span>
-                </div>
-                <div className="muted" style={{ marginTop: 4 }}>
-                  もらった {yen(r.received)} ／ あげた {yen(r.given)} ・ 最終 {r.last_at || "—"}
-                </div>
-                {r.attention && (
-                  <div className="muted" style={{ marginTop: 4, color: "var(--color-warning)" }}>
-                    しばらくお贈りしていません。折を見て一言いかがでしょう。
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          <div className="h" style={{ fontSize: 15, marginTop: 20 }}>
             表示
           </div>
           <div className="card">
@@ -1598,6 +1605,15 @@ export function App() {
           </button>
           <button
             type="button"
+            className={screen === "relations" ? "on" : ""}
+            aria-label="おつきあい"
+            onClick={() => go("relations")}
+          >
+            <Icon name="handshake" size={23} strokeWidth={screen === "relations" ? 2.4 : 2} />
+            おつきあい
+          </button>
+          <button
+            type="button"
             className={screen === "mypage" ? "on" : ""}
             aria-label="マイページ"
             onClick={() => go("mypage")}
@@ -1605,7 +1621,6 @@ export function App() {
             <Icon name="user" size={23} strokeWidth={screen === "mypage" ? 2.4 : 2} />
             マイページ
           </button>
-          <button type="button" className="spacer" aria-hidden="true" tabIndex={-1}></button>
         </div>
       )}
 

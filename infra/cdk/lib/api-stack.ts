@@ -37,7 +37,8 @@ export class ApiStack extends Stack {
         NOSHI_TABLE: props.table.tableName,
         NOSHI_USE_DYNAMO: "1",                   // 本番は DynamoDB 永続化（必須）
         EXTRACTION_QUEUE_URL: props.queue.queueUrl,
-        IMAGE_BUCKET: props.imageBucket.bucketName,
+        NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName, // #35: 撮影画像のS3バケット
+
         NOSHI_USE_BEDROCK: "1",                  // 実 OCR/LLM（Bedrock/Claude）
         // Cognito 認証の強制は context `enforceAuth=true` で有効化（要: フロントの Cognito ログイン）。
         // 既定（デモ公開）はスタブ認証のまま——フロントの「ユーザー切替」で家族共有を体験可能。

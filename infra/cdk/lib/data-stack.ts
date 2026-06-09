@@ -42,10 +42,20 @@ export class DataStack extends Stack {
 
     this.imageBucket = new s3.Bucket(this, "NoshiImages", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.KMS,
-      encryptionKey: this.key,
+      // 署名付きPUT（ブラウザ直アップロード）を簡潔にするため SSE-S3。KMS だと
+      // PUT 時に SSE 関連ヘッダの整合が必要になり、ブラウザからの直アップロードが煩雑。
+      encryption: s3.BucketEncryption.S3_MANAGED,
       versioned: true, // RPO
       enforceSSL: true,
+      // 署名付きURLでのブラウザ直 PUT/GET を許可（#35）。アクセス自体は署名で制限。
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+          allowedOrigins: ["*"],
+          allowedHeaders: ["*"],
+          maxAge: 3000,
+        },
+      ],
       lifecycleRules: [{ abortIncompleteMultipartUploadAfter: Duration.days(1) }],
       removalPolicy: RemovalPolicy.RETAIN,
     });

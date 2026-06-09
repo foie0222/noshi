@@ -24,3 +24,34 @@ export function fileToDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * data URL の画像を長辺 maxDim 以内へ縮小し JPEG Blob にする（#35）。
+ * 実写真は数MBあるため、アップロード前にここで小さくする。
+ */
+export function downscaleImage(dataUrl: string, maxDim = 1280, quality = 0.82): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("画像を処理できませんでした。"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("画像を変換できませんでした。"))),
+        "image/jpeg",
+        quality,
+      );
+    };
+    img.onerror = () => reject(new Error("画像を読み込めませんでした。"));
+    img.src = dataUrl;
+  });
+}

@@ -74,6 +74,7 @@ class GiftRecord:
     occurred_at: str = ""  # confidential
     relationship: str = ""
     memo: str = ""
+    image_key: str = ""  # confidential（S3 オブジェクトキー、#35）。空なら画像なし
     id: str = field(default_factory=_id)
 
 

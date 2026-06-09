@@ -61,6 +61,7 @@ export interface RecordInput {
   direction: Direction;
   occurred_at?: string;
   relationship?: string;
+  image_key?: string;
 }
 
 export const api = {
@@ -84,6 +85,7 @@ export const api = {
       party_name: string;
       occurred_at?: string;
       relationship?: string;
+      image_key?: string;
     },
   ) =>
     req<{ record: GiftRecord }>(`/records/${recordId}`, {
@@ -139,6 +141,11 @@ export const api = {
     req<RelationshipMaster>(`/relationship-master/${encodeURIComponent(name)}`, {
       method: "DELETE",
     }),
+  imageUploadUrl: (contentType: string) =>
+    req<{ url: string; key: string }>("/images/upload-url", {
+      method: "POST",
+      body: JSON.stringify({ content_type: contentType }),
+    }),
   purposeMaster: () => req<RelationshipMaster>("/purpose-master"),
   addPurpose: (name: string) =>
     req<RelationshipMaster>("/purpose-master", {
@@ -150,3 +157,13 @@ export const api = {
       method: "DELETE",
     }),
 };
+
+/** 署名付きURLでS3へ直接アップロードする（認証ヘッダ不要・/api は通さない）（#35）。 */
+export async function uploadToS3(url: string, blob: Blob, contentType: string): Promise<void> {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": contentType },
+    body: blob,
+  });
+  if (!res.ok) throw new Error("画像のアップロードに失敗しました。");
+}

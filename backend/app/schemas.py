@@ -12,6 +12,11 @@ class RecordIn(BaseModel):
     direction: str = Field(pattern="^(received|given)$")
     occurred_at: str = ""
     relationship: str = ""
+    image_key: str = ""  # 事前にアップロード済みのS3キー（#35）
+
+
+class ImageUploadIn(BaseModel):
+    content_type: str = Field(description="アップロードする画像の MIME（image/jpeg 等）")
 
 
 class JoinHouseholdIn(BaseModel):
@@ -30,6 +35,7 @@ class RecordUpdateIn(BaseModel):
     # 未指定(None)なら既存値を保持する。"" を渡すと明示的にクリアできる。
     occurred_at: str | None = None
     relationship: str | None = None
+    image_key: str | None = None  # 差し替え=新キー / 削除="" / 保持=None（#35）
 
 
 class StatusIn(BaseModel):

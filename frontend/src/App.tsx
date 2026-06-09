@@ -527,7 +527,8 @@ export function App() {
         occurred_at: editDraft.occurred_at.trim(), // もらった日。期限の自動計算に反映される
         relationship: editDraft.relationship.trim(), // 続柄（#1）
       });
-      const r = await api.getEvent(event.id); // 修正後の表示を取り直す（期限も再計算）
+      // 記録ベースで取り直す（given=イベントなしでも動く、#48）。期限も再計算。
+      const r = await api.eventForRecord(event.record_id);
       setEvent(r.event);
       setEditDraft(null);
       notify("修正しました");
@@ -571,7 +572,7 @@ export function App() {
         party_name: event.party_name,
         image_key,
       });
-      const r = await api.getEvent(event.id);
+      const r = await api.eventForRecord(event.record_id);
       setEvent(r.event);
       notify(file ? "写真を変更しました" : "写真を削除しました");
     } catch (e) {
@@ -1232,7 +1233,9 @@ export function App() {
                       <span>{event.direction === "received" ? "受領" : "贈与"}</span>
                     </div>
                     <div className="between">
-                      <span className="muted">もらった日</span>
+                      <span className="muted">
+                        {event.direction === "received" ? "もらった日" : "あげた日"}
+                      </span>
                       <span>{event.occurred_at || "—"}</span>
                     </div>
                   </div>
@@ -1306,7 +1309,9 @@ export function App() {
                     />
                   </div>
                   <div className="field">
-                    <label htmlFor="edit-occurred">もらった日</label>
+                    <label htmlFor="edit-occurred">
+                      {event.direction === "received" ? "もらった日" : "あげた日"}
+                    </label>
                     <input
                       id="edit-occurred"
                       className="input"
@@ -1314,7 +1319,11 @@ export function App() {
                       value={editDraft.occurred_at}
                       onChange={(e) => setEditDraft({ ...editDraft, occurred_at: e.target.value })}
                     />
-                    <span className="muted">変更すると、お返し期限が自動で計算し直されます。</span>
+                    {event.direction === "received" && (
+                      <span className="muted">
+                        変更すると、お返し期限が自動で計算し直されます。
+                      </span>
+                    )}
                   </div>
                   <div className="field">
                     <label htmlFor="edit-relationship">続柄</label>
@@ -1353,24 +1362,28 @@ export function App() {
                   </div>
                 </div>
               )}
-              <div className="h" style={{ fontSize: 14 }}>
-                ステータス
-              </div>
-              <div className="chips">
-                {["received", "considering", "done"].map((st) => (
-                  <span
-                    key={st}
-                    className={`chip ${event.status === st ? "on" : ""}`}
-                    onClick={async () => {
-                      const r = await api.setStatus(event.id, st);
-                      setEvent(r.event);
-                      notify("更新しました");
-                    }}
-                  >
-                    {statusLabel(st)}
-                  </span>
-                ))}
-              </div>
+              {event.id && (
+                <>
+                  <div className="h" style={{ fontSize: 14 }}>
+                    ステータス
+                  </div>
+                  <div className="chips">
+                    {["received", "considering", "done"].map((st) => (
+                      <span
+                        key={st}
+                        className={`chip ${event.status === st ? "on" : ""}`}
+                        onClick={async () => {
+                          const r = await api.setStatus(event.id, st);
+                          setEvent(r.event);
+                          notify("更新しました");
+                        }}
+                      >
+                        {statusLabel(st)}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
               {event.direction === "received" && (
                 <>
                   <div className="h" style={{ fontSize: 14 }}>

@@ -437,3 +437,38 @@ def test_用途は30件までしか追加できない():
         svc.add_purpose("u1", f"用途{i}")
     with pytest.raises(ValidationError):
         svc.add_purpose("u1", "あふれる")
+
+
+def test_あげた記録も詳細ビューを取得できる():
+    """given 記録は event を持たないが、record_detail で詳細ビューを取得できることを検証する（#48）。"""
+    svc = make_service()
+    rec, ev = svc.create_record(
+        "u1", amount=50000, purpose="結婚祝い", party_name="姪", direction="given"
+    )
+    assert ev is None  # given はイベントなし
+    v = svc.record_detail("u1", rec.id)
+    assert v["record_id"] == rec.id
+    assert v["direction"] == "given" and v["party_name"] == "姪"
+    assert v["id"] == ""  # イベントIDなし（ステータス等は出さない）
+
+
+def test_もらった記録の詳細はイベントビューと一致する():
+    """received 記録の record_detail は対応イベントの event_view と同等であることを検証する（#48）。"""
+    svc = make_service()
+    rec, ev = svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
+    v = svc.record_detail("u1", rec.id)
+    assert v["id"] == ev.id and v["status"] == "received"
+
+
+def test_他人の記録の詳細は取得できない():
+    """他世帯の記録の record_detail が ForbiddenError になることを検証する（A01）。"""
+    import pytest
+
+    svc = make_service()
+    rec, _ = svc.create_record(
+        "owner", amount=10000, purpose="香典", party_name="田中", direction="received"
+    )
+    with pytest.raises(ForbiddenError):
+        svc.record_detail("attacker", rec.id)

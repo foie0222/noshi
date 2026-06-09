@@ -321,10 +321,8 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
 
     @app.get("/api/records/{record_id}/event")
     def event_for_record(record_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
-        ev = svc.event_for_record(uid, record_id)
-        if ev is None:
-            raise HTTPException(status_code=404, detail="not found")
-        return {"event": svc.event_view(uid, ev.id)}
+        # #48: given でもエラーにせず記録ベースの詳細を返す（あげた記録もタップして開ける）。
+        return {"event": svc.record_detail(uid, record_id)}
 
     return app
 

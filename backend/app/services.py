@@ -17,7 +17,6 @@ from app.domain.entities import (
     GiftEvent,
     GiftRecord,
     Household,
-    Letter,
     Membership,
     ReturnSuggestion,
 )
@@ -335,17 +334,6 @@ class NoshiService:
         self.repo.put_event(ev)
         return sug
 
-    def generate_letter(
-        self, user_id: str, event_id: str, purpose: str, relationship: str, tone: str
-    ) -> Letter:
-        ev = self._require_event(user_id, self._scope(user_id), event_id)
-        # 送信は最小化（BR-LTR-1）: 氏名等の restricted は渡さない
-        body = self.ocr.generate_letter(purpose=purpose, relationship=relationship, tone=tone)
-        letter = Letter(event_id=event_id, tone=tone, body_text=body)
-        ev.letter_id = letter.id
-        self.repo.put_event(ev)
-        return letter
-
     # --- イベント状態 ---
     def set_event_status(self, user_id: str, event_id: str, status: str) -> GiftEvent:
         # considering=対応中（表示名）。キーは互換のため据え置き（#4）。
@@ -384,7 +372,6 @@ class NoshiService:
             "due_overridden": override is not None,
             "days_left": rules.days_left(due),
             "suggestion_id": ev.suggestion_id,
-            "letter_id": ev.letter_id,
         }
 
     def set_event_due(self, user_id: str, event_id: str, due_at: str | None) -> GiftEvent:

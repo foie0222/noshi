@@ -400,21 +400,6 @@ body {
 }
 
 /* ---- 礼状の便箋 ------------------------------------------------------- */
-.letterpaper {
-  background: repeating-linear-gradient(
-    var(--surface-card-raised),
-    var(--surface-card-raised) 31px,
-    var(--border-faint) 31px,
-    var(--border-faint) 32px
-  );
-  border: var(--bw-hairline) solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  margin-top: var(--gap-stack);
-  min-height: 160px;
-  white-space: pre-wrap;
-  line-height: 32px;
-}
 
 /* ---- ボトムナビ ------------------------------------------------------- */
 .tabbar {

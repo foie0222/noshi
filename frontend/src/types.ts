@@ -29,7 +29,6 @@ export interface EventView {
   due_overridden: boolean;
   days_left: number | null;
   suggestion_id: string | null;
-  letter_id: string | null;
 }
 
 export interface PartySummary {
@@ -102,13 +101,6 @@ export interface Suggestion {
   summary: string;
   price_band: string;
   external_ref: string;
-}
-
-export interface Letter {
-  id: string;
-  event_id: string;
-  tone: string;
-  body_text: string;
 }
 
 export interface CaptureCandidates {

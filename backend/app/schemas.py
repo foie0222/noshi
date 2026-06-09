@@ -52,9 +52,3 @@ class SelectSuggestionIn(BaseModel):
     summary: str = ""
     external_ref: str = ""
     price_band: str = ""
-
-
-class LetterIn(BaseModel):
-    purpose: str
-    relationship: str = ""
-    tone: str = "丁寧"

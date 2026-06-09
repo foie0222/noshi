@@ -71,8 +71,8 @@ def test_抽出ジョブは候補と要確認フラグを返す():
     assert svc.extraction_needs_review(job) is True
 
 
-def test_お返しフローで半返しと提案と礼状が紐づく():
-    """半返し算出→提案選択→礼状生成までがイベントに紐づくことを検証する（S-5,6,7）。"""
+def test_お返しフローで半返しと提案が紐づく():
+    """半返し算出→提案選択までがイベントに紐づくことを検証する（S-5,6）。"""
     svc = make_service()
     _, ev = svc.create_record(
         "u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received"
@@ -82,9 +82,8 @@ def test_お返しフローで半返しと提案と礼状が紐づく():
     suggestions = svc.suggest_returns("u1", ev.id, rng.recommended, "友人", "出産祝い")
     chosen = suggestions[0]
     svc.select_suggestion("u1", ev.id, chosen)
-    letter = svc.generate_letter("u1", ev.id, "出産祝い", "友人", "丁寧")
     updated = svc.get_event("u1", ev.id)
-    assert updated.suggestion_id is not None and updated.letter_id == letter.id
+    assert updated.suggestion_id is not None
 
 
 def test_あげた贈答はお返し対象に出ない():

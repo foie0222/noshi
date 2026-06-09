@@ -67,24 +67,3 @@ def test_抽出はマークダウン括りのJSONも解釈する():
     reply = "```json\n" + json.dumps({"amount": 10000, "party_name": "田中"}) + "\n```"
     out = BedrockOcrLlm(client=FakeBedrock(reply)).extract([TINY])
     assert out["candidates"]["amount"] == 10000
-
-
-def test_礼状生成はモデル本文を返す():
-    """generate_letter が converse を呼び、モデルの本文を返すことを検証する。"""
-    fake = FakeBedrock("謹んで御礼申し上げます。")
-    text = BedrockOcrLlm(client=fake).generate_letter(
-        purpose="香典", relationship="知人", tone="弔事"
-    )
-    assert text == "謹んで御礼申し上げます。"
-
-
-def test_弔事と丁寧でプロンプトが変わる():
-    """tone により礼状生成プロンプトが弔事/慶事で変わることを検証する。"""
-    fake = FakeBedrock("body")
-    a = BedrockOcrLlm(client=fake)
-    a.generate_letter(purpose="香典", relationship="知人", tone="弔事")
-    a.generate_letter(purpose="香典", relationship="知人", tone="丁寧")
-    p_mourning = json.dumps(fake.calls[0], ensure_ascii=False)
-    p_normal = json.dumps(fake.calls[1], ensure_ascii=False)
-    assert "弔" in p_mourning
-    assert p_mourning != p_normal

@@ -12,7 +12,6 @@ import type {
   HomeResponse,
   Household,
   LedgerResponse,
-  Letter,
   Relationship,
   RelationshipMaster,
   Suggestion,
@@ -108,11 +107,6 @@ export const api = {
     req<{ suggestion: Suggestion }>(`/events/${eventId}/suggestion`, {
       method: "POST",
       body: JSON.stringify(s),
-    }),
-  letter: (eventId: string, purpose: string, relationship: string, tone: string) =>
-    req<{ letter: Letter }>(`/events/${eventId}/letter`, {
-      method: "POST",
-      body: JSON.stringify({ purpose, relationship, tone }),
     }),
   setStatus: (eventId: string, status: string) =>
     req<{ event: EventView }>(`/events/${eventId}`, {

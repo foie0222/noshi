@@ -2,7 +2,6 @@
 
 OcrLlmPort の本番実装として Amazon Bedrock（Claude）を使う。
 - extract: ご祝儀袋等の画像を Claude Vision に渡し、金額/氏名/関係/用途/日付を JSON 抽出。
-- generate_letter: 用途・関係・トーンから礼状文面を生成（弔事は四十九日・供養に配慮）。
 
 ネットワーク依存は client 注入でテスト可能にする。送信は画像と最小限の指示のみ（OWASP）。
 """
@@ -120,24 +119,6 @@ class BedrockOcrLlm:
             "field_confidence": field_confidence,
             "confidence": min(field_confidence.values()),
         }
-
-    def generate_letter(self, purpose: str, relationship: str, tone: str) -> str:
-        if tone == "弔事":
-            guide = (
-                "弔事（香典返し）の礼状です。お悔やみに配慮し、四十九日法要・供養・忌明けに触れ、"
-                "「健やか」「お祝い」など慶事の表現は避けてください。"
-            )
-        else:
-            guide = "慶事の礼状です。明るく丁寧に、今後のお付き合いへの感謝を添えてください。"
-        prompt = (
-            f"日本語の礼状を1通、120字程度で作成してください。{guide}\n"
-            f"用途: {purpose} / 相手との関係: {relationship or '不明'} / 文体: {tone}\n"
-            "氏名や宛名は入れず、本文のみを返してください。"
-        )
-        content: list[dict[str, Any]] = [{"text": prompt}]
-        return self._converse(
-            content, "あなたは日本の礼儀作法に通じた文章家です。", max_tokens=400
-        ).strip()
 
 
 def _clamp(v: Any) -> float:

@@ -20,7 +20,6 @@ from app.schemas import (
     CaptureIn,
     DueIn,
     JoinHouseholdIn,
-    LetterIn,
     RecordIn,
     RecordUpdateIn,
     RelationshipIn,
@@ -271,11 +270,6 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     ) -> dict[str, Any]:
         sug = svc.select_suggestion(uid, event_id, body.model_dump())
         return {"suggestion": vars(sug)}
-
-    @app.post("/api/events/{event_id}/letter")
-    def letter(event_id: str, body: LetterIn, uid: str = Depends(current_user)) -> dict[str, Any]:
-        lt = svc.generate_letter(uid, event_id, body.purpose, body.relationship, body.tone)
-        return {"letter": vars(lt)}
 
     @app.patch("/api/events/{event_id}")
     def set_status(

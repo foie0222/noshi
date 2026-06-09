@@ -86,7 +86,6 @@ class GiftEvent:
     override_return_amount: int | None = None
     override_due: str | None = None  # 手動上書きのお返し期限(YYYY-MM-DD)。None なら自動計算
     suggestion_id: str | None = None
-    letter_id: str | None = None
     id: str = field(default_factory=_id)
 
 
@@ -107,14 +106,6 @@ class ReturnSuggestion:
     summary: str
     external_ref: str
     price_band: str
-    id: str = field(default_factory=_id)
-
-
-@dataclass
-class Letter:
-    event_id: str
-    tone: str
-    body_text: str  # confidential
     id: str = field(default_factory=_id)
 
 

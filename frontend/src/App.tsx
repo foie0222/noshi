@@ -45,7 +45,6 @@ type Screen =
   | "ledger"
   | "half"
   | "suggest"
-  | "letter"
   | "event"
   | "relations"
   | "mypage";
@@ -105,7 +104,6 @@ export function App() {
   const [event, setEvent] = useState<EventView | null>(null); // 進行中のお返し対象
   const [range, setRange] = useState<Range | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [letterText, setLetterText] = useState<string>("");
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
   );
@@ -494,16 +492,9 @@ export function App() {
   }
   async function chooseSuggestion(s: Suggestion) {
     if (!event) return;
+    // お返し品を選んだら、そのまま完了に（礼状ステップは廃止、#40）。
     await api.selectSuggestion(event.id, s);
-    notify("お返しを選びました");
-    go("letter");
-  }
-  async function makeLetter() {
-    if (!event || !range) return;
-    // 弔事(香典等)は弔事トーンで生成。慶事と同じ文面にしない。
-    const tone = toneOf(range.purpose) === "mourning" ? "弔事" : "丁寧";
-    const r = await api.letter(event.id, range.purpose, "友人", tone);
-    setLetterText(r.letter.body_text);
+    await complete();
   }
   async function complete() {
     if (!event) return;
@@ -1046,6 +1037,9 @@ export function App() {
       {screen === "suggest" && (
         <>
           <Bar title="お返し品の提案" back="half" />
+          <p className="muted" style={{ marginTop: 6 }}>
+            お返し品を選ぶと、このお返しは「完了」になります。
+          </p>
           {suggestions.map((s, i) => (
             <div className="card" key={i}>
               <b>{s.title}</b>
@@ -1054,43 +1048,14 @@ export function App() {
               </div>
               <button
                 type="button"
-                className="btn"
-                style={{ height: 40 }}
+                className="btn primary"
+                style={{ minHeight: 40 }}
                 onClick={() => chooseSuggestion(s)}
               >
-                これにする
+                これにして完了
               </button>
             </div>
           ))}
-        </>
-      )}
-
-      {screen === "letter" && (
-        <>
-          <Bar title="礼状の文面" back="suggest" />
-          <button type="button" className="btn ghost" onClick={makeLetter}>
-            文面を生成する
-          </button>
-          {letterText && <div className="letterpaper">{letterText}</div>}
-          {letterText && (
-            <button
-              type="button"
-              className="btn"
-              onClick={async () => {
-                notify(
-                  (await copyText(letterText))
-                    ? "文面をコピーしました"
-                    : "コピーできませんでした。長押しで選択してください。",
-                );
-              }}
-            >
-              <Icon name="copy" size={18} />
-              文面をコピー
-            </button>
-          )}
-          <button type="button" className="btn primary" onClick={complete}>
-            このお礼で完了にする
-          </button>
         </>
       )}
 
@@ -1316,7 +1281,7 @@ export function App() {
                     className={mourning ? "btn" : "btn shu"}
                     onClick={() => startReturn(event)}
                   >
-                    {mourning ? "お返し（香典返し）を進める" : "お返しの続き（半返し→提案→礼状）"}
+                    {mourning ? "お返し（香典返し）を進める" : "お返しの続き（半返し→お返し品）"}
                   </button>
                 </>
               )}

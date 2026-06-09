@@ -181,7 +181,8 @@ def annual_summary(records: list[GiftRecord], year: int) -> dict[str, Any]:
         "received_total": sum((r.amount or 0) for r in received),
         "given_count": len(given),
         "given_total": sum((r.amount or 0) for r in given),
-        "party_count": len({r.party_name for r in in_year}),
+        # 相手は party_id で数える（同名でも別人を区別、#47）。未設定は名前で代替。
+        "party_count": len({(getattr(r, "party_id", "") or r.party_name) for r in in_year}),
     }
 
 
@@ -205,7 +206,18 @@ def relationship_balance(
         name = getattr(r, "party_name", "") or ""
         if not name:
             continue
-        p = parties.setdefault(name, {"party_name": name, "received": 0, "given": 0, "last_at": ""})
+        # 相手は party_id で識別（同名でも別人を区別、#47）。未設定は名前で代替。
+        key = getattr(r, "party_id", "") or name
+        p = parties.setdefault(
+            key,
+            {
+                "party_id": getattr(r, "party_id", ""),
+                "party_name": name,
+                "received": 0,
+                "given": 0,
+                "last_at": "",
+            },
+        )
         amount = getattr(r, "amount", 0) or 0
         direction = getattr(r, "direction", "received")
         p["received" if direction == "received" else "given"] += amount

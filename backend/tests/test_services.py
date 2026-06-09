@@ -375,21 +375,17 @@ def test_既定の続柄は削除できない():
     assert "友人" in m["options"] and "友人" in m["defaults"]
 
 
-def test_続柄を削除しても過去レコードの値は残る():
-    """マスタから続柄を削除しても、その続柄を使う過去レコードの文字列は保持されることを検証する（#1, 後方互換）。"""
+def test_続柄を削除しても相手の続柄は残る():
+    """マスタから続柄を削除しても、その続柄を持つ相手(Party)の値は保持されることを検証する（#1/#47, 後方互換）。"""
     svc = make_service()
-    rec, ev = svc.create_record(
-        "u1",
-        amount=10000,
-        purpose="出産祝い",
-        party_name="佐藤",
-        direction="received",
-        relationship="ママ友",
-    )
     svc.add_relationship("u1", "ママ友")
+    party = svc.add_party("u1", "佐藤", "ママ友")
+    _, ev = svc.create_record(
+        "u1", amount=10000, purpose="出産祝い", direction="received", party_id=party["id"]
+    )
     svc.remove_relationship("u1", "ママ友")  # マスタからは消す
-    assert svc.list_records("u1")[0].relationship == "ママ友"  # レコードは不変
-    assert svc.event_view("u1", ev.id)["relationship"] == "ママ友"
+    assert svc.parties("u1")[0]["relationship"] == "ママ友"  # 相手は不変
+    assert svc.event_view("u1", ev.id)["relationship"] == "ママ友"  # 続柄は相手から
 
 
 def test_他世帯の続柄は削除できない():
@@ -472,3 +468,53 @@ def test_他人の記録の詳細は取得できない():
     )
     with pytest.raises(ForbiddenError):
         svc.record_detail("attacker", rec.id)
+
+
+def test_同名でも別人として区別して集計される():
+    """同名の別人(party_id 違い)が、おつきあいで別エントリ・年間人数で別カウントになることを検証する（#47）。"""
+    svc = make_service()
+    a = svc.add_party("u1", "田中", "友人")
+    b = svc.add_party("u1", "田中", "会社")
+    svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="出産祝い",
+        direction="received",
+        party_id=a["id"],
+        occurred_at="2026-01-10",
+    )
+    svc.create_record(
+        "u1",
+        amount=50000,
+        purpose="結婚祝い",
+        direction="given",
+        party_id=b["id"],
+        occurred_at="2026-02-10",
+    )
+    rels = svc.relationships("u1")
+    tanaka = [r for r in rels if r["party_name"] == "田中"]
+    assert len(tanaka) == 2  # 同名でも別人＝別エントリ
+    assert svc.annual_summary("u1", 2026)["party_count"] == 2  # 人数も2
+
+
+def test_相手の続柄を更新すると記録の表示名も追従する():
+    """update_party で名前を変えると、その相手の記録の party_name スナップショットも同期することを検証する（#47）。"""
+    svc = make_service()
+    p = svc.add_party("u1", "たなか", "友人")
+    _, ev = svc.create_record(
+        "u1", amount=10000, purpose="出産祝い", direction="received", party_id=p["id"]
+    )
+    svc.update_party("u1", p["id"], "田中 太郎", "友人")
+    assert svc.event_view("u1", ev.id)["party_name"] == "田中 太郎"
+    assert svc.list_records("u1")[0].party_name == "田中 太郎"
+
+
+def test_存在しない相手IDでの記録作成は検証エラー():
+    """未知の party_id での記録作成が ValidationError になることを検証する（#47）。"""
+    import pytest
+
+    svc = make_service()
+    with pytest.raises(ValidationError):
+        svc.create_record(
+            "u1", amount=10000, purpose="出産祝い", direction="received", party_id="nope"
+        )

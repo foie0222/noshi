@@ -14,10 +14,18 @@ export interface GiftRecord {
   memo: string;
 }
 
+/** 相手（人）。同名でも別人を ID で区別する（#47）。 */
+export interface Party {
+  id: string;
+  name: string;
+  relationship: string;
+}
+
 export interface EventView {
   id: string;
   status: string;
   record_id: string;
+  party_id: string;
   party_name: string;
   purpose: string;
   amount: number;
@@ -124,23 +132,23 @@ export interface CaptureResponse {
 
 // --- クライアント側で組み立てる作業用オブジェクト ---
 
-/** 撮影確認〜保存中の下書き（抽出候補＋方向・要確認・画像）。 */
+/** 撮影確認〜保存中の下書き（抽出候補＋方向・要確認・画像・相手ID）。 */
 export type Draft = CaptureCandidates & {
   direction: Direction;
   field_review: Record<string, boolean>;
   image: string;
+  party_id: string; // 選択/作成した相手（#47）
 };
 
 /** 半返し画面の表示データ（算出結果＋元の金額・用途）。 */
 export type Range = HalfReturn & { amount: number; purpose: string };
 
-/** 記録修正フォーム。 */
+/** 記録修正フォーム。相手は party_id で付け替える（#47）。 */
 export interface EditDraft {
   amount: string;
   purpose: string;
-  party_name: string;
   occurred_at: string;
-  relationship: string;
+  party_id: string;
 }
 
 /** 続柄マスタ（システム既定＋世帯独自）。#1 */

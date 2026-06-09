@@ -234,8 +234,9 @@ def test_汎用エラーは内部情報を漏らさない():
 
 
 def test_記録をPATCHで修正できる():
-    """PATCH /api/records/{id} で金額・相手を修正でき、台帳に反映されることを検証する。"""
+    """PATCH /api/records/{id} で金額・用途・相手(party_id)を修正でき、台帳に反映されることを検証する（#47）。"""
     c = TestClient(create_app())
+    p2 = c.post("/api/parties", headers=_h(), json={"name": "佐藤花子"}).json()["party"]
     rid = c.post(
         "/api/records",
         headers=_h(),
@@ -249,7 +250,7 @@ def test_記録をPATCHで修正できる():
     r = c.patch(
         f"/api/records/{rid}",
         headers=_h(),
-        json={"amount": 30000, "purpose": "結婚祝い", "party_name": "佐藤花子"},
+        json={"amount": 30000, "purpose": "結婚祝い", "party_id": p2["id"]},
     )
     assert r.status_code == 200
     assert r.json()["record"]["amount"] == 30000
@@ -429,3 +430,30 @@ def test_あげた記録もタップで詳細が取れる():
     assert r.status_code == 200
     ev = r.json()["event"]
     assert ev["direction"] == "given" and ev["id"] == "" and ev["record_id"] == rid
+
+
+def test_相手APIで同名でも別人を作り集計が分離する():
+    """POST /api/parties で同名の別人を作り、記録を紐付けるとおつきあいが別エントリになることを検証する（#47）。"""
+    c = TestClient(create_app())
+    a = c.post("/api/parties", headers=_h(), json={"name": "田中", "relationship": "友人"}).json()[
+        "party"
+    ]
+    b = c.post("/api/parties", headers=_h(), json={"name": "田中", "relationship": "会社"}).json()[
+        "party"
+    ]
+    assert a["id"] != b["id"]
+    for pid in (a["id"], b["id"]):
+        c.post(
+            "/api/records",
+            headers=_h(),
+            json={
+                "amount": 10000,
+                "purpose": "出産祝い",
+                "party_id": pid,
+                "direction": "received",
+                "occurred_at": "2026-03-01",
+            },
+        )
+    rels = c.get("/api/relationships", headers=_h()).json()["relationships"]
+    assert len([r for r in rels if r["party_name"] == "田中"]) == 2
+    assert len(c.get("/api/parties", headers=_h()).json()["parties"]) == 2

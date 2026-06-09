@@ -58,21 +58,26 @@ class User:
 
 @dataclass
 class Party:
-    user_id: str
+    """相手（人）。世帯マスタとして管理し、記録は party_id で参照（#47）。
+
+    続柄(relationship)は人の属性として Party に持つ（記録ごとではない）。
+    世帯スコープは保存キー側で表現するため、エンティティには持たない。
+    """
+
     name: str  # confidential
-    relationship: str = ""  # confidential
+    relationship: str = ""  # 続柄（#1の続柄マスタから選択）
     id: str = field(default_factory=_id)
 
 
 @dataclass
 class GiftRecord:
     user_id: str
-    party_name: str  # confidential
+    party_name: str  # confidential（表示用スナップショット。識別は party_id）
     amount: int  # confidential
     purpose: str  # confidential
     direction: str = "received"  # received / given
     occurred_at: str = ""  # confidential
-    relationship: str = ""
+    party_id: str = ""  # 相手の識別（#47）。同名でも別人を区別する
     memo: str = ""
     image_key: str = ""  # confidential（S3 オブジェクトキー、#35）。空なら画像なし
     id: str = field(default_factory=_id)

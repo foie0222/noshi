@@ -18,6 +18,7 @@ from app.domain.entities import (
     GiftRecord,
     Household,
     Membership,
+    Party,
     ReturnSuggestion,
 )
 from app.images import ImageStore
@@ -243,6 +244,79 @@ class NoshiService:
             self._audit(user_id, "remove_purpose", scope)  # A09
         return self.purpose_master(user_id)
 
+    # --- 相手（人）マスタ（#47）。同名でも別人を区別するため ID で識別する ---
+    @staticmethod
+    def _party_dict(p: Party) -> dict[str, Any]:
+        return {"id": p.id, "name": p.name, "relationship": p.relationship}
+
+    def parties(self, user_id: str) -> list[dict[str, Any]]:
+        """世帯の相手一覧（id・名前・続柄）。同名は続柄で見分けられる。"""
+        ps = self.repo.list_parties(self._scope(user_id))
+        return [self._party_dict(p) for p in sorted(ps, key=lambda x: x.name)]
+
+    def add_party(self, user_id: str, name: str, relationship: str = "") -> dict[str, Any]:
+        """相手を世帯に追加する。同名でも別人として別レコードを作る（識別はID）。"""
+        value = (name or "").strip()
+        if not value:
+            raise ValidationError(["お名前を入力してください。"])
+        if len(value) > 30:
+            raise ValidationError(["お名前は30文字以内で入力してください。"])
+        scope = self._scope(user_id)
+        party = self.repo.put_party(
+            scope, Party(name=value, relationship=(relationship or "").strip())
+        )
+        self._audit(user_id, "add_party", scope)  # A09
+        return self._party_dict(party)
+
+    def update_party(
+        self, user_id: str, party_id: str, name: str, relationship: str
+    ) -> dict[str, Any]:
+        """相手の名前・続柄を更新し、記録の表示スナップショット(party_name)も同期する。"""
+        scope = self._scope(user_id)
+        party = self.repo.get_party(scope, party_id)
+        if party is None:
+            raise ForbiddenError("not your party")
+        value = (name or "").strip()
+        if not value:
+            raise ValidationError(["お名前を入力してください。"])
+        party.name = value
+        party.relationship = (relationship or "").strip()
+        self.repo.put_party(scope, party)
+        # 表示用スナップショットを追従（おつきあい/台帳の名前が古くならないように）
+        for rec in self.repo.list_records(scope):
+            if rec.party_id == party_id and rec.party_name != value:
+                rec.party_name = value
+                self.repo.put_record(rec)
+        self._audit(user_id, "update_party", scope)  # A09
+        return self._party_dict(party)
+
+    def delete_party(self, user_id: str, party_id: str) -> bool:
+        """相手をマスタから削除する（過去レコードは表示用スナップショットで残る）。"""
+        scope = self._scope(user_id)
+        ok = self.repo.delete_party(scope, party_id)
+        if ok:
+            self._audit(user_id, "delete_party", scope)  # A09
+        return ok
+
+    def _resolve_party(self, scope: str, party_id: str, party_name: str) -> Party:
+        """party_id があれば取得、無ければ名前から相手を解決（既存の同名 or 新規作成）。
+
+        フロントは常に party_id を渡す（ピッカーで選択/新規）。party_name のみの経路は
+        テスト/簡易用のフォールバック。
+        """
+        if party_id:
+            p = self.repo.get_party(scope, party_id)
+            if p is None:
+                raise ValidationError(["相手が見つかりません。"])
+            return p
+        name = (party_name or "").strip()
+        if not name:
+            raise ValidationError(["お名前を入力してください。"])
+        for p in self.repo.list_parties(scope):
+            if p.name == name:
+                return p
+        return self.repo.put_party(scope, Party(name=name))
+
     # --- 撮影 → 抽出 ---
     def submit_extraction(self, user_id: str, image_refs: list[str]) -> ExtractionJob:
         out = self.ocr.extract(image_refs)
@@ -264,20 +338,28 @@ class NoshiService:
 
     # --- 記録 ---
     def create_record(
-        self, user_id: str, amount: int, purpose: str, party_name: str, direction: str, **extra: Any
+        self,
+        user_id: str,
+        amount: int,
+        purpose: str,
+        direction: str,
+        party_name: str = "",
+        **extra: Any,
     ) -> tuple[GiftRecord, GiftEvent | None]:
-        errors = rules.validate_record(amount, purpose, party_name, direction)
+        scope = self._scope(user_id)
+        # 相手は party_id で識別（同名でも別人を区別、#47）。名前はマスタから取りスナップショット。
+        party = self._resolve_party(scope, extra.get("party_id", ""), party_name)
+        errors = rules.validate_record(amount, purpose, party.name, direction)
         if errors:
             raise ValidationError(errors)
-        scope = self._scope(user_id)
         rec = GiftRecord(
             user_id=scope,
             amount=amount,
             purpose=purpose,
-            party_name=party_name,
+            party_name=party.name,
+            party_id=party.id,
             direction=direction,
             occurred_at=extra.get("occurred_at", ""),
-            relationship=extra.get("relationship", ""),
             image_key=extra.get("image_key", ""),
         )
         self.repo.put_record(rec)
@@ -326,26 +408,32 @@ class NoshiService:
         *,
         amount: int,
         purpose: str,
-        party_name: str,
+        party_name: str = "",
         **extra: Any,
     ) -> GiftRecord:
         """保存済みレコードを修正する（AI抽出の誤りを本人が訂正）。本人スコープ強制＋監査（A01, A09）。
 
         direction は変更しない（イベント生成/破棄の整合を避けるため）。
         """
-        rec = self.repo.get_record(self._scope(user_id), record_id)
+        scope = self._scope(user_id)
+        rec = self.repo.get_record(scope, record_id)
         if rec is None:
             raise ForbiddenError("not your record")
-        errors = rules.validate_record(amount, purpose, party_name, rec.direction)
+        # 相手の付け替え（#47）。party_id 指定があれば相手を解決して名前も更新。
+        # party_id が無く party_name のみ指定なら表示スナップショットだけ更新（簡易/テスト）。
+        if extra.get("party_id"):
+            party = self._resolve_party(scope, extra["party_id"], "")
+            rec.party_id = party.id
+            rec.party_name = party.name
+        elif party_name:
+            rec.party_name = party_name
+        errors = rules.validate_record(amount, purpose, rec.party_name, rec.direction)
         if errors:
             raise ValidationError(errors)
         rec.amount = amount
         rec.purpose = purpose
-        rec.party_name = party_name
         if "occurred_at" in extra:
             rec.occurred_at = extra["occurred_at"]
-        if "relationship" in extra:
-            rec.relationship = extra["relationship"]
         if "image_key" in extra:
             new_key = extra["image_key"] or ""
             # 差し替え/削除なら旧オブジェクトを後始末（#35）
@@ -420,16 +508,19 @@ class NoshiService:
         override = _parse_date(ev.override_due)  # 手動上書きがあれば優先
         due = override or default_due
         image_key = rec.image_key if rec else ""
+        # 続柄は相手(Party)から引く（記録ではなく人の属性、#47）。名前も最新を優先。
+        party = self.repo.get_party(scope, rec.party_id) if (rec and rec.party_id) else None
         return {
             "id": ev.id,
             "status": ev.status,
             "record_id": ev.record_id,
-            "party_name": rec.party_name if rec else "",
+            "party_id": rec.party_id if rec else "",
+            "party_name": (party.name if party else (rec.party_name if rec else "")),
             "purpose": purpose,
             "amount": rec.amount if rec else 0,
             "direction": rec.direction if rec else "received",
             "occurred_at": occurred_at,
-            "relationship": rec.relationship if rec else "",
+            "relationship": party.relationship if party else "",
             "due_at": due.isoformat() if due else None,
             "due_default": default_due.isoformat() if default_due else None,
             "due_overridden": override is not None,
@@ -494,16 +585,18 @@ class NoshiService:
             if ev.record_id == record_id:
                 return self._view(scope, ev)
         # イベントなし（given）: 期限/ステータス等は持たない記録ベースのビュー
+        party = self.repo.get_party(scope, rec.party_id) if rec.party_id else None
         return {
             "id": "",
             "status": "",
             "record_id": rec.id,
-            "party_name": rec.party_name,
+            "party_id": rec.party_id,
+            "party_name": party.name if party else rec.party_name,
             "purpose": rec.purpose,
             "amount": rec.amount,
             "direction": rec.direction,
             "occurred_at": rec.occurred_at,
-            "relationship": rec.relationship,
+            "relationship": party.relationship if party else "",
             "due_at": None,
             "due_default": None,
             "due_overridden": False,

@@ -21,6 +21,7 @@ from app.schemas import (
     DueIn,
     ImageUploadIn,
     JoinHouseholdIn,
+    PartyIn,
     PurposeIn,
     RecordIn,
     RecordUpdateIn,
@@ -171,10 +172,10 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
             uid,
             amount=body.amount,
             purpose=body.purpose,
-            party_name=body.party_name,
             direction=body.direction,
+            party_id=body.party_id,
+            party_name=body.party_name,
             occurred_at=body.occurred_at,
-            relationship=body.relationship,
             image_key=body.image_key,
         )
         # given はお返しイベントを持たない（ev is None）。安全に null を返す（FR-8-1）。
@@ -222,6 +223,28 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # #37: 世帯独自の用途を削除（既定は対象外／過去レコードの値は残す）。
         return svc.remove_purpose(uid, name)
 
+    @app.get("/api/parties")
+    def parties(uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #47: 相手（人）の一覧。同名でも別人を ID で区別。
+        return {"parties": svc.parties(uid)}
+
+    @app.post("/api/parties")
+    def add_party(body: PartyIn, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #47: 相手を新規追加（同名でも別人として作成）。
+        return {"party": svc.add_party(uid, body.name, body.relationship)}
+
+    @app.patch("/api/parties/{party_id}")
+    def update_party(
+        party_id: str, body: PartyIn, uid: str = Depends(current_user)
+    ) -> dict[str, Any]:
+        # #47: 相手の名前・続柄を更新（記録の表示名も同期）。
+        return {"party": svc.update_party(uid, party_id, body.name, body.relationship)}
+
+    @app.delete("/api/parties/{party_id}")
+    def remove_party(party_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #47: 相手をマスタから削除（過去レコードは表示名スナップショットで残る）。
+        return {"ok": svc.delete_party(uid, party_id)}
+
     @app.get("/api/gift-tax")
     def gift_tax(uid: str = Depends(current_user)) -> dict[str, Any]:
         # P1-3: 暦年の対象もらった合計と110万枠の気づき（税アドバイスではない）。
@@ -247,19 +270,16 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # None のフィールドは渡さない＝既存値を保持（金額のみ修正で日付が消えないように）。
         extra = {
             k: v
-            for k, v in (
-                ("occurred_at", body.occurred_at),
-                ("relationship", body.relationship),
-                ("image_key", body.image_key),
-            )
+            for k, v in (("occurred_at", body.occurred_at), ("image_key", body.image_key))
             if v is not None
         }
+        if body.party_id:  # 空なら相手は変更しない（#47）
+            extra["party_id"] = body.party_id
         rec = svc.update_record(
             uid,
             record_id,
             amount=body.amount,
             purpose=body.purpose,
-            party_name=body.party_name,
             **extra,
         )
         return {"record": vars(rec)}

@@ -8,10 +8,10 @@ from pydantic import BaseModel, Field
 class RecordIn(BaseModel):
     amount: int = Field(gt=0, description="もらった/あげた金額（>0）")
     purpose: str = Field(min_length=1)
-    party_name: str = Field(min_length=1)
+    party_id: str = ""  # 相手の識別（#47）。ピッカーで選択/新規作成した相手のID
+    party_name: str = ""  # フォールバック（party_id 未指定時に名前から解決）
     direction: str = Field(pattern="^(received|given)$")
     occurred_at: str = ""
-    relationship: str = ""
     image_key: str = ""  # 事前にアップロード済みのS3キー（#35）
 
 
@@ -31,10 +31,9 @@ class CaptureIn(BaseModel):
 class RecordUpdateIn(BaseModel):
     amount: int = Field(gt=0, description="修正後の金額（>0）")
     purpose: str = Field(min_length=1)
-    party_name: str = Field(min_length=1)
+    party_id: str = ""  # 相手の付け替え（#47）。空なら相手は変更しない
     # 未指定(None)なら既存値を保持する。"" を渡すと明示的にクリアできる。
     occurred_at: str | None = None
-    relationship: str | None = None
     image_key: str | None = None  # 差し替え=新キー / 削除="" / 保持=None（#35）
 
 
@@ -56,6 +55,12 @@ class RelationshipIn(BaseModel):
 class PurposeIn(BaseModel):
     # 世帯独自の用途の追加（#37）。
     name: str = Field(min_length=1, description="追加する用途")
+
+
+class PartyIn(BaseModel):
+    # 相手（人）の追加/更新（#47）。続柄は人の属性。
+    name: str = Field(min_length=1, description="相手のお名前")
+    relationship: str = ""  # 続柄（#1の続柄マスタから）
 
 
 class SelectSuggestionIn(BaseModel):

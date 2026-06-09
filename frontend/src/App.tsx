@@ -358,6 +358,21 @@ export function App() {
     go("capture");
   }
 
+  // 「あげた」を起点にした手入力（副導線、#39）。撮影なしで空の下書きを開く。
+  function startManualGiven() {
+    setDraft({
+      amount: "",
+      party_name: "",
+      relationship: "",
+      purpose: "",
+      occurred_at: "",
+      direction: "given",
+      field_review: {},
+      image: "",
+    });
+    go("review");
+  }
+
   async function saveRecord() {
     if (!draft) return;
     try {
@@ -917,6 +932,19 @@ export function App() {
             {extracting ? "読み取り中…" : "この画像で読み取る"}
           </button>
           <TrustNote />
+          <div
+            style={{
+              marginTop: 20,
+              paddingTop: 16,
+              borderTop: "1px dashed var(--border-default)",
+            }}
+          >
+            <p className="muted">贈った（あげた）ものは、撮影せず手入力で記録できます。</p>
+            <button type="button" className="btn ghost" onClick={startManualGiven}>
+              <Icon name="gift" size={18} />
+              あげた物を手入力で記録
+            </button>
+          </div>
         </>
       )}
 
@@ -941,10 +969,12 @@ export function App() {
           const reviewCount = fields.filter((k) => fr[k]).length;
           return (
             <>
-              <Bar title="内容を確認" back="capture" />
+              <Bar title={draft.image ? "内容を確認" : "あげた物を記録"} back="capture" />
               {draft.image && <img className="review-image" src={draft.image} alt="撮影した画像" />}
               <p className="muted" style={{ marginTop: 6 }}>
-                {reviewMessage(reviewCount, fields.length)}
+                {draft.image
+                  ? reviewMessage(reviewCount, fields.length)
+                  : "贈った内容を入力して保存してください。"}
               </p>
               <div className="field">
                 <label>種類</label>

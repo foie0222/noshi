@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { daysLeftLabel, diffLabel, statusLabel, summarize, yen } from "./format";
+import { daysLeftLabel, diffLabel, statusLabel, summarize, withHonor, yen } from "./format";
+
+describe("敬称の付与（#49: 二重付与を防ぐ）", () => {
+  it("通常の名前には「様」を付けることを検証する", () => {
+    expect(withHonor("田中")).toBe("田中 様");
+  });
+  it("既に敬称（様/さん/殿/御中/くん/ちゃん）が付く名前には重ねないことを検証する", () => {
+    expect(withHonor("山本 様")).toBe("山本 様");
+    expect(withHonor("佐藤さん")).toBe("佐藤さん");
+    expect(withHonor("田中殿")).toBe("田中殿");
+    expect(withHonor("株式会社ノシ 御中")).toBe("株式会社ノシ 御中");
+  });
+  it("空文字は空のまま返すことを検証する", () => {
+    expect(withHonor("")).toBe("");
+    expect(withHonor("  ")).toBe("");
+  });
+});
 
 describe("残日数の表示", () => {
   it("残日数が正なら「のこり◯日」と表示することを検証する", () => {

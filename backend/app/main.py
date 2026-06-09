@@ -23,6 +23,7 @@ from app.schemas import (
     LetterIn,
     RecordIn,
     RecordUpdateIn,
+    RelationshipIn,
     SelectSuggestionIn,
     StatusIn,
 )
@@ -181,6 +182,21 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     def relationships(uid: str = Depends(current_user)) -> dict[str, Any]:
         # N1: 相手別おつきあいバランス（本人データのみ）。
         return {"relationships": svc.relationships(uid)}
+
+    @app.get("/api/relationship-master")
+    def relationship_master(uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #1: 続柄の選択肢（システム既定＋世帯独自）。
+        return svc.relationship_master(uid)
+
+    @app.post("/api/relationship-master")
+    def add_relationship(body: RelationshipIn, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #1: 世帯独自の続柄を追加（世帯スコープで家族に共有）。
+        return svc.add_relationship(uid, body.name)
+
+    @app.delete("/api/relationship-master/{name}")
+    def remove_relationship(name: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #1: 世帯独自の続柄を削除（既定は対象外／過去レコードの値は残す）。
+        return svc.remove_relationship(uid, name)
 
     @app.get("/api/gift-tax")
     def gift_tax(uid: str = Depends(current_user)) -> dict[str, Any]:

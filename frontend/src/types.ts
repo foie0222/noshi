@@ -23,6 +23,7 @@ export interface EventView {
   amount: number;
   direction: Direction;
   occurred_at: string;
+  relationship: string;
   due_at: string | null;
   due_default: string | null;
   due_overridden: boolean;
@@ -146,6 +147,13 @@ export interface EditDraft {
   purpose: string;
   party_name: string;
   occurred_at: string;
+  relationship: string;
+}
+
+/** 続柄マスタ（システム既定＋世帯独自）。#1 */
+export interface RelationshipMaster {
+  options: string[];
+  defaults: string[];
 }
 
 /** 不明な例外から表示用メッセージを取り出す。 */

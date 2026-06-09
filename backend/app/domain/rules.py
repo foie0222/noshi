@@ -15,6 +15,24 @@ from app.domain.entities import GiftRecord
 
 CONFIDENCE_THRESHOLD = 0.7
 
+# 世帯が追加できる独自続柄の上限（#1）。散らかり・濫用を防ぐ実用的な上限。
+RELATIONSHIP_CUSTOM_MAX = 30
+
+# 続柄マスタの既定（システム固定）。世帯ごとに独自の続柄を追加できる（#1）。
+RELATIONSHIP_DEFAULTS = (
+    "親",
+    "子",
+    "兄弟姉妹",
+    "祖父母",
+    "叔父・叔母",
+    "いとこ",
+    "配偶者の親族",
+    "友人",
+    "同僚・仕事",
+    "近所",
+    "その他",
+)
+
 # 用途 → お返し期限の日数（受領日起点）。None はお返し不要。
 _DUE_DAYS_DEFAULT = 30
 _DUE_NONE = ("お中元", "お歳暮")

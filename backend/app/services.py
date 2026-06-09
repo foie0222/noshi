@@ -147,6 +147,51 @@ class NoshiService:
         self._audit(user_id, "remove_member", target_user_id)  # A09
         return self.household_view(user_id)
 
+    # --- 続柄マスタ（システム既定 ＋ 世帯独自）（#1）---
+    def relationship_master(self, user_id: str) -> dict[str, Any]:
+        """選択肢に出す続柄一覧。既定（システム固定）＋世帯独自の追加分（重複排除）。"""
+        defaults = list(rules.RELATIONSHIP_DEFAULTS)
+        customs = [
+            r
+            for r in self.repo.list_household_relationships(self._scope(user_id))
+            if r not in defaults
+        ]
+        return {"options": defaults + customs, "defaults": defaults}
+
+    def add_relationship(self, user_id: str, name: str) -> dict[str, Any]:
+        """世帯独自の続柄を追加する（世帯スコープで家族に共有）。
+
+        空文字・既定と重複・既存の独自と重複は無視（重複排除）。長すぎる入力は拒否。
+        世帯あたり RELATIONSHIP_CUSTOM_MAX 件を超える追加は拒否。
+        """
+        value = (name or "").strip()
+        if value and value not in rules.RELATIONSHIP_DEFAULTS:
+            if len(value) > 20:
+                raise ValidationError(["続柄は20文字以内で入力してください。"])
+            scope = self._scope(user_id)
+            existing = self.repo.list_household_relationships(scope)
+            if value not in existing and len(existing) >= rules.RELATIONSHIP_CUSTOM_MAX:
+                raise ValidationError(
+                    [
+                        f"独自の続柄は{rules.RELATIONSHIP_CUSTOM_MAX}件までです。不要なものを削除してください。"
+                    ]
+                )
+            self.repo.add_household_relationship(scope, value)
+            self._audit(user_id, "add_relationship", scope)  # A09
+        return self.relationship_master(user_id)
+
+    def remove_relationship(self, user_id: str, name: str) -> dict[str, Any]:
+        """世帯独自の続柄をマスタから削除する（既定は対象外）。
+
+        過去レコードの relationship 文字列は触らない（後方互換でそのまま残る）。
+        """
+        value = (name or "").strip()
+        if value and value not in rules.RELATIONSHIP_DEFAULTS:
+            scope = self._scope(user_id)
+            self.repo.remove_household_relationship(scope, value)
+            self._audit(user_id, "remove_relationship", scope)  # A09
+        return self.relationship_master(user_id)
+
     # --- 撮影 → 抽出 ---
     def submit_extraction(self, user_id: str, image_refs: list[str]) -> ExtractionJob:
         out = self.ocr.extract(image_refs)
@@ -328,6 +373,7 @@ class NoshiService:
             "amount": rec.amount if rec else 0,
             "direction": rec.direction if rec else "received",
             "occurred_at": occurred_at,
+            "relationship": rec.relationship if rec else "",
             "due_at": due.isoformat() if due else None,
             "due_default": default_due.isoformat() if default_due else None,
             "due_overridden": override is not None,

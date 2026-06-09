@@ -190,6 +190,41 @@ def test_不正な期限のPUTは422になる():
     assert r.status_code == 422
 
 
+def test_続柄マスタの取得と世帯独自の追加():
+    """GET /api/relationship-master が既定を返し、POST で世帯独自の続柄を追加できることを検証する（#1）。"""
+    c = TestClient(create_app())
+    m = c.get("/api/relationship-master", headers=_h()).json()
+    assert "親" in m["options"] and "友人" in m["options"]
+    added = c.post("/api/relationship-master", headers=_h(), json={"name": "ママ友"}).json()
+    assert "ママ友" in added["options"] and "ママ友" not in added["defaults"]
+
+
+def test_続柄の追加は同じ世帯で共有され別世帯には見えない():
+    """追加した続柄が同世帯の家族に共有され、別ユーザー（別世帯）には見えないことを検証する（#1, A01）。"""
+    c = TestClient(create_app())
+    code = c.get("/api/household", headers=_h("owner")).json()["household"]["invite_code"]
+    c.post("/api/household/join", headers=_h("family"), json={"code": code})
+    c.post("/api/relationship-master", headers=_h("owner"), json={"name": "茶道仲間"})
+    assert "茶道仲間" in c.get("/api/relationship-master", headers=_h("family")).json()["options"]
+    assert (
+        "茶道仲間"
+        not in c.get("/api/relationship-master", headers=_h("stranger")).json()["options"]
+    )
+
+
+def test_続柄の削除と上限():
+    """DELETE で世帯独自の続柄を削除でき、上限(30)超過の追加が422になることを検証する（#1）。"""
+    c = TestClient(create_app())
+    c.post("/api/relationship-master", headers=_h(), json={"name": "ママ友"})
+    after = c.delete("/api/relationship-master/ママ友", headers=_h()).json()
+    assert "ママ友" not in after["options"]
+    # 上限: 30件まで→31件目は422
+    for i in range(30):
+        c.post("/api/relationship-master", headers=_h(), json={"name": f"続柄{i}"})
+    r = c.post("/api/relationship-master", headers=_h(), json={"name": "あふれる"})
+    assert r.status_code == 422
+
+
 def test_汎用エラーは内部情報を漏らさない():
     """403応答が内部情報（スタックトレース等）を含まない汎用メッセージであることを検証する（A03）。"""
     c = TestClient(create_app())

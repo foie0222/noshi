@@ -95,3 +95,15 @@ def test_メンバーシップと世帯メンバー一覧(table_name):
     repo.put_membership(Membership(user_id="u2", household_id="H", role="member"))
     assert repo.get_membership("u1").role == "owner"
     assert {m.user_id for m in repo.list_members("H")} == {"u1", "u2"}
+
+
+def test_世帯独自の続柄を保存し追加順で読める(table_name):
+    """世帯独自の続柄を保存し、追加順で一覧でき、同名は重複しないことを検証する（#1）。"""
+    repo = DynamoRepository(table_name=table_name)
+    repo.add_household_relationship("H", "ママ友")
+    repo.add_household_relationship("H", "茶道仲間")
+    repo.add_household_relationship("H", "ママ友")  # 重複 upsert
+    assert repo.list_household_relationships("H") == ["ママ友", "茶道仲間"]
+    assert repo.list_household_relationships("OTHER") == []  # 別世帯には出ない
+    repo.remove_household_relationship("H", "ママ友")
+    assert repo.list_household_relationships("H") == ["茶道仲間"]  # 削除が効く

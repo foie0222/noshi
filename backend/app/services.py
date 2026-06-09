@@ -344,6 +344,7 @@ class NoshiService:
 
     # --- イベント状態 ---
     def set_event_status(self, user_id: str, event_id: str, status: str) -> GiftEvent:
+        # considering=対応中（表示名）。キーは互換のため据え置き（#4）。
         if status not in ("received", "considering", "done"):
             raise ValidationError([f"不正なステータス: {status}"])
         ev = self._require_event(user_id, self._scope(user_id), event_id)

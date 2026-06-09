@@ -132,6 +132,7 @@ export function App() {
   const [reviewTried, setReviewTried] = useState<boolean>(false); // 保存を試みたか(#50: 検証表示)
   const [editTried, setEditTried] = useState<boolean>(false);
   const [ledgerView, setLedgerView] = useState<LedgerView>(LEDGER_DEFAULT); // 台帳の検索/絞込/並替(#51)
+  const [uploading, setUploading] = useState<boolean>(false); // 画像アップロード中(#54)
   const [mySection, setMySection] = useState<MySection>("household"); // マイページのサブページ(#3)
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false); // マイページのドロワー
 
@@ -409,17 +410,20 @@ export function App() {
     go("review");
   }
 
-  // data URL の画像を縮小し、署名付きURLでS3へ上げてキーを返す（#35）。
-  // S3 未設定（ローカル/501）等で失敗しても記録は続行できるよう "" を返す。
-  async function uploadImage(dataUrl: string): Promise<string> {
-    if (!dataUrl) return "";
+  // data URL の画像を縮小し、署名付きURLでS3へ上げてキーを返す（#35/#54）。
+  // 進捗は uploading で可視化。失敗は failed で呼び出し側に伝える（記録自体は続行可）。
+  async function uploadImage(dataUrl: string): Promise<{ key: string; failed: boolean }> {
+    if (!dataUrl) return { key: "", failed: false };
+    setUploading(true);
     try {
       const blob = await downscaleImage(dataUrl);
       const { url, key } = await api.imageUploadUrl("image/jpeg");
       await uploadToS3(url, blob, "image/jpeg");
-      return key;
+      return { key, failed: false };
     } catch {
-      return ""; // 画像は任意。保存できなくても記録は残す。
+      return { key: "", failed: true };
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -435,7 +439,7 @@ export function App() {
       return;
     }
     try {
-      const image_key = await uploadImage(draft.image);
+      const { key: image_key, failed: imgFailed } = await uploadImage(draft.image);
       const input: RecordInput = {
         amount: Number(draft.amount),
         purpose: draft.purpose,
@@ -446,7 +450,7 @@ export function App() {
       };
       const res = await api.createRecord(input);
       setEvent(res.event);
-      notify("記録しました");
+      notify(imgFailed ? "記録しました（写真は保存できませんでした）" : "記録しました");
       go("home");
     } catch (e) {
       notify(errMsg(e));
@@ -596,11 +600,12 @@ export function App() {
         notify(err);
         return;
       }
-      image_key = await uploadImage(await fileToDataUrl(file));
-      if (!image_key) {
-        notify("写真を保存できませんでした。");
+      const up = await uploadImage(await fileToDataUrl(file));
+      if (up.failed) {
+        notify("写真を保存できませんでした。通信環境をご確認ください。");
         return;
       }
+      image_key = up.key;
     }
     try {
       await api.updateRecord(event.record_id, {
@@ -1149,8 +1154,13 @@ export function App() {
                 );
               })}
               <TrustNote />
-              <button type="button" className="btn primary" onClick={saveRecord}>
-                確認して保存
+              <button
+                type="button"
+                className="btn primary"
+                disabled={uploading}
+                onClick={saveRecord}
+              >
+                {uploading ? "写真を保存中…" : "確認して保存"}
               </button>
             </>
           );
@@ -1347,11 +1357,18 @@ export function App() {
                       <img className="detail-image" src={event.image_url} alt="贈答の写真" />
                     )}
                     <div className="detail-photo-actions">
-                      <label className="photo-btn" htmlFor="detail-photo-input">
-                        <Icon name="camera" size={16} />
-                        {event.image_url ? "写真を差し替え" : "写真を追加"}
-                      </label>
-                      {event.image_url && (
+                      {uploading ? (
+                        <span className="photo-btn" aria-busy="true">
+                          <Icon name="camera" size={16} />
+                          アップロード中…
+                        </span>
+                      ) : (
+                        <label className="photo-btn" htmlFor="detail-photo-input">
+                          <Icon name="camera" size={16} />
+                          {event.image_url ? "写真を差し替え" : "写真を追加"}
+                        </label>
+                      )}
+                      {event.image_url && !uploading && (
                         <button
                           type="button"
                           className="photo-btn danger"

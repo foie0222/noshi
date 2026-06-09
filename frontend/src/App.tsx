@@ -26,6 +26,7 @@ import {
 } from "./lib/cognito";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
+import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
 import { seasonNudge, seasonOf } from "./lib/season";
@@ -130,6 +131,7 @@ export function App() {
   const [parties, setParties] = useState<Party[]>([]); // 相手マスタ(#47)
   const [reviewTried, setReviewTried] = useState<boolean>(false); // 保存を試みたか(#50: 検証表示)
   const [editTried, setEditTried] = useState<boolean>(false);
+  const [ledgerView, setLedgerView] = useState<LedgerView>(LEDGER_DEFAULT); // 台帳の検索/絞込/並替(#51)
   const [mySection, setMySection] = useState<MySection>("household"); // マイページのサブページ(#3)
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false); // マイページのドロワー
 
@@ -1154,35 +1156,95 @@ export function App() {
           );
         })()}
 
-      {screen === "ledger" && ledger && (
-        <>
-          <Bar title="贈答の台帳" />
-          {ledger.records.length === 0 && <p className="muted">記録がありません</p>}
-          {ledger.records.map((r) => (
-            <div className="listitem" key={r.id} onClick={() => openEventForRecord(r.id)}>
-              <span className={`dirpill dir-${r.direction}`}>
-                {r.direction === "received" ? "受領" : "贈与"}
-              </span>
-              <div style={{ flex: 1 }}>
-                <b>{r.party_name}</b>
-                <div className="muted">{r.purpose}</div>
+      {screen === "ledger" &&
+        ledger &&
+        (() => {
+          const shown = filterSortRecords(ledger.records, ledgerView);
+          return (
+            <>
+              <Bar title="贈答の台帳" />
+              <div className="ledger-controls">
+                <div className="select-wrap" style={{ position: "relative" }}>
+                  <input
+                    className="input"
+                    type="search"
+                    placeholder="相手名・用途で検索"
+                    aria-label="台帳を検索"
+                    value={ledgerView.query}
+                    onChange={(e) => setLedgerView({ ...ledgerView, query: e.target.value })}
+                  />
+                </div>
+                <div className="ledger-controls-row">
+                  <div className="chips">
+                    {(
+                      [
+                        ["all", "すべて"],
+                        ["received", "もらった"],
+                        ["given", "あげた"],
+                      ] as const
+                    ).map(([d, lbl]) => (
+                      <span
+                        key={d}
+                        className={`chip ${ledgerView.direction === d ? "on" : ""}`}
+                        role="button"
+                        aria-pressed={ledgerView.direction === d}
+                        onClick={() => setLedgerView({ ...ledgerView, direction: d })}
+                      >
+                        {lbl}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="select-wrap" style={{ width: "auto" }}>
+                    <select
+                      className="select"
+                      style={{ minHeight: 38, width: "auto" }}
+                      aria-label="並べ替え"
+                      value={ledgerView.sort}
+                      onChange={(e) =>
+                        setLedgerView({ ...ledgerView, sort: e.target.value as LedgerSort })
+                      }
+                    >
+                      <option value="date_desc">新しい順</option>
+                      <option value="date_asc">古い順</option>
+                      <option value="amount_desc">金額が高い順</option>
+                    </select>
+                    <span className="select-chevron">
+                      <Icon name="chevronDown" size={20} />
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="amount">{yen(r.amount)}</div>
-              <button
-                type="button"
-                className="card-del"
-                aria-label={`${r.party_name} の記録を削除`}
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  doDeleteRecord(r.id, r.party_name);
-                }}
-              >
-                <Icon name="trash" size={16} />
-              </button>
-            </div>
-          ))}
-        </>
-      )}
+              {shown.length === 0 && (
+                <p className="muted">
+                  {ledger.records.length === 0 ? "記録がありません" : "該当する記録がありません"}
+                </p>
+              )}
+              {shown.map((r) => (
+                <div className="listitem" key={r.id} onClick={() => openEventForRecord(r.id)}>
+                  <span className={`dirpill dir-${r.direction}`}>
+                    {r.direction === "received" ? "受領" : "贈与"}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <b>{r.party_name}</b>
+                    <div className="muted">{r.purpose}</div>
+                  </div>
+                  <div className="amount">{yen(r.amount)}</div>
+                  <button
+                    type="button"
+                    className="card-del"
+                    aria-label={`${r.party_name} の記録を削除`}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      doDeleteRecord(r.id, r.party_name);
+                    }}
+                  >
+                    <Icon name="trash" size={16} />
+                  </button>
+                </div>
+              ))}
+            </>
+          );
+        })()}
 
       {screen === "half" && range && (
         <>

@@ -7,6 +7,14 @@ export interface OtoshidamaRange {
   note: string;
 }
 
+/** お子さんの年齢入力が有効か（0〜25の整数のみ）（#52）。 */
+export function isValidChildAge(input: string): boolean {
+  const s = (input ?? "").trim();
+  if (!/^\d+$/.test(s)) return false; // 整数のみ（負数・小数・非数値・空を弾く）
+  const n = Number(s);
+  return n >= 0 && n <= 25;
+}
+
 export function otoshidamaRange(age: number): OtoshidamaRange {
   if (age <= 6)
     return {

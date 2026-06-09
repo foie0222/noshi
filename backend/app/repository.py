@@ -15,6 +15,7 @@ from app.domain.entities import (
     GiftRecord,
     Household,
     Membership,
+    Party,
 )
 
 T = TypeVar("T")
@@ -50,6 +51,11 @@ class Repository(Protocol):
     def add_household_purpose(self, household_id: str, name: str) -> None: ...
     def list_household_purposes(self, household_id: str) -> list[str]: ...
     def remove_household_purpose(self, household_id: str, name: str) -> None: ...
+    # --- 相手（人）マスタ（#47）---
+    def put_party(self, household_id: str, party: Party) -> Party: ...
+    def get_party(self, household_id: str, party_id: str) -> Party | None: ...
+    def list_parties(self, household_id: str) -> list[Party]: ...
+    def delete_party(self, household_id: str, party_id: str) -> bool: ...
 
 
 class InMemoryRepository:
@@ -64,6 +70,7 @@ class InMemoryRepository:
         self._memberships: dict[str, Membership] = {}  # user_id -> Membership
         self._relationships: dict[str, list[str]] = {}  # household_id -> 続柄（追加順）
         self._purposes: dict[str, list[str]] = {}  # household_id -> 用途（追加順）
+        self._parties: dict[str, dict[str, Party]] = {}  # household_id -> {party_id: Party}
 
     # --- records ---
     def put_record(self, rec: GiftRecord) -> GiftRecord:
@@ -172,6 +179,20 @@ class InMemoryRepository:
         names = self._purposes.get(household_id)
         if names and name in names:
             names.remove(name)
+
+    # --- 相手（人）マスタ ---
+    def put_party(self, household_id: str, party: Party) -> Party:
+        self._parties.setdefault(household_id, {})[party.id] = party
+        return party
+
+    def get_party(self, household_id: str, party_id: str) -> Party | None:
+        return self._parties.get(household_id, {}).get(party_id)
+
+    def list_parties(self, household_id: str) -> list[Party]:
+        return list(self._parties.get(household_id, {}).values())
+
+    def delete_party(self, household_id: str, party_id: str) -> bool:
+        return self._parties.get(household_id, {}).pop(party_id, None) is not None
 
 
 class DynamoRepository:
@@ -380,6 +401,34 @@ class DynamoRepository:
 
     def remove_household_purpose(self, household_id: str, name: str) -> None:
         self.table.delete_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": f"PUR#{name}"})
+
+    # --- 相手（人）マスタ（PARTY# 接頭辞、世帯スコープ）---
+    def put_party(self, household_id: str, party: Party) -> Party:
+        self.table.put_item(
+            Item=self._item(f"HOUSEHOLD#{household_id}", f"PARTY#{party.id}", "party", party)
+        )
+        return party
+
+    def get_party(self, household_id: str, party_id: str) -> Party | None:
+        r = self.table.get_item(
+            Key={"PK": f"HOUSEHOLD#{household_id}", "SK": f"PARTY#{party_id}"}
+        ).get("Item")
+        return self._hydrate(Party, r)
+
+    def list_parties(self, household_id: str) -> list[Party]:
+        from boto3.dynamodb.conditions import Key
+
+        items = self.table.query(
+            KeyConditionExpression=Key("PK").eq(f"HOUSEHOLD#{household_id}")
+            & Key("SK").begins_with("PARTY#")
+        ).get("Items", [])
+        return [h for it in items if (h := self._hydrate(Party, it)) is not None]
+
+    def delete_party(self, household_id: str, party_id: str) -> bool:
+        if self.get_party(household_id, party_id) is None:
+            return False
+        self.table.delete_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": f"PARTY#{party_id}"})
+        return True
 
 
 def _to_dynamo(value: Any) -> Any:

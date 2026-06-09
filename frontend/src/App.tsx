@@ -11,6 +11,7 @@ import { Drawer } from "./components/Drawer";
 import { Icon, type IconName } from "./components/Icon";
 import { Logo } from "./components/Logo";
 import { MasterSelect } from "./components/MasterSelect";
+import { PartySelect } from "./components/PartySelect";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -39,6 +40,7 @@ import {
   type HomeResponse,
   type Household,
   type LedgerResponse,
+  type Party,
   type Range,
   type Relationship,
   type Suggestion,
@@ -124,6 +126,7 @@ export function App() {
   const [relDefaults, setRelDefaults] = useState<string[]>([]); // 既定（削除不可の判定用）
   const [purOptions, setPurOptions] = useState<string[]>([]); // 用途マスタの選択肢(#37)
   const [purDefaults, setPurDefaults] = useState<string[]>([]); // 既定（削除不可の判定用）
+  const [parties, setParties] = useState<Party[]>([]); // 相手マスタ(#47)
   const [mySection, setMySection] = useState<MySection>("household"); // マイページのサブページ(#3)
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false); // マイページのドロワー
 
@@ -291,8 +294,25 @@ export function App() {
           })
           .catch(handleErr);
       }
+      // 相手マスタ（#47）は都度最新化（追加が反映されるように）。
+      api
+        .parties()
+        .then((r) => setParties(r.parties))
+        .catch(handleErr);
     }
   }, [screen]);
+
+  // 相手を世帯マスタへ追加し、一覧を更新したうえでその相手を選ぶ（#47）。
+  async function addParty(name: string, relationship: string, select: (id: string) => void) {
+    try {
+      const { party } = await api.addParty(name, relationship);
+      const r = await api.parties();
+      setParties(r.parties);
+      select(party.id);
+    } catch (e) {
+      notify(errMsg(e));
+    }
+  }
 
   // 続柄を世帯マスタへ追加し、選択肢を更新したうえでその値を選ぶ（#1）。
   async function addRelationship(name: string, select: (v: string) => void) {
@@ -351,6 +371,7 @@ export function App() {
         direction: "received",
         field_review: job.field_review || {},
         image: capturedImage,
+        party_id: "", // 確認画面で相手を選ぶ/作る（#47）
       });
       go("review");
     } catch (e) {
@@ -376,6 +397,7 @@ export function App() {
       direction: "given",
       field_review: {},
       image: "",
+      party_id: "",
     });
     go("review");
   }
@@ -396,15 +418,18 @@ export function App() {
 
   async function saveRecord() {
     if (!draft) return;
+    if (!draft.party_id) {
+      notify("相手を選んでください。");
+      return;
+    }
     try {
       const image_key = await uploadImage(draft.image);
       const input: RecordInput = {
         amount: Number(draft.amount),
         purpose: draft.purpose,
-        party_name: draft.party_name,
+        party_id: draft.party_id,
         direction: draft.direction,
         occurred_at: draft.occurred_at || "",
-        relationship: draft.relationship || "",
         image_key,
       };
       const res = await api.createRecord(input);
@@ -503,9 +528,8 @@ export function App() {
     setEditDraft({
       amount: String(event.amount),
       purpose: event.purpose,
-      party_name: event.party_name,
       occurred_at: event.occurred_at || "",
-      relationship: event.relationship || "",
+      party_id: event.party_id || "",
     });
   }
   async function saveEdit() {
@@ -516,16 +540,15 @@ export function App() {
         notify("金額は1円以上で入力してください。");
         return;
       }
-      if (!editDraft.purpose.trim() || !editDraft.party_name.trim()) {
+      if (!editDraft.purpose.trim() || !editDraft.party_id) {
         notify("用途と相手は必須です。");
         return;
       }
       await api.updateRecord(event.record_id, {
         amount,
         purpose: editDraft.purpose.trim(),
-        party_name: editDraft.party_name.trim(),
+        party_id: editDraft.party_id, // 相手の付け替え（#47）
         occurred_at: editDraft.occurred_at.trim(), // もらった日。期限の自動計算に反映される
-        relationship: editDraft.relationship.trim(), // 続柄（#1）
       });
       // 記録ベースで取り直す（given=イベントなしでも動く、#48）。期限も再計算。
       const r = await api.eventForRecord(event.record_id);
@@ -569,8 +592,7 @@ export function App() {
       await api.updateRecord(event.record_id, {
         amount: event.amount,
         purpose: event.purpose,
-        party_name: event.party_name,
-        image_key,
+        image_key, // 相手は変更しない（party_id 未指定）
       });
       const r = await api.eventForRecord(event.record_id);
       setEvent(r.event);
@@ -1006,17 +1028,9 @@ export function App() {
       {screen === "review" &&
         draft &&
         (() => {
-          const fields = [
-            "amount",
-            "party_name",
-            "relationship",
-            "purpose",
-            "occurred_at",
-          ] as const;
+          const fields = ["amount", "purpose", "occurred_at"] as const;
           const labels: Record<string, string> = {
             amount: "金額",
-            party_name: "お相手",
-            relationship: "続柄",
             purpose: "用途",
             occurred_at: "日付",
           };
@@ -1053,6 +1067,23 @@ export function App() {
                   ))}
                 </div>
               </div>
+              <div className="field">
+                <label htmlFor="rev-party">お相手</label>
+                <PartySelect
+                  id="rev-party"
+                  value={draft.party_id}
+                  parties={parties}
+                  suggestedName={draft.party_name ?? ""}
+                  onChange={(pid) => setDraft({ ...draft, party_id: pid })}
+                  onAdd={(name, relationship) =>
+                    addParty(name, relationship, (pid) => setDraft({ ...draft, party_id: pid }))
+                  }
+                  relOptions={relOptions}
+                  relDefaults={relDefaults}
+                  onAddRelationship={addRelationship}
+                  onDeleteRelationship={deleteRelationship}
+                />
+              </div>
               {fields.map((k) => {
                 const warn = !!fr[k];
                 return (
@@ -1068,20 +1099,7 @@ export function App() {
                         </span>
                       )}
                     </label>
-                    {k === "relationship" ? (
-                      <MasterSelect
-                        id={`rev-${k}`}
-                        noun="続柄"
-                        value={draft.relationship ?? ""}
-                        options={relOptions}
-                        defaults={relDefaults}
-                        onChange={(v) => setDraft({ ...draft, relationship: v })}
-                        onAdd={(name) =>
-                          addRelationship(name, (v) => setDraft({ ...draft, relationship: v }))
-                        }
-                        onDelete={deleteRelationship}
-                      />
-                    ) : k === "purpose" ? (
+                    {k === "purpose" ? (
                       <MasterSelect
                         id={`rev-${k}`}
                         noun="用途"
@@ -1274,12 +1292,21 @@ export function App() {
                     内容を修正
                   </div>
                   <div className="field">
-                    <label htmlFor="edit-party">相手のお名前</label>
-                    <input
+                    <label htmlFor="edit-party">お相手</label>
+                    <PartySelect
                       id="edit-party"
-                      className="input"
-                      value={editDraft.party_name}
-                      onChange={(e) => setEditDraft({ ...editDraft, party_name: e.target.value })}
+                      value={editDraft.party_id}
+                      parties={parties}
+                      onChange={(pid) => setEditDraft((d) => (d ? { ...d, party_id: pid } : d))}
+                      onAdd={(name, relationship) =>
+                        addParty(name, relationship, (pid) =>
+                          setEditDraft((d) => (d ? { ...d, party_id: pid } : d)),
+                        )
+                      }
+                      relOptions={relOptions}
+                      relDefaults={relDefaults}
+                      onAddRelationship={addRelationship}
+                      onDeleteRelationship={deleteRelationship}
                     />
                   </div>
                   <div className="field">
@@ -1325,23 +1352,9 @@ export function App() {
                       </span>
                     )}
                   </div>
-                  <div className="field">
-                    <label htmlFor="edit-relationship">続柄</label>
-                    <MasterSelect
-                      id="edit-relationship"
-                      noun="続柄"
-                      value={editDraft.relationship}
-                      options={relOptions}
-                      defaults={relDefaults}
-                      onChange={(v) => setEditDraft({ ...editDraft, relationship: v })}
-                      onAdd={(name) =>
-                        addRelationship(name, (v) =>
-                          setEditDraft((d) => (d ? { ...d, relationship: v } : d)),
-                        )
-                      }
-                      onDelete={deleteRelationship}
-                    />
-                  </div>
+                  <p className="muted" style={{ marginTop: 4 }}>
+                    続柄は相手（人）の情報です。お相手の選択肢から変更できます。
+                  </p>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       type="button"

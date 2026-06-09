@@ -12,6 +12,7 @@ import type {
   HomeResponse,
   Household,
   LedgerResponse,
+  Party,
   Relationship,
   RelationshipMaster,
   Suggestion,
@@ -57,10 +58,10 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
 export interface RecordInput {
   amount: number;
   purpose: string;
-  party_name: string;
+  party_id?: string;
+  party_name?: string;
   direction: Direction;
   occurred_at?: string;
-  relationship?: string;
   image_key?: string;
 }
 
@@ -82,9 +83,8 @@ export const api = {
     r: {
       amount: number;
       purpose: string;
-      party_name: string;
+      party_id?: string;
       occurred_at?: string;
-      relationship?: string;
       image_key?: string;
     },
   ) =>
@@ -155,6 +155,17 @@ export const api = {
   removePurpose: (name: string) =>
     req<RelationshipMaster>(`/purpose-master/${encodeURIComponent(name)}`, {
       method: "DELETE",
+    }),
+  parties: () => req<{ parties: Party[] }>("/parties"),
+  addParty: (name: string, relationship: string) =>
+    req<{ party: Party }>("/parties", {
+      method: "POST",
+      body: JSON.stringify({ name, relationship }),
+    }),
+  updateParty: (partyId: string, name: string, relationship: string) =>
+    req<{ party: Party }>(`/parties/${encodeURIComponent(partyId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name, relationship }),
     }),
 };
 

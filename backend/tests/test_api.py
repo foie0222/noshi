@@ -415,3 +415,17 @@ def test_用途マスタの取得追加削除():
     assert "発表会祝い" in added["options"] and "発表会祝い" not in added["defaults"]
     after = c.delete("/api/purpose-master/発表会祝い", headers=_h()).json()
     assert "発表会祝い" not in after["options"]
+
+
+def test_あげた記録もタップで詳細が取れる():
+    """GET /api/records/{id}/event が given 記録でも 200 で詳細を返すことを検証する（#48）。"""
+    c = TestClient(create_app())
+    rid = c.post(
+        "/api/records",
+        headers=_h(),
+        json={"amount": 5000, "purpose": "入学祝い", "party_name": "姪", "direction": "given"},
+    ).json()["record"]["id"]
+    r = c.get(f"/api/records/{rid}/event", headers=_h())
+    assert r.status_code == 200
+    ev = r.json()["event"]
+    assert ev["direction"] == "given" and ev["id"] == "" and ev["record_id"] == rid

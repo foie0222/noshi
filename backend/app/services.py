@@ -479,6 +479,43 @@ class NoshiService:
                 return e
         return None
 
+    def record_detail(self, user_id: str, record_id: str) -> dict[str, Any]:
+        """記録IDの詳細ビュー（#48）。received はイベントビュー、given は記録ベース。
+
+        あげた(given)はお返しイベントを持たないため、台帳からタップしても詳細・修正・
+        削除ができるよう、イベントが無い場合は記録から組み立てたビューを返す。
+        """
+        scope = self._scope(user_id)
+        rec = self.repo.get_record(scope, record_id)
+        if rec is None:
+            self._audit(user_id, "authz_denied", record_id)  # A09
+            raise ForbiddenError("not your record")
+        for ev in self.repo.list_events(scope):
+            if ev.record_id == record_id:
+                return self._view(scope, ev)
+        # イベントなし（given）: 期限/ステータス等は持たない記録ベースのビュー
+        return {
+            "id": "",
+            "status": "",
+            "record_id": rec.id,
+            "party_name": rec.party_name,
+            "purpose": rec.purpose,
+            "amount": rec.amount,
+            "direction": rec.direction,
+            "occurred_at": rec.occurred_at,
+            "relationship": rec.relationship,
+            "due_at": None,
+            "due_default": None,
+            "due_overridden": False,
+            "days_left": None,
+            "suggestion_id": None,
+            "image_url": (
+                self.images.view_url(rec.image_key)
+                if rec.image_key and self.images.enabled()
+                else None
+            ),
+        }
+
     # --- 内部: 世帯スコープ（user_id は監査用、scope は世帯ID）---
     def _require_event(self, user_id: str, scope: str, event_id: str) -> GiftEvent:
         ev = self.repo.get_event(scope, event_id)

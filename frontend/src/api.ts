@@ -91,6 +91,8 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(r),
     }),
+  deleteRecord: (recordId: string) =>
+    req<{ ok: boolean }>(`/records/${recordId}`, { method: "DELETE" }),
   setEventDue: (eventId: string, dueAt: string | null) =>
     req<{ event: EventView }>(`/events/${eventId}/due`, {
       method: "PUT",

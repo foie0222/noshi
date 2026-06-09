@@ -30,6 +30,7 @@ class Repository(Protocol):
     def get_event(self, user_id: str, event_id: str) -> GiftEvent | None: ...
     def list_events(self, user_id: str) -> list[GiftEvent]: ...
     def list_pending_events(self, user_id: str) -> list[GiftEvent]: ...
+    def delete_event(self, user_id: str, event_id: str) -> bool: ...
     def put_job(self, job: ExtractionJob) -> ExtractionJob: ...
     def get_job(self, user_id: str, job_id: str) -> ExtractionJob | None: ...
     def append_audit(self, entry: AuditEntry) -> None: ...
@@ -85,6 +86,12 @@ class InMemoryRepository:
     def get_event(self, user_id: str, event_id: str) -> GiftEvent | None:
         ev = self._events.get(event_id)
         return ev if ev and ev.user_id == user_id else None
+
+    def delete_event(self, user_id: str, event_id: str) -> bool:
+        if self.get_event(user_id, event_id) is None:
+            return False
+        del self._events[event_id]
+        return True
 
     def list_events(self, user_id: str) -> list[GiftEvent]:
         return [e for e in self._events.values() if e.user_id == user_id]
@@ -221,6 +228,12 @@ class DynamoRepository:
             "Item"
         )
         return self._hydrate(GiftEvent, r)
+
+    def delete_event(self, user_id: str, event_id: str) -> bool:
+        if self.get_event(user_id, event_id) is None:
+            return False
+        self.table.delete_item(Key={"PK": self._pk(user_id), "SK": f"EVENT#{event_id}"})
+        return True
 
     def list_events(self, user_id: str) -> list[GiftEvent]:
         from boto3.dynamodb.conditions import Key

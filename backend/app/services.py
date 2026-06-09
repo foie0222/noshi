@@ -302,6 +302,10 @@ class NoshiService:
         scope = self._scope(user_id)
         if self.repo.get_record(scope, record_id) is None:
             raise ForbiddenError("not your record")
+        # 紐づくお返しイベントも削除（孤立させない、#36）。
+        for ev in self.repo.list_events(scope):
+            if ev.record_id == record_id:
+                self.repo.delete_event(scope, ev.id)
         ok = self.repo.delete_record(scope, record_id)
         self._audit(user_id, "delete_record", record_id)  # A09
         return ok

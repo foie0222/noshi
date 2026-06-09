@@ -935,3 +935,33 @@ body {
   color: var(--color-accent);
   background: var(--color-accent-tint);
 }
+
+/* 贈答の詳細カードの情報階層（#38） */
+.detail-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+}
+.detail-amount {
+  font-family: var(--font-code);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  color: var(--text-body);
+  margin: 2px 0 4px;
+}
+.card-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.card-edit:hover {
+  background: var(--color-primary-tint);
+}

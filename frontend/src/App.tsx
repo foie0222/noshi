@@ -1150,28 +1150,38 @@ export function App() {
               )}
               {!editDraft ? (
                 <div className="card">
-                  <b style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>
-                    {event.party_name} 様
-                  </b>
-                  <div className="muted">
-                    {event.purpose} ・ {yen(event.amount)} ・{" "}
-                    {event.direction === "received" ? "受領" : "贈与"}
+                  <div className="between">
+                    <b className="detail-name">{event.party_name} 様</b>
+                    <button
+                      type="button"
+                      className="card-edit"
+                      aria-label="内容を修正"
+                      onClick={startEdit}
+                    >
+                      <Icon name="edit" size={18} />
+                    </button>
                   </div>
+                  <div className="detail-amount">{yen(event.amount)}</div>
                   <div className="detailrows">
+                    <div className="between">
+                      <span className="muted">用途</span>
+                      <span>{event.purpose}</span>
+                    </div>
+                    {event.relationship && (
+                      <div className="between">
+                        <span className="muted">続柄</span>
+                        <span>{event.relationship}</span>
+                      </div>
+                    )}
+                    <div className="between">
+                      <span className="muted">種類</span>
+                      <span>{event.direction === "received" ? "受領" : "贈与"}</span>
+                    </div>
                     <div className="between">
                       <span className="muted">もらった日</span>
                       <span>{event.occurred_at || "—"}</span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    style={{ minHeight: 38, marginTop: 8 }}
-                    onClick={startEdit}
-                  >
-                    <Icon name="edit" size={16} />
-                    内容を修正
-                  </button>
                 </div>
               ) : (
                 <div className="card">

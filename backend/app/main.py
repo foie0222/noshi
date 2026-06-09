@@ -193,6 +193,11 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # #1: 世帯独自の続柄を追加（世帯スコープで家族に共有）。
         return svc.add_relationship(uid, body.name)
 
+    @app.delete("/api/relationship-master/{name}")
+    def remove_relationship(name: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #1: 世帯独自の続柄を削除（既定は対象外／過去レコードの値は残す）。
+        return svc.remove_relationship(uid, name)
+
     @app.get("/api/gift-tax")
     def gift_tax(uid: str = Depends(current_user)) -> dict[str, Any]:
         # P1-3: 暦年の対象もらった合計と110万枠の気づき（税アドバイスではない）。

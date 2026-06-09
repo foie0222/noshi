@@ -139,4 +139,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ name }),
     }),
+  removeRelationship: (name: string) =>
+    req<RelationshipMaster>(`/relationship-master/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
 };

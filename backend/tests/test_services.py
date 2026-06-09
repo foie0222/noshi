@@ -336,3 +336,53 @@ def test_別世帯の続柄は見えない():
     svc = make_service()
     svc.add_relationship("u1", "山岳会")
     assert "山岳会" not in svc.relationship_master("u2")["options"]
+
+
+def test_世帯独自の続柄は30件までしか追加できない():
+    """世帯独自の続柄が上限（30件）を超えると ValidationError になることを検証する（#1）。"""
+    svc = make_service()
+    for i in range(30):
+        svc.add_relationship("u1", f"続柄{i}")
+    assert len([o for o in svc.relationship_master("u1")["options"] if o.startswith("続柄")]) == 30
+    with pytest.raises(ValidationError):
+        svc.add_relationship("u1", "あふれる")
+
+
+def test_世帯独自の続柄を削除できる():
+    """追加した世帯独自の続柄を削除でき、マスタの options から消えることを検証する（#1）。"""
+    svc = make_service()
+    svc.add_relationship("u1", "ママ友")
+    m = svc.remove_relationship("u1", "ママ友")
+    assert "ママ友" not in m["options"]
+
+
+def test_既定の続柄は削除できない():
+    """システム既定の続柄を削除しようとしても既定リストは不変であることを検証する（#1）。"""
+    svc = make_service()
+    m = svc.remove_relationship("u1", "友人")  # 既定は削除対象外（no-op）
+    assert "友人" in m["options"] and "友人" in m["defaults"]
+
+
+def test_続柄を削除しても過去レコードの値は残る():
+    """マスタから続柄を削除しても、その続柄を使う過去レコードの文字列は保持されることを検証する（#1, 後方互換）。"""
+    svc = make_service()
+    rec, ev = svc.create_record(
+        "u1",
+        amount=10000,
+        purpose="出産祝い",
+        party_name="佐藤",
+        direction="received",
+        relationship="ママ友",
+    )
+    svc.add_relationship("u1", "ママ友")
+    svc.remove_relationship("u1", "ママ友")  # マスタからは消す
+    assert svc.list_records("u1")[0].relationship == "ママ友"  # レコードは不変
+    assert svc.event_view("u1", ev.id)["relationship"] == "ママ友"
+
+
+def test_他世帯の続柄は削除できない():
+    """別世帯のマスタ項目は削除操作の影響を受けないことを検証する（A01, 世帯分離）。"""
+    svc = make_service()
+    svc.add_relationship("u1", "山岳会")
+    svc.remove_relationship("u2", "山岳会")  # 別世帯からの削除は無関係
+    assert "山岳会" in svc.relationship_master("u1")["options"]

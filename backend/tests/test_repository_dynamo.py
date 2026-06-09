@@ -105,3 +105,5 @@ def test_世帯独自の続柄を保存し追加順で読める(table_name):
     repo.add_household_relationship("H", "ママ友")  # 重複 upsert
     assert repo.list_household_relationships("H") == ["ママ友", "茶道仲間"]
     assert repo.list_household_relationships("OTHER") == []  # 別世帯には出ない
+    repo.remove_household_relationship("H", "ママ友")
+    assert repo.list_household_relationships("H") == ["茶道仲間"]  # 削除が効く

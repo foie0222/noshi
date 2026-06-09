@@ -162,13 +162,34 @@ class NoshiService:
         """世帯独自の続柄を追加する（世帯スコープで家族に共有）。
 
         空文字・既定と重複・既存の独自と重複は無視（重複排除）。長すぎる入力は拒否。
+        世帯あたり RELATIONSHIP_CUSTOM_MAX 件を超える追加は拒否。
         """
         value = (name or "").strip()
         if value and value not in rules.RELATIONSHIP_DEFAULTS:
             if len(value) > 20:
                 raise ValidationError(["続柄は20文字以内で入力してください。"])
-            self.repo.add_household_relationship(self._scope(user_id), value)
-            self._audit(user_id, "add_relationship", self._scope(user_id))  # A09
+            scope = self._scope(user_id)
+            existing = self.repo.list_household_relationships(scope)
+            if value not in existing and len(existing) >= rules.RELATIONSHIP_CUSTOM_MAX:
+                raise ValidationError(
+                    [
+                        f"独自の続柄は{rules.RELATIONSHIP_CUSTOM_MAX}件までです。不要なものを削除してください。"
+                    ]
+                )
+            self.repo.add_household_relationship(scope, value)
+            self._audit(user_id, "add_relationship", scope)  # A09
+        return self.relationship_master(user_id)
+
+    def remove_relationship(self, user_id: str, name: str) -> dict[str, Any]:
+        """世帯独自の続柄をマスタから削除する（既定は対象外）。
+
+        過去レコードの relationship 文字列は触らない（後方互換でそのまま残る）。
+        """
+        value = (name or "").strip()
+        if value and value not in rules.RELATIONSHIP_DEFAULTS:
+            scope = self._scope(user_id)
+            self.repo.remove_household_relationship(scope, value)
+            self._audit(user_id, "remove_relationship", scope)  # A09
         return self.relationship_master(user_id)
 
     # --- 撮影 → 抽出 ---

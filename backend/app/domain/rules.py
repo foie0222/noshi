@@ -15,6 +15,9 @@ from app.domain.entities import GiftRecord
 
 CONFIDENCE_THRESHOLD = 0.7
 
+# 世帯が追加できる独自続柄の上限（#1）。散らかり・濫用を防ぐ実用的な上限。
+RELATIONSHIP_CUSTOM_MAX = 30
+
 # 続柄マスタの既定（システム固定）。世帯ごとに独自の続柄を追加できる（#1）。
 RELATIONSHIP_DEFAULTS = (
     "親",

@@ -94,6 +94,7 @@ export function App() {
   const [dueEditing, setDueEditing] = useState<boolean>(false); // お返し期限の編集中
   const [dueInput, setDueInput] = useState<string>(""); // 期限編集の入力値(YYYY-MM-DD)
   const [relOptions, setRelOptions] = useState<string[]>([]); // 続柄マスタの選択肢(#1)
+  const [relDefaults, setRelDefaults] = useState<string[]>([]); // 既定（削除不可の判定用）
 
   async function onPickImage(file: File | null) {
     const err = validateImageFile(file);
@@ -241,7 +242,10 @@ export function App() {
     if ((screen === "review" || screen === "event") && relOptions.length === 0) {
       api
         .relationshipMaster()
-        .then((m) => setRelOptions(m.options))
+        .then((m) => {
+          setRelOptions(m.options);
+          setRelDefaults(m.defaults);
+        })
         .catch(handleErr);
     }
   }, [screen]);
@@ -252,6 +256,17 @@ export function App() {
       const m = await api.addRelationship(name);
       setRelOptions(m.options);
       select(name);
+    } catch (e) {
+      notify(errMsg(e));
+    }
+  }
+
+  // 世帯独自の続柄をマスタから削除（過去レコードの値はそのまま残る）（#1）。
+  async function deleteRelationship(name: string) {
+    try {
+      const m = await api.removeRelationship(name);
+      setRelOptions(m.options);
+      notify(`「${name}」を続柄から削除しました`);
     } catch (e) {
       notify(errMsg(e));
     }
@@ -896,10 +911,12 @@ export function App() {
                         id={`rev-${k}`}
                         value={draft.relationship ?? ""}
                         options={relOptions}
+                        defaults={relDefaults}
                         onChange={(v) => setDraft({ ...draft, relationship: v })}
                         onAdd={(name) =>
                           addRelationship(name, (v) => setDraft({ ...draft, relationship: v }))
                         }
+                        onDelete={deleteRelationship}
                       />
                     ) : (
                       <input
@@ -1101,12 +1118,14 @@ export function App() {
                       id="edit-relationship"
                       value={editDraft.relationship}
                       options={relOptions}
+                      defaults={relDefaults}
                       onChange={(v) => setEditDraft({ ...editDraft, relationship: v })}
                       onAdd={(name) =>
                         addRelationship(name, (v) =>
                           setEditDraft((d) => (d ? { ...d, relationship: v } : d)),
                         )
                       }
+                      onDelete={deleteRelationship}
                     />
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>

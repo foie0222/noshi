@@ -44,6 +44,7 @@ class Repository(Protocol):
     # --- 世帯独自の続柄マスタ（#1）---
     def add_household_relationship(self, household_id: str, name: str) -> None: ...
     def list_household_relationships(self, household_id: str) -> list[str]: ...
+    def remove_household_relationship(self, household_id: str, name: str) -> None: ...
 
 
 class InMemoryRepository:
@@ -140,6 +141,11 @@ class InMemoryRepository:
 
     def list_household_relationships(self, household_id: str) -> list[str]:
         return list(self._relationships.get(household_id, []))
+
+    def remove_household_relationship(self, household_id: str, name: str) -> None:
+        names = self._relationships.get(household_id)
+        if names and name in names:
+            names.remove(name)
 
 
 class DynamoRepository:
@@ -315,6 +321,9 @@ class DynamoRepository:
         # 追加順（added_at 昇順）で返す。古いデータに added_at が無い場合は末尾。
         items.sort(key=lambda it: float(it.get("added_at", 0)))
         return [str(it["name"]) for it in items]
+
+    def remove_household_relationship(self, household_id: str, name: str) -> None:
+        self.table.delete_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": f"REL#{name}"})
 
 
 def _to_dynamo(value: Any) -> Any:

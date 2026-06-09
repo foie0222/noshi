@@ -250,6 +250,88 @@ body {
   color: var(--text-sub);
   display: inline-flex;
 }
+
+/* 続柄の自前ドロップダウン（スワイプ/ホバーで削除できるよう option を自前描画）。 */
+.rel {
+  position: relative;
+}
+.rel-trigger {
+  display: flex;
+  align-items: center;
+  text-align: left;
+}
+.rel-trigger .rel-placeholder {
+  color: var(--text-muted);
+}
+.rel-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  background: var(--surface-card-raised);
+  border: var(--bw-hairline) solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-raised);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.rel-opt {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+.rel-opt-label {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: none;
+  background: var(--surface-card-raised);
+  color: var(--text-body);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: transform 0.18s var(--ease-soft), background var(--dur-fast);
+}
+.rel-opt-label:hover {
+  background: var(--color-primary-tint);
+}
+.rel-add {
+  color: var(--color-primary);
+  font-weight: var(--fw-bold);
+}
+.rel-opt-del {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 72px;
+  border: none;
+  background: var(--color-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+/* スワイプで開いた行 */
+.rel-opt-label.swiped {
+  transform: translateX(-72px);
+}
+/* マウス環境では行ホバーで削除を出す（PC はスワイプできないため） */
+@media (hover: hover) {
+  .rel-opt:hover .rel-opt-label:not(.swiped) {
+    transform: translateX(-72px);
+  }
+}
 .input.warn {
   border-color: var(--color-warning);
   box-shadow: 0 0 0 3px var(--color-warning-tint);

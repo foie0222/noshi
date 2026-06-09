@@ -1596,6 +1596,7 @@ export function App() {
           >
             <Icon name="plus" size={26} strokeWidth={2.4} color="#fff" />
           </button>
+          <button type="button" className="spacer" aria-hidden="true" tabIndex={-1}></button>
           <button
             type="button"
             className={screen === "mypage" ? "on" : ""}
@@ -1605,7 +1606,6 @@ export function App() {
             <Icon name="user" size={23} strokeWidth={screen === "mypage" ? 2.4 : 2} />
             マイページ
           </button>
-          <button type="button" className="spacer" aria-hidden="true" tabIndex={-1}></button>
         </div>
       )}
 

@@ -414,6 +414,20 @@ export function App() {
     }
   }
 
+  // ---- 記録の削除（詳細・ホーム・台帳から）（#36）----
+  async function doDeleteRecord(recordId: string, label: string) {
+    if (!confirm(`「${label}」の記録を削除しますか？\nこの操作は取り消せません。`)) return;
+    try {
+      await api.deleteRecord(recordId);
+      notify("削除しました");
+      if (screen === "event") go("home");
+      else if (screen === "home") await loadHome();
+      else if (screen === "ledger") await loadLedger();
+    } catch (e) {
+      handleErr(e);
+    }
+  }
+
   // ---- 記録の修正（AI抽出の誤りを本人が訂正）----
   function startEdit() {
     if (!event) return;
@@ -815,8 +829,21 @@ export function App() {
                     {daysLeftLabel(e.days_left)}
                   </span>
                 </div>
-                <div className="muted">
-                  {e.purpose} ・ {yen(e.amount)} ・ {statusLabel(e.status)}
+                <div className="between">
+                  <div className="muted">
+                    {e.purpose} ・ {yen(e.amount)} ・ {statusLabel(e.status)}
+                  </div>
+                  <button
+                    type="button"
+                    className="card-del"
+                    aria-label={`${e.party_name} の記録を削除`}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      doDeleteRecord(e.record_id, e.party_name);
+                    }}
+                  >
+                    <Icon name="trash" size={16} />
+                  </button>
                 </div>
               </div>
             );
@@ -977,6 +1004,17 @@ export function App() {
                 <div className="muted">{r.purpose}</div>
               </div>
               <div className="amount">{yen(r.amount)}</div>
+              <button
+                type="button"
+                className="card-del"
+                aria-label={`${r.party_name} の記録を削除`}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  doDeleteRecord(r.id, r.party_name);
+                }}
+              >
+                <Icon name="trash" size={16} />
+              </button>
             </div>
           ))}
         </>
@@ -1282,6 +1320,15 @@ export function App() {
                   </button>
                 </>
               )}
+              <button
+                type="button"
+                className="btn ghost danger"
+                style={{ marginTop: 20 }}
+                onClick={() => doDeleteRecord(event.record_id, event.party_name)}
+              >
+                <Icon name="trash" size={16} />
+                この記録を削除
+              </button>
             </div>
           );
         })()}

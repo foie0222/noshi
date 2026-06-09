@@ -50,6 +50,19 @@ def test_レコード削除で監査ログが残る():
     assert "delete_record" in actions
 
 
+def test_記録を削除すると紐づくお返しイベントも消える():
+    """記録を削除すると、対応する GiftEvent も削除され孤立しないことを検証する（#36）。"""
+    svc = make_service()
+    rec, ev = svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
+    assert svc.event_for_record("u1", rec.id) is not None
+    svc.delete_record("u1", rec.id)
+    assert svc.event_for_record("u1", rec.id) is None  # イベントも消える
+    assert svc.list_pending_events("u1") == []  # ホームの予定にも出ない
+    assert svc.repo.get_event("u1", ev.id) is None
+
+
 def test_抽出ジョブは候補と要確認フラグを返す():
     """抽出ジョブが候補を返し、低信頼のため要確認(needs_review)になることを検証する（BR-EX-2）。"""
     svc = make_service()

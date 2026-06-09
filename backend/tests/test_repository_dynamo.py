@@ -75,6 +75,16 @@ def test_未完了イベントはdoneを除外する(table_name):
     assert [e.id for e in repo.list_pending_events("u1")] == [e1.id]
 
 
+def test_イベントを削除できる(table_name):
+    """イベントを保存し、delete_event で削除できることを検証する（#36）。"""
+    repo = DynamoRepository(table_name=table_name)
+    e = GiftEvent(user_id="u1", record_id="r1")
+    repo.put_event(e)
+    assert repo.delete_event("u1", e.id) is True
+    assert repo.get_event("u1", e.id) is None
+    assert repo.delete_event("u1", e.id) is False  # 二重削除は False
+
+
 def test_世帯と招待コードで往復できる(table_name):
     """世帯を保存し、招待コードから逆引きで同じ世帯を取得できることを検証する（家族共有）。"""
     from app.domain.entities import Household

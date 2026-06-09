@@ -931,3 +931,22 @@ body {
   font-weight: var(--fw-bold);
   font-size: var(--fs-h3);
 }
+
+/* 一覧カードの控えめな削除ボタン（#36） */
+.card-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.card-del:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-tint);
+}

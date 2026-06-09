@@ -2,16 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 
 /**
- * RelationshipField — 続柄の選択フィールド（#1）。
- * マスタ（システム既定＋世帯独自）から選択でき、「＋ 新しい続柄を追加」で
- * 世帯独自の続柄をその場で追加できる。世帯独自の続柄は行を左スワイプ（タッチ）
+ * MasterSelect — マスタ（システム既定＋世帯独自）から1つ選ぶ汎用フィールド（#1, #37）。
+ * 続柄・用途など `noun`（例「続柄」「用途」）で文言を切り替えて共用する。
+ * 「＋ 新しい{noun}を追加」でその場で追加でき、世帯独自の項目は行を左スワイプ（タッチ）
  * または行ホバー（マウス）で現れる削除ボタンから消せる（既定は削除不可）。
  * 選択肢に無い既存値（自由入力/AI抽出/削除済み）も現在値として表示する（後方互換）。
  */
-export function RelationshipField({
+export function MasterSelect({
   value,
   options,
   defaults,
+  noun,
   onChange,
   onAdd,
   onDelete,
@@ -20,6 +21,7 @@ export function RelationshipField({
   value: string;
   options: string[];
   defaults: string[];
+  noun: string;
   onChange: (v: string) => void;
   onAdd: (name: string) => void;
   onDelete: (name: string) => void;
@@ -68,9 +70,9 @@ export function RelationshipField({
           id={id}
           className="input"
           style={{ flex: 1 }}
-          placeholder="新しい続柄"
+          placeholder={`新しい${noun}`}
           value={name}
-          aria-label="新しい続柄"
+          aria-label={`新しい${noun}`}
           onChange={(e) => setName(e.target.value)}
         />
         <button
@@ -123,7 +125,7 @@ export function RelationshipField({
       </span>
 
       {open && (
-        <div className="rel-panel" role="listbox" aria-label="続柄">
+        <div className="rel-panel" role="listbox" aria-label={noun}>
           <button type="button" role="option" className="rel-opt-label" onClick={() => select("")}>
             未選択
           </button>
@@ -182,7 +184,7 @@ export function RelationshipField({
               setAdding(true);
             }}
           >
-            ＋ 新しい続柄を追加
+            ＋ 新しい{noun}を追加
           </button>
         </div>
       )}

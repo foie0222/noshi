@@ -3,7 +3,7 @@ import { api, currentUserId, type RecordInput, setCurrentUserId, UnauthorizedErr
 import { Drawer } from "./components/Drawer";
 import { Icon, type IconName } from "./components/Icon";
 import { Logo } from "./components/Logo";
-import { RelationshipField } from "./components/RelationshipField";
+import { MasterSelect } from "./components/MasterSelect";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -115,6 +115,8 @@ export function App() {
   const [dueInput, setDueInput] = useState<string>(""); // 期限編集の入力値(YYYY-MM-DD)
   const [relOptions, setRelOptions] = useState<string[]>([]); // 続柄マスタの選択肢(#1)
   const [relDefaults, setRelDefaults] = useState<string[]>([]); // 既定（削除不可の判定用）
+  const [purOptions, setPurOptions] = useState<string[]>([]); // 用途マスタの選択肢(#37)
+  const [purDefaults, setPurDefaults] = useState<string[]>([]); // 既定（削除不可の判定用）
   const [mySection, setMySection] = useState<MySection>("household"); // マイページのサブページ(#3)
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false); // マイページのドロワー
 
@@ -262,15 +264,26 @@ export function App() {
         .then((r) => setHousehold(r.household))
         .catch(handleErr);
     }
-    // 続柄マスタは記録の確認/詳細で使う。未取得なら一度だけ読み込む（#1）。
-    if ((screen === "review" || screen === "event") && relOptions.length === 0) {
-      api
-        .relationshipMaster()
-        .then((m) => {
-          setRelOptions(m.options);
-          setRelDefaults(m.defaults);
-        })
-        .catch(handleErr);
+    // 続柄・用途マスタは記録の確認/詳細で使う。未取得なら一度だけ読み込む（#1, #37）。
+    if (screen === "review" || screen === "event") {
+      if (relOptions.length === 0) {
+        api
+          .relationshipMaster()
+          .then((m) => {
+            setRelOptions(m.options);
+            setRelDefaults(m.defaults);
+          })
+          .catch(handleErr);
+      }
+      if (purOptions.length === 0) {
+        api
+          .purposeMaster()
+          .then((m) => {
+            setPurOptions(m.options);
+            setPurDefaults(m.defaults);
+          })
+          .catch(handleErr);
+      }
     }
   }, [screen]);
 
@@ -291,6 +304,26 @@ export function App() {
       const m = await api.removeRelationship(name);
       setRelOptions(m.options);
       notify(`「${name}」を続柄から削除しました`);
+    } catch (e) {
+      notify(errMsg(e));
+    }
+  }
+
+  // 用途を世帯マスタへ追加/削除（#37、続柄と同じ）。
+  async function addPurpose(name: string, select: (v: string) => void) {
+    try {
+      const m = await api.addPurpose(name);
+      setPurOptions(m.options);
+      select(name);
+    } catch (e) {
+      notify(errMsg(e));
+    }
+  }
+  async function deletePurpose(name: string) {
+    try {
+      const m = await api.removePurpose(name);
+      setPurOptions(m.options);
+      notify(`「${name}」を用途から削除しました`);
     } catch (e) {
       notify(errMsg(e));
     }
@@ -951,8 +984,9 @@ export function App() {
                       )}
                     </label>
                     {k === "relationship" ? (
-                      <RelationshipField
+                      <MasterSelect
                         id={`rev-${k}`}
+                        noun="続柄"
                         value={draft.relationship ?? ""}
                         options={relOptions}
                         defaults={relDefaults}
@@ -961,6 +995,19 @@ export function App() {
                           addRelationship(name, (v) => setDraft({ ...draft, relationship: v }))
                         }
                         onDelete={deleteRelationship}
+                      />
+                    ) : k === "purpose" ? (
+                      <MasterSelect
+                        id={`rev-${k}`}
+                        noun="用途"
+                        value={draft.purpose ?? ""}
+                        options={purOptions}
+                        defaults={purDefaults}
+                        onChange={(v) => setDraft({ ...draft, purpose: v })}
+                        onAdd={(name) =>
+                          addPurpose(name, (v) => setDraft({ ...draft, purpose: v }))
+                        }
+                        onDelete={deletePurpose}
                       />
                     ) : (
                       <input
@@ -1112,11 +1159,17 @@ export function App() {
                   </div>
                   <div className="field">
                     <label htmlFor="edit-purpose">用途</label>
-                    <input
+                    <MasterSelect
                       id="edit-purpose"
-                      className="input"
+                      noun="用途"
                       value={editDraft.purpose}
-                      onChange={(e) => setEditDraft({ ...editDraft, purpose: e.target.value })}
+                      options={purOptions}
+                      defaults={purDefaults}
+                      onChange={(v) => setEditDraft({ ...editDraft, purpose: v })}
+                      onAdd={(name) =>
+                        addPurpose(name, (v) => setEditDraft((d) => (d ? { ...d, purpose: v } : d)))
+                      }
+                      onDelete={deletePurpose}
                     />
                   </div>
                   <div className="field">
@@ -1143,8 +1196,9 @@ export function App() {
                   </div>
                   <div className="field">
                     <label htmlFor="edit-relationship">続柄</label>
-                    <RelationshipField
+                    <MasterSelect
                       id="edit-relationship"
+                      noun="続柄"
                       value={editDraft.relationship}
                       options={relOptions}
                       defaults={relDefaults}

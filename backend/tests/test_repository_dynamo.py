@@ -117,3 +117,14 @@ def test_世帯独自の続柄を保存し追加順で読める(table_name):
     assert repo.list_household_relationships("OTHER") == []  # 別世帯には出ない
     repo.remove_household_relationship("H", "ママ友")
     assert repo.list_household_relationships("H") == ["茶道仲間"]  # 削除が効く
+
+
+def test_世帯独自の用途を保存し追加順で読める(table_name):
+    """世帯独自の用途を保存し、追加順で一覧でき、削除できることを検証する（#37）。"""
+    repo = DynamoRepository(table_name=table_name)
+    repo.add_household_purpose("H", "町内会")
+    repo.add_household_purpose("H", "発表会祝い")
+    assert repo.list_household_purposes("H") == ["町内会", "発表会祝い"]
+    repo.remove_household_purpose("H", "町内会")
+    assert repo.list_household_purposes("H") == ["発表会祝い"]
+    assert repo.list_household_purposes("OTHER") == []

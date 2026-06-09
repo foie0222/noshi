@@ -404,3 +404,14 @@ def test_脱退とメンバー削除のHTTP():
     # jiro 自身が脱退 → taro の台帳が見えなくなる
     c.post("/api/household/leave", headers=_h("jiro"))
     assert c.get("/api/ledger", headers=_h("jiro")).json()["records"] == []
+
+
+def test_用途マスタの取得追加削除():
+    """GET/POST/DELETE /api/purpose-master が機能することを検証する（#37）。"""
+    c = TestClient(create_app())
+    m = c.get("/api/purpose-master", headers=_h()).json()
+    assert "出産祝い" in m["options"]
+    added = c.post("/api/purpose-master", headers=_h(), json={"name": "発表会祝い"}).json()
+    assert "発表会祝い" in added["options"] and "発表会祝い" not in added["defaults"]
+    after = c.delete("/api/purpose-master/発表会祝い", headers=_h()).json()
+    assert "発表会祝い" not in after["options"]

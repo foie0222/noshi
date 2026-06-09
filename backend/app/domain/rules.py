@@ -15,8 +15,9 @@ from app.domain.entities import GiftRecord
 
 CONFIDENCE_THRESHOLD = 0.7
 
-# 世帯が追加できる独自続柄の上限（#1）。散らかり・濫用を防ぐ実用的な上限。
+# 世帯が追加できる独自マスタ（続柄・用途）の上限（#1, #37）。散らかり・濫用を防ぐ。
 RELATIONSHIP_CUSTOM_MAX = 30
+PURPOSE_CUSTOM_MAX = 30
 
 # 続柄マスタの既定（システム固定）。世帯ごとに独自の続柄を追加できる（#1）。
 RELATIONSHIP_DEFAULTS = (
@@ -30,6 +31,20 @@ RELATIONSHIP_DEFAULTS = (
     "友人",
     "同僚・仕事",
     "近所",
+    "その他",
+)
+
+# 用途マスタの既定（システム固定）。世帯ごとに独自の用途を追加できる（#37）。
+PURPOSE_DEFAULTS = (
+    "出産祝い",
+    "結婚祝い",
+    "入学祝い",
+    "新築祝い",
+    "快気祝い",
+    "香典",
+    "お中元",
+    "お歳暮",
+    "お年賀",
     "その他",
 )
 

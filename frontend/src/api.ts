@@ -139,4 +139,14 @@ export const api = {
     req<RelationshipMaster>(`/relationship-master/${encodeURIComponent(name)}`, {
       method: "DELETE",
     }),
+  purposeMaster: () => req<RelationshipMaster>("/purpose-master"),
+  addPurpose: (name: string) =>
+    req<RelationshipMaster>("/purpose-master", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  removePurpose: (name: string) =>
+    req<RelationshipMaster>(`/purpose-master/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
 };

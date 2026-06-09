@@ -191,6 +191,42 @@ class NoshiService:
             self._audit(user_id, "remove_relationship", scope)  # A09
         return self.relationship_master(user_id)
 
+    # --- 用途マスタ（システム既定 ＋ 世帯独自）（#37、続柄と同条件）---
+    def purpose_master(self, user_id: str) -> dict[str, Any]:
+        """選択肢に出す用途一覧。既定（システム固定）＋世帯独自の追加分（重複排除）。"""
+        defaults = list(rules.PURPOSE_DEFAULTS)
+        customs = [
+            p for p in self.repo.list_household_purposes(self._scope(user_id)) if p not in defaults
+        ]
+        return {"options": defaults + customs, "defaults": defaults}
+
+    def add_purpose(self, user_id: str, name: str) -> dict[str, Any]:
+        """世帯独自の用途を追加する（世帯スコープで家族に共有）。重複排除・20字・30件上限。"""
+        value = (name or "").strip()
+        if value and value not in rules.PURPOSE_DEFAULTS:
+            if len(value) > 20:
+                raise ValidationError(["用途は20文字以内で入力してください。"])
+            scope = self._scope(user_id)
+            existing = self.repo.list_household_purposes(scope)
+            if value not in existing and len(existing) >= rules.PURPOSE_CUSTOM_MAX:
+                raise ValidationError(
+                    [
+                        f"独自の用途は{rules.PURPOSE_CUSTOM_MAX}件までです。不要なものを削除してください。"
+                    ]
+                )
+            self.repo.add_household_purpose(scope, value)
+            self._audit(user_id, "add_purpose", scope)  # A09
+        return self.purpose_master(user_id)
+
+    def remove_purpose(self, user_id: str, name: str) -> dict[str, Any]:
+        """世帯独自の用途をマスタから削除する（既定は対象外、過去レコードの値は残す）。"""
+        value = (name or "").strip()
+        if value and value not in rules.PURPOSE_DEFAULTS:
+            scope = self._scope(user_id)
+            self.repo.remove_household_purpose(scope, value)
+            self._audit(user_id, "remove_purpose", scope)  # A09
+        return self.purpose_master(user_id)
+
     # --- 撮影 → 抽出 ---
     def submit_extraction(self, user_id: str, image_refs: list[str]) -> ExtractionJob:
         out = self.ocr.extract(image_refs)

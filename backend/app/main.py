@@ -20,6 +20,7 @@ from app.schemas import (
     CaptureIn,
     DueIn,
     JoinHouseholdIn,
+    PurposeIn,
     RecordIn,
     RecordUpdateIn,
     RelationshipIn,
@@ -196,6 +197,21 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     def remove_relationship(name: str, uid: str = Depends(current_user)) -> dict[str, Any]:
         # #1: 世帯独自の続柄を削除（既定は対象外／過去レコードの値は残す）。
         return svc.remove_relationship(uid, name)
+
+    @app.get("/api/purpose-master")
+    def purpose_master(uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #37: 用途の選択肢（システム既定＋世帯独自）。
+        return svc.purpose_master(uid)
+
+    @app.post("/api/purpose-master")
+    def add_purpose(body: PurposeIn, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #37: 世帯独自の用途を追加（世帯スコープで家族に共有）。
+        return svc.add_purpose(uid, body.name)
+
+    @app.delete("/api/purpose-master/{name}")
+    def remove_purpose(name: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # #37: 世帯独自の用途を削除（既定は対象外／過去レコードの値は残す）。
+        return svc.remove_purpose(uid, name)
 
     @app.get("/api/gift-tax")
     def gift_tax(uid: str = Depends(current_user)) -> dict[str, Any]:

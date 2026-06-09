@@ -26,7 +26,7 @@ import {
 } from "./lib/cognito";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
-import { otoshidamaRange } from "./lib/otoshidama";
+import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
 import { seasonNudge, seasonOf } from "./lib/season";
 import { toneOf } from "./lib/tone";
@@ -1724,8 +1724,12 @@ export function App() {
                   onChange={(e) => setOtoshiAge(e.target.value)}
                 />
               </div>
-              {otoshiAge !== "" &&
-                !Number.isNaN(Number(otoshiAge)) &&
+              {otoshiAge !== "" && !isValidChildAge(otoshiAge) && (
+                <div className="muted" style={{ marginTop: 8, color: "var(--color-warning)" }}>
+                  0〜25歳の数字で入力してください。
+                </div>
+              )}
+              {isValidChildAge(otoshiAge) &&
                 (() => {
                   const r = otoshidamaRange(Number(otoshiAge));
                   return (

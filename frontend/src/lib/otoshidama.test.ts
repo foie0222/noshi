@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { otoshidamaRange } from "./otoshidama";
+import { isValidChildAge, otoshidamaRange } from "./otoshidama";
+
+describe("お子さんの年齢の入力チェック（#52）", () => {
+  it("0〜25の整数を有効とすることを検証する", () => {
+    expect(isValidChildAge("0")).toBe(true);
+    expect(isValidChildAge("8")).toBe(true);
+    expect(isValidChildAge("25")).toBe(true);
+  });
+  it("範囲外・負数・小数・非数値・空を無効とすることを検証する", () => {
+    expect(isValidChildAge("26")).toBe(false);
+    expect(isValidChildAge("-1")).toBe(false);
+    expect(isValidChildAge("8.5")).toBe(false);
+    expect(isValidChildAge("abc")).toBe(false);
+    expect(isValidChildAge("")).toBe(false);
+  });
+});
 
 describe("お年玉の年齢別相場", () => {
   it("未就学児(0-6歳)は0〜1,000円が目安であることを検証する", () => {

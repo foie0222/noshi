@@ -46,6 +46,10 @@ class Repository(Protocol):
     def add_household_relationship(self, household_id: str, name: str) -> None: ...
     def list_household_relationships(self, household_id: str) -> list[str]: ...
     def remove_household_relationship(self, household_id: str, name: str) -> None: ...
+    # --- 世帯独自の用途マスタ（#37）---
+    def add_household_purpose(self, household_id: str, name: str) -> None: ...
+    def list_household_purposes(self, household_id: str) -> list[str]: ...
+    def remove_household_purpose(self, household_id: str, name: str) -> None: ...
 
 
 class InMemoryRepository:
@@ -59,6 +63,7 @@ class InMemoryRepository:
         self._households: dict[str, Household] = {}
         self._memberships: dict[str, Membership] = {}  # user_id -> Membership
         self._relationships: dict[str, list[str]] = {}  # household_id -> 続柄（追加順）
+        self._purposes: dict[str, list[str]] = {}  # household_id -> 用途（追加順）
 
     # --- records ---
     def put_record(self, rec: GiftRecord) -> GiftRecord:
@@ -151,6 +156,20 @@ class InMemoryRepository:
 
     def remove_household_relationship(self, household_id: str, name: str) -> None:
         names = self._relationships.get(household_id)
+        if names and name in names:
+            names.remove(name)
+
+    # --- 世帯独自の用途マスタ ---
+    def add_household_purpose(self, household_id: str, name: str) -> None:
+        names = self._purposes.setdefault(household_id, [])
+        if name not in names:
+            names.append(name)
+
+    def list_household_purposes(self, household_id: str) -> list[str]:
+        return list(self._purposes.get(household_id, []))
+
+    def remove_household_purpose(self, household_id: str, name: str) -> None:
+        names = self._purposes.get(household_id)
         if names and name in names:
             names.remove(name)
 
@@ -337,6 +356,30 @@ class DynamoRepository:
 
     def remove_household_relationship(self, household_id: str, name: str) -> None:
         self.table.delete_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": f"REL#{name}"})
+
+    # --- 世帯独自の用途マスタ（PUR# 接頭辞、続柄と同設計）---
+    def add_household_purpose(self, household_id: str, name: str) -> None:
+        import time
+
+        key = {"PK": f"HOUSEHOLD#{household_id}", "SK": f"PUR#{name}"}
+        if self.table.get_item(Key=key).get("Item"):
+            return
+        self.table.put_item(
+            Item={**key, "type": "purpose", "name": name, "added_at": _to_dynamo(time.time())}
+        )
+
+    def list_household_purposes(self, household_id: str) -> list[str]:
+        from boto3.dynamodb.conditions import Key
+
+        items = self.table.query(
+            KeyConditionExpression=Key("PK").eq(f"HOUSEHOLD#{household_id}")
+            & Key("SK").begins_with("PUR#")
+        ).get("Items", [])
+        items.sort(key=lambda it: float(it.get("added_at", 0)))
+        return [str(it["name"]) for it in items]
+
+    def remove_household_purpose(self, household_id: str, name: str) -> None:
+        self.table.delete_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": f"PUR#{name}"})
 
 
 def _to_dynamo(value: Any) -> Any:

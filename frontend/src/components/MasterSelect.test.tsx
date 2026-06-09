@@ -1,18 +1,19 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { RelationshipField } from "./RelationshipField";
+import { MasterSelect } from "./MasterSelect";
 
 const defaults = ["親", "友人", "その他"];
 
-function setup(props: Partial<Parameters<typeof RelationshipField>[0]> = {}) {
+function setup(props: Partial<Parameters<typeof MasterSelect>[0]> = {}) {
   const onChange = vi.fn();
   const onAdd = vi.fn();
   const onDelete = vi.fn();
   render(
-    <RelationshipField
+    <MasterSelect
       value={props.value ?? ""}
       options={props.options ?? defaults}
       defaults={props.defaults ?? defaults}
+      noun="続柄"
       onChange={onChange}
       onAdd={onAdd}
       onDelete={onDelete}
@@ -21,7 +22,7 @@ function setup(props: Partial<Parameters<typeof RelationshipField>[0]> = {}) {
   return { onChange, onAdd, onDelete };
 }
 
-describe("RelationshipField（続柄の選択＋追加＋削除）", () => {
+describe("MasterSelect（マスタの選択＋追加＋削除）", () => {
   it("トリガーは現在値（未選択なら『未選択』）を表示し、開くと選択肢が出ることを検証する", () => {
     setup({ value: "" });
     const trigger = screen.getByRole("combobox");

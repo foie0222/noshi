@@ -47,6 +47,11 @@ class RelationshipIn(BaseModel):
     name: str = Field(min_length=1, description="追加する続柄")
 
 
+class PurposeIn(BaseModel):
+    # 世帯独自の用途の追加（#37）。
+    name: str = Field(min_length=1, description="追加する用途")
+
+
 class SelectSuggestionIn(BaseModel):
     title: str
     summary: str = ""

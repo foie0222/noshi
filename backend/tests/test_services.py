@@ -398,3 +398,42 @@ def test_他世帯の続柄は削除できない():
     svc.add_relationship("u1", "山岳会")
     svc.remove_relationship("u2", "山岳会")  # 別世帯からの削除は無関係
     assert "山岳会" in svc.relationship_master("u1")["options"]
+
+
+def test_用途マスタは既定リストを返す():
+    """用途マスタが既定の用途（出産祝い・香典 等）を含むことを検証する（#37）。"""
+    svc = make_service()
+    m = svc.purpose_master("u1")
+    assert "出産祝い" in m["options"] and "香典" in m["options"]
+    assert m["defaults"] == list(m["options"])  # 追加前は既定のみ
+
+
+def test_世帯独自の用途を追加削除でき家族に共有される():
+    """世帯独自の用途を追加・削除でき、同じ世帯の家族にも共有されることを検証する（#37）。"""
+    svc = make_service()
+    code = svc.household_invite_code("owner")
+    svc.join_household("family", code)
+    svc.add_purpose("owner", "発表会祝い")
+    assert "発表会祝い" in svc.purpose_master("family")["options"]
+    svc.remove_purpose("owner", "発表会祝い")
+    assert "発表会祝い" not in svc.purpose_master("family")["options"]
+
+
+def test_用途は既定重複や空文字を追加せず別世帯にも出ない():
+    """既定重複・空文字は追加されず、別世帯の用途は見えないことを検証する（#37, A01）。"""
+    svc = make_service()
+    svc.add_purpose("u1", "香典")  # 既定と重複
+    svc.add_purpose("u1", "  ")  # 空白
+    svc.add_purpose("u1", "町内会")
+    m = svc.purpose_master("u1")
+    assert m["options"].count("香典") == 1 and "" not in m["options"]
+    assert "町内会" not in svc.purpose_master("u2")["options"]
+
+
+def test_用途は30件までしか追加できない():
+    """世帯独自の用途が上限（30件）を超えると ValidationError になることを検証する（#37）。"""
+    svc = make_service()
+    for i in range(30):
+        svc.add_purpose("u1", f"用途{i}")
+    with pytest.raises(ValidationError):
+        svc.add_purpose("u1", "あふれる")

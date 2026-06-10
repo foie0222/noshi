@@ -236,6 +236,29 @@ body {
   margin: 0;
 }
 
+/* パスワード欄の表示トグル（目アイコン）（#87）。 */
+.password-field {
+  position: relative;
+}
+.password-field .input {
+  padding-right: 44px; /* トグルボタン分の余白を確保 */
+}
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+
 /* セレクト（デザインシステムの Select に準拠: 既定の矢印を消しラインの chevron を重ねる） */
 .select-wrap {
   position: relative;

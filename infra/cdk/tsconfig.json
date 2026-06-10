@@ -3,6 +3,10 @@
     "target": "ES2020", "module": "commonjs", "lib": ["ES2020"],
     "strict": true, "esModuleInterop": true, "skipLibCheck": true,
     "moduleResolution": "node", "resolveJsonModule": true,
+    // TS6 で global な @types/node が自動取り込みされなくなったため明示（fs/path/__dirname 等）
+    "types": ["node"],
+    // moduleResolution:node(=node10) は TS7 で廃止予定。TS7 移行時に node16 等へ更新する
+    "ignoreDeprecations": "6.0",
     "outDir": "dist", "rootDir": "."
   },
   "include": ["bin", "lib"]

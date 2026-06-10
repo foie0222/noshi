@@ -11,6 +11,7 @@ import { Icon } from "./components/Icon";
 import { Logo } from "./components/Logo";
 import { MasterSelect } from "./components/MasterSelect";
 import { PartySelect } from "./components/PartySelect";
+import { PasswordInput } from "./components/PasswordInput";
 import { Select } from "./components/Select";
 import { copyText } from "./lib/clipboard";
 import {
@@ -742,13 +743,11 @@ export function App() {
               {(authMode === "signin" || authMode === "signup") && (
                 <div className="field">
                   <label htmlFor="auth-pw">パスワード</label>
-                  <input
+                  <PasswordInput
                     id="auth-pw"
-                    className="input"
-                    type="password"
                     autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                     value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
+                    onChange={setAuthPassword}
                     placeholder="8文字以上・英小文字と数字"
                   />
                 </div>
@@ -825,13 +824,11 @@ export function App() {
                   </div>
                   <div className="field">
                     <label htmlFor="reset-pw">新しいパスワード</label>
-                    <input
+                    <PasswordInput
                       id="reset-pw"
-                      className="input"
-                      type="password"
                       autoComplete="new-password"
                       value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
+                      onChange={setAuthPassword}
                       placeholder="8文字以上・英小文字と数字"
                     />
                   </div>

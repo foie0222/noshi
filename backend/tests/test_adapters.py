@@ -62,6 +62,20 @@ def test_抽出は画像ブロックを送りJSON応答を候補に変換する(
     assert out["confidence"] == 0.6  # 最低信頼度
 
 
+def test_抽出は品物名も候補に変換する():
+    """モデルが item（品物名）を返したら候補に反映されることを検証する（読めたら自動入力）。"""
+    reply = json.dumps({"amount": 0, "purpose": "快気祝い", "item": "メガネ"})
+    out = BedrockOcrLlm(client=FakeBedrock(reply)).extract([TINY])
+    assert out["candidates"]["item"] == "メガネ"
+
+
+def test_抽出で品物が読めなければ空文字になる():
+    """item が応答に無い場合は空文字（＝手入力のまま）になることを検証する。"""
+    reply = json.dumps({"amount": 30000, "purpose": "出産祝い"})
+    out = BedrockOcrLlm(client=FakeBedrock(reply)).extract([TINY])
+    assert out["candidates"]["item"] == ""
+
+
 def test_抽出はマークダウン括りのJSONも解釈する():
     """モデルが ```json ...``` で括って返しても候補を取り出せることを検証する（頑健なパース）。"""
     reply = "```json\n" + json.dumps({"amount": 10000, "party_name": "田中"}) + "\n```"

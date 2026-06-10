@@ -23,12 +23,16 @@ _EXTRACT_SYSTEM = (
 )
 
 _EXTRACT_PROMPT = (
-    "この画像（ご祝儀袋/のし袋/香典袋など）から次の項目を読み取り、JSON だけを返してください。\n"
+    "この画像（ご祝儀袋/のし袋/香典袋、または贈答品そのものや送り状など）から"
+    "次の項目を読み取り、JSON だけを返してください。\n"
     "- amount: 金額（円, 整数。不明なら 0）\n"
     "- party_name: 贈り主の氏名（不明なら空文字）\n"
     "- relationship: 推定される関係（友人/親族/会社 など。不明なら空文字）\n"
     "- purpose: 用途（例: 出産祝い/結婚祝い/香典/お中元。表書きから判断）\n"
     "- occurred_at: 日付 YYYY-MM-DD（不明なら空文字）\n"
+    "- item: 贈答品の内容。現金が入る袋（ご祝儀袋・香典袋など）は「現金」、"
+    "品物そのものや送り状なら品名（例: 商品券/カタログギフト）。"
+    "判断できなければ空文字。推測で品名を創作しないこと。\n"
     "- field_confidence: 各項目の確信度 0.0〜1.0 のオブジェクト"
     "（キー: amount, party_name, relationship, purpose, occurred_at）\n"
     "確信が持てない項目は値を空/0 にし、confidence を低くしてください。"
@@ -66,6 +70,7 @@ def _extract_json(text: str) -> dict[str, Any]:
 class BedrockOcrLlm:
     """Amazon Bedrock(Claude) による OCR/LLM 実装。"""
 
+    # 確信度（＝要確認の判定）に使う主要項目。item は任意のため含めない（読めたら入れる程度）。
     _FIELDS = ("amount", "party_name", "relationship", "purpose", "occurred_at")
 
     def __init__(self, model_id: str | None = None, client: Any = None, region: str | None = None):
@@ -113,6 +118,7 @@ class BedrockOcrLlm:
             "relationship": parsed.get("relationship") or "",
             "purpose": parsed.get("purpose") or "",
             "occurred_at": parsed.get("occurred_at") or "",
+            "item": parsed.get("item") or "",
         }
         return {
             "candidates": candidates,

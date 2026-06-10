@@ -403,7 +403,7 @@ export function App() {
         field_review: job.field_review || {},
         image: capturedImage,
         party_id: "", // 確認画面で相手を選ぶ/作る（#47）
-        item: "", // 品物は確認画面で手入力（OCR では抽出しない）
+        // item は job.candidates に含まれる（読めたら自動入力、ダメなら空で手入力）
       });
       setReviewTried(false);
       go("review");

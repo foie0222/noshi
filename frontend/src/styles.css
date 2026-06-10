@@ -1069,3 +1069,35 @@ body {
 .fieldset-reset > .field-label {
   padding: 0;
 }
+
+/* 詳細画面のセクション見出し（ステータス・お返し期限）。上に区切りの余白を確保。 */
+.section-label {
+  margin: var(--gap-section) 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  color: var(--text-sub);
+}
+
+/* 削除は破壊操作。主動線（お返しを進める）と区切り線で分け、控えめなテキストリンクに。 */
+.detail-danger {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--gap-section);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+.danger-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.danger-link:active {
+  color: var(--color-accent);
+}

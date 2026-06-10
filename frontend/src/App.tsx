@@ -1604,9 +1604,7 @@ export function App() {
               )}
               {event.id && (
                 <>
-                  <div className="h" style={{ fontSize: 14 }}>
-                    ステータス
-                  </div>
+                  <div className="section-label">ステータス</div>
                   <div className="chips">
                     {["received", "considering", "done"].map((st) => (
                       <button
@@ -1628,9 +1626,7 @@ export function App() {
               )}
               {event.direction === "received" && (
                 <>
-                  <div className="h" style={{ fontSize: 14 }}>
-                    お返し期限
-                  </div>
+                  <div className="section-label">お返し期限</div>
                   <div className="card">
                     {!dueEditing ? (
                       <div className="between">
@@ -1712,19 +1708,20 @@ export function App() {
                     className={mourning ? "btn" : "btn shu"}
                     onClick={() => startReturn(event)}
                   >
-                    {mourning ? "お返し（香典返し）を進める" : "お返しの続き（半返し→お返し品）"}
+                    {mourning ? "香典返しを進める" : "お返しを進める"}
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                className="btn ghost danger"
-                style={{ marginTop: 20 }}
-                onClick={() => doDeleteRecord(event.record_id, event.party_name)}
-              >
-                <Icon name="trash" size={16} />
-                この記録を削除
-              </button>
+              <div className="detail-danger">
+                <button
+                  type="button"
+                  className="danger-link"
+                  onClick={() => doDeleteRecord(event.record_id, event.party_name)}
+                >
+                  <Icon name="trash" size={14} />
+                  この記録を削除
+                </button>
+              </div>
             </div>
           );
         })()}

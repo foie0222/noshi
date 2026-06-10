@@ -1047,7 +1047,36 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+/* 並べ替えは枠線なしの控えめなインラインセレクト（チップと同じ行の右端）。 */
+.ledger-sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: none;
+  padding: 4px 22px 4px 6px;
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.ledger-sort .select-chevron {
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-sub);
+  pointer-events: none;
+}
+/* 行内のチップは上マージン不要（並べ替えと縦中央を揃える）。 */
+.ledger-controls-row .chips {
+  margin-top: 0;
 }
 
 /* グループ見出し（label でない項目ラベル）（#53） */

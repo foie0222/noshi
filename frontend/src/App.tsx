@@ -1282,10 +1282,9 @@ export function App() {
                       </button>
                     ))}
                   </div>
-                  <div className="select-wrap" style={{ width: "auto" }}>
+                  <div className="ledger-sort">
                     <select
-                      className="select"
-                      style={{ minHeight: 38, width: "auto" }}
+                      className="sort-select"
                       aria-label="並べ替え"
                       value={ledgerView.sort}
                       onChange={(e) =>
@@ -1297,7 +1296,7 @@ export function App() {
                       <option value="amount_desc">金額が高い順</option>
                     </select>
                     <span className="select-chevron">
-                      <Icon name="chevronDown" size={20} />
+                      <Icon name="chevronDown" size={16} />
                     </span>
                   </div>
                 </div>

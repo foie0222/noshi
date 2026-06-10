@@ -25,6 +25,15 @@ export function signOut(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * リロード時の初期画面を決める。認証が有効で未ログインのときだけログイン画面、
+ * それ以外（ログイン済み or 認証無効）はホームを復元する。
+ * これがないと localStorage にトークンがあっても毎回ログイン画面に戻ってしまう。
+ */
+export function pickInitialScreen(authOn: boolean, loggedIn: boolean): "home" | "login" {
+  return authOn && !loggedIn ? "login" : "home";
+}
+
 /** Cognito のエラー型を分かりやすい日本語にする。 */
 export function cognitoErrorMessage(type: string, fallback = "エラーが発生しました。"): string {
   const t = type || "";

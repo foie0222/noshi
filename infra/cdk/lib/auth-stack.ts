@@ -19,10 +19,8 @@ export interface AuthStackProps extends StackProps {
  *
  * 認証メール（パスワードリセット・確認コード等）は Cognito 既定送信
  * （no-reply@verificationemail.com）だと SPF/DKIM/DMARC の整合が取れず迷惑メールに
- * 振り分けられやすい。そこで noshi ドメインから SES 送信する(#90)。
- *
- * 本コミットは Part 1：SES 送信ドメイン（DKIM/SPF/DMARC）の整備のみ。Cognito を SES に
- * アタッチするのは、ドメイン検証(DKIM)完了後に別 PR（Part 2）で行う。
+ * 振り分けられやすい。そこで noshi ドメイン（DKIM/SPF/DMARC 整備済み）から
+ * SES で no-reply@noshi.me として送信する(#90)。
  */
 export class AuthStack extends Stack {
   public readonly userPool: cognito.UserPool;
@@ -36,7 +34,7 @@ export class AuthStack extends Stack {
       hostedZoneId: props.hostedZoneId,
       zoneName: props.hostedZoneName,
     });
-    new ses.EmailIdentity(this, "NoshiEmailIdentity", {
+    const emailIdentity = new ses.EmailIdentity(this, "NoshiEmailIdentity", {
       identity: ses.Identity.publicHostedZone(zone),
       // バウンスの SPF 整合のためカスタム MAIL FROM を使う（mail.noshi.me）。
       mailFromDomain: `mail.${props.domainName}`,
@@ -54,6 +52,12 @@ export class AuthStack extends Stack {
       signInAliases: { email: true },
       autoVerify: { email: true },
       standardAttributes: { email: { required: true, mutable: false } },
+      // 認証メールを noshi.me から SES 送信する（迷惑メール対策・#90）。
+      email: cognito.UserPoolEmail.withSES({
+        fromEmail: `no-reply@${props.domainName}`,
+        fromName: "noshi",
+        sesVerifiedDomain: props.domainName,
+      }),
       passwordPolicy: {
         minLength: 8,
         requireLowercase: true,
@@ -65,6 +69,8 @@ export class AuthStack extends Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: RemovalPolicy.RETAIN, // ユーザー資産は誤削除しない
     });
+    // 送信ドメインの検証(EmailIdentity)が User Pool より先に作られるようにする。
+    this.userPool.node.addDependency(emailIdentity);
 
     // SPA 用クライアント（クライアントシークレットなし、SRP/ユーザーパスワード認証）
     this.userPoolClient = this.userPool.addClient("NoshiWebClient", {

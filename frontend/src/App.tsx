@@ -1159,6 +1159,8 @@ export function App() {
                       <input
                         id={`rev-${k}`}
                         className={`input${warn || err ? " warn" : ""}`}
+                        type={k === "occurred_at" ? "date" : k === "amount" ? "number" : "text"}
+                        inputMode={k === "amount" ? "numeric" : undefined}
                         value={draft[k] ?? ""}
                         onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
                       />

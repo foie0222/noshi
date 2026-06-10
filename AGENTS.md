@@ -34,6 +34,7 @@ cd infra/cdk && npm install && npx cdk synth
 - テストは **「何を検証するか」を日本語の一文**で記述する（例: `def test_半返しは香典で半額になる():`）。
 - 本人／世帯スコープ（OWASP A01）を必ず守る。エラーは汎用文言で返し内部情報を漏らさない。
 - lint / format / 型: **ruff**（backend）/ **biome**（frontend）/ **mypy strict**（backend `app/`）。
+- **デザインシステム準拠（frontend）**: ネイティブ UI のドロップダウン（`<select>` 等、OS 依存の見た目になるもの）は使わず、自前コンポーネント（`Select` / `MasterSelect` / `PartySelect` の `rel-panel` パターン）で統一する。biome の a11y ルールは **error**（`<button>` / `fieldset` / `aria-*` を適切に使う）。
 
 ## lint / format / pre-commit
 コミット前に自動チェックされる（厳格: format 自動修正・lint/型エラーはブロック）。
@@ -41,13 +42,24 @@ cd infra/cdk && npm install && npx cdk synth
 pip install pre-commit && pre-commit install   # 初回のみ
 backend/.venv/bin/ruff check backend && backend/.venv/bin/ruff format --check backend
 backend/.venv/bin/mypy --config-file backend/pyproject.toml   # ※ cd backend で実行
-( cd frontend && npm run lint )                # biome
+# フロントの完全ゲート（コミット前に通すこと）
+( cd frontend && npx biome ci src && npx tsc --noEmit && npx vitest run && npm run build )
 ```
 
-## コミット / PR
-- 1 つの論点ごとにコミット。メッセージは要点を簡潔に。
-- Issue 単位で `issue-<番号>` ブランチを切り、PR で `main` に入れる。
-- 変更はテスト緑（pytest / vitest、必要に応じ `cdk synth`）と pre-commit 通過を確認してから。
+## 開発フロー
+- ブランチは **最新の `main` から** 切る（並行作業の隔離＝`git worktree` 運用はユーザー設定に従う）。
+- Issue 単位で `issue-<番号>` ブランチ。1 論点ごとにコミット、メッセージは要点を簡潔に。
+- 変更前にテスト緑（pytest / vitest、必要に応じ `cdk synth`）と pre-commit 通過を確認。
+- PR で `main` へ。**CI（backend / frontend / infra）が緑** であること。
+- マージは **squash merge**。`main` へのマージで **GitHub Actions が本番へ自動デプロイ** される
+  （`--context enforceAuth=true`）。`deploy to AWS` ジョブの完了まで見届ける。
+
+## AWS 運用
+- 認証は SSO。セッション切れ時はセッション内で `aws login` で再認証（プロファイル: AdministratorAccess）。
+- CDK スタック: Data / Auth / Messaging / Api / Worker / Frontend。
+- DNS: Route 53 ホストゾーン `noshi.me`（Zone ID `Z05828342UROTXZ54NZBT`）。レジストラはお名前.com で
+  NS を Route 53 に委任。ゾーンは手動管理し、CDK からは `fromLookup` で参照（独自ドメイン移行は #72）。
+- 現行の本番 URL は CloudFront ドメイン（`*.cloudfront.net`）。
 
 ## セキュリティ
 - 秘密情報（鍵・トークン・パスワード）はコミットしない。

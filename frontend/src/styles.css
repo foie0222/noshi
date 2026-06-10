@@ -219,6 +219,22 @@ body {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-tint);
 }
+/* iOS Safari は date/time 入力に固有幅を与え width:100% を無視して右がはみ出す。
+   appearance を消して width を効かせ、min-width:0 ではみ出しを止め、
+   内部表示（値）も左揃え・余白ゼロに正す。 */
+.input[type="date"],
+.input[type="time"],
+.input[type="datetime-local"] {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+}
+.input[type="date"]::-webkit-date-and-time-value,
+.input[type="time"]::-webkit-date-and-time-value,
+.input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
 
 /* セレクト（デザインシステムの Select に準拠: 既定の矢印を消しラインの chevron を重ねる） */
 .select-wrap {

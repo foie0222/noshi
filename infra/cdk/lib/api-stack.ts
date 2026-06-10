@@ -62,9 +62,11 @@ export class ApiStack extends Stack {
     const api = new apigw.HttpApi(this, "NoshiHttpApi", {
       apiName: "noshi-api",
       corsPreflight: {
-        allowOrigins: ["*"], // 本番はフロントのオリジンに限定
+        // 本番フロントのオリジンに限定（#72）。dev は vite プロキシ＝同一オリジンのため CORS 不要。
+        // 旧 CloudFront ドメインは noshi.me 移行期の併用として当面許可する。
+        allowOrigins: ["https://noshi.me", "https://d1u0sgslky88ja.cloudfront.net"],
         allowMethods: [apigw.CorsHttpMethod.ANY],
-        allowHeaders: ["*"],
+        allowHeaders: ["authorization", "content-type"],
       },
     });
     api.addRoutes({

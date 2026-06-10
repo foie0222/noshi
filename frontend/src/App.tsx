@@ -34,6 +34,7 @@ import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
 import {
   type AnnualSummary,
+  type Direction,
   type Draft,
   type EditDraft,
   type EventView,
@@ -120,6 +121,7 @@ export function App() {
   );
   const [celebrate, setCelebrate] = useState<boolean>(false); // 水引の完了演出
   const [capturedImage, setCapturedImage] = useState<string>(""); // 撮影/選択した画像(dataURL)
+  const [captureDirection, setCaptureDirection] = useState<Direction>("received"); // 撮影時の種類（もらった/あげた）
   const [extracting, setExtracting] = useState<boolean>(false);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null); // 記録の修正中(AI抽出の訂正)
   const [dueEditing, setDueEditing] = useState<boolean>(false); // お返し期限の編集中
@@ -374,7 +376,7 @@ export function App() {
       const job = await api.capture(capturedImage);
       setDraft({
         ...job.candidates,
-        direction: "received",
+        direction: captureDirection, // 撮影画面で選んだ種類を引き継ぐ（確認画面で変更可）
         field_review: job.field_review || {},
         image: capturedImage,
         party_id: "", // 確認画面で相手を選ぶ/作る（#47）
@@ -390,6 +392,7 @@ export function App() {
 
   function startCapture() {
     setCapturedImage("");
+    setCaptureDirection("received");
     go("capture");
   }
 
@@ -1004,8 +1007,31 @@ export function App() {
         <>
           <Bar title="撮影" back="home" />
           <p className="muted" style={{ marginTop: 6 }}>
-            ご祝儀袋・のし・送り状を撮影、または画像を選んでください。
+            ご祝儀袋・のし・送り状や、贈った品物を撮影、または画像を選んでください。
           </p>
+
+          <fieldset className="field fieldset-reset">
+            <legend className="field-label">種類</legend>
+            <div className="chips">
+              {(
+                [
+                  ["received", "もらった"],
+                  ["given", "あげた"],
+                ] as const
+              ).map(([d, lbl]) => (
+                <button
+                  type="button"
+                  key={d}
+                  className={`chip ${captureDirection === d ? "on" : ""}`}
+                  aria-label={lbl}
+                  aria-pressed={captureDirection === d}
+                  onClick={() => setCaptureDirection(d)}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </fieldset>
 
           <label className="dropzone" htmlFor="noshi-camera" aria-label="写真を撮る・画像を選ぶ">
             {capturedImage ? (
@@ -1049,7 +1075,7 @@ export function App() {
               borderTop: "1px dashed var(--border-default)",
             }}
           >
-            <p className="muted">贈った（あげた）ものは、撮影せず手入力で記録できます。</p>
+            <p className="muted">写真がないときは、手入力でも記録できます。</p>
             <button type="button" className="btn ghost" onClick={startManualGiven}>
               <Icon name="gift" size={18} />
               あげた物を手入力で記録

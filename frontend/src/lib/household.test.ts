@@ -1,12 +1,23 @@
 import { describe, expect, test } from "vitest";
-import type { Member } from "../types";
-import { memberDisplay } from "./household";
+import type { Household, Member } from "../types";
+import { isSharing, memberDisplay } from "./household";
 
 const m = (over: Partial<Member>): Member => ({
   user_id: "u-1",
   role: "member",
   email: "",
   ...over,
+});
+
+const household = (memberCount: number): Household => ({
+  id: "h-1",
+  name: "わが家",
+  invite_code: "ABCDEF",
+  members: Array.from({ length: memberCount }, (_, i) => ({
+    user_id: `u-${i}`,
+    role: i === 0 ? "owner" : "member",
+    email: "",
+  })),
 });
 
 describe("memberDisplay", () => {
@@ -41,5 +52,16 @@ describe("memberDisplay", () => {
       isOwner: false,
       isMe: false,
     });
+  });
+});
+
+describe("isSharing", () => {
+  test("メンバーが自分だけ（1人）なら共有していない", () => {
+    expect(isSharing(household(1))).toBe(false);
+  });
+
+  test("メンバーが2人以上なら共有している", () => {
+    expect(isSharing(household(2))).toBe(true);
+    expect(isSharing(household(3))).toBe(true);
   });
 });

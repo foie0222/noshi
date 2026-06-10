@@ -12,6 +12,7 @@ import { Icon, type IconName } from "./components/Icon";
 import { Logo } from "./components/Logo";
 import { MasterSelect } from "./components/MasterSelect";
 import { PartySelect } from "./components/PartySelect";
+import { Select } from "./components/Select";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -91,6 +92,13 @@ const ITEM_SUGGESTIONS = [
   "お酒",
   "お菓子",
   "花",
+];
+
+// 台帳の並べ替え選択肢（デザインシステム準拠の自前 Select で表示）。
+const LEDGER_SORT_OPTIONS: { value: LedgerSort; label: string }[] = [
+  { value: "date_desc", label: "新しい順" },
+  { value: "date_asc", label: "古い順" },
+  { value: "amount_desc", label: "金額が高い順" },
 ];
 
 const TrustNote = () => (
@@ -1282,23 +1290,13 @@ export function App() {
                       </button>
                     ))}
                   </div>
-                  <div className="ledger-sort">
-                    <select
-                      className="sort-select"
-                      aria-label="並べ替え"
-                      value={ledgerView.sort}
-                      onChange={(e) =>
-                        setLedgerView({ ...ledgerView, sort: e.target.value as LedgerSort })
-                      }
-                    >
-                      <option value="date_desc">新しい順</option>
-                      <option value="date_asc">古い順</option>
-                      <option value="amount_desc">金額が高い順</option>
-                    </select>
-                    <span className="select-chevron">
-                      <Icon name="chevronDown" size={16} />
-                    </span>
-                  </div>
+                  <Select
+                    compact
+                    ariaLabel="並べ替え"
+                    value={ledgerView.sort}
+                    options={LEDGER_SORT_OPTIONS}
+                    onChange={(v) => setLedgerView({ ...ledgerView, sort: v as LedgerSort })}
+                  />
                 </div>
               </div>
               {shown.length === 0 && (

@@ -28,12 +28,12 @@
 				"useExhaustiveDependencies": "warn"
 			},
 			"a11y": {
-				"useKeyWithClickEvents": "warn",
-				"noStaticElementInteractions": "warn",
-				"noLabelWithoutControl": "warn",
-				"useSemanticElements": "warn",
-				"useFocusableInteractive": "warn",
-				"noSvgWithoutTitle": "warn"
+				"useKeyWithClickEvents": "error",
+				"noStaticElementInteractions": "error",
+				"noLabelWithoutControl": "error",
+				"useSemanticElements": "error",
+				"useFocusableInteractive": "error",
+				"noSvgWithoutTitle": "error"
 			}
 		}
 	},

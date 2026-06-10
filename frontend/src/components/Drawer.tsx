@@ -60,8 +60,8 @@ export function Drawer({
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: スクリムはマウス用の補助。Esc/閉じるボタンでキーボード操作可能。
+    // biome-ignore lint/a11y/noStaticElementInteractions: スクリム（背景）クリックで閉じる補助。本来の操作はパネル内のボタン/Esc。
     <div className="drawer-scrim" data-testid="drawer-scrim" onClick={onClose}>
-      {/** biome-ignore lint/a11y/noStaticElementInteractions: ダイアログのキー処理。フォーカスはパネル内に閉じ込める。 */}
       <div
         ref={panelRef}
         className="drawer-panel"

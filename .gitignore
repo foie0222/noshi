@@ -31,6 +31,9 @@ Thumbs.db
 *.swp
 *~
 
+# Claude Code（worktree・スケジュールロック等の作業用）
+.claude/
+
 # Coverage / temp
 coverage/
 .cache/

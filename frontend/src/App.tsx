@@ -26,7 +26,7 @@ import {
   signUp,
 } from "./lib/cognito";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
-import { memberDisplay } from "./lib/household";
+import { isSharing, memberDisplay } from "./lib/household";
 import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
@@ -104,6 +104,7 @@ export function App() {
   const [annual, setAnnual] = useState<AnnualSummary | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [joinCode, setJoinCode] = useState<string>("");
+  const [showJoin, setShowJoin] = useState<boolean>(false); // 共有中は「参加」を控えめに折りたたむ(#80)
   const devUserRef = useRef<string>(currentUserId());
   // ログイン（Cognito）
   const [authMode, setAuthMode] = useState<"signin" | "signup" | "confirm" | "forgot" | "reset">(
@@ -1783,12 +1784,15 @@ export function App() {
           {household &&
             (() => {
               const me = currentUserId();
+              const sharing = isSharing(household);
               const iAmOwner = household.members.some(
                 (m) => m.user_id === me && m.role === "owner",
               );
               return (
                 <div className="card">
-                  <div className="muted">この台帳を共有しているメンバー</div>
+                  <div className="muted">
+                    {sharing ? "この台帳を共有しているメンバー" : "まだ家族と共有していません"}
+                  </div>
                   <div className="chips">
                     {household.members.map((m) => {
                       const d = memberDisplay(m, me);
@@ -1840,22 +1844,35 @@ export function App() {
                     </button>
                   </div>
 
-                  <div className="subhead">家族の台帳に参加する</div>
-                  <div className="muted">家族から受け取った招待コードを入力します。</div>
-                  <div className="row-inline">
-                    <input
-                      className="input grow"
-                      placeholder="招待コード"
-                      value={joinCode}
-                      onChange={(e) => setJoinCode(e.target.value)}
-                      aria-label="招待コード"
-                    />
-                    <button type="button" className="btn primary compact" onClick={doJoinHousehold}>
-                      参加
+                  {/* 共有中は「参加」を控えめに折りたたみ、未共有時のみ前面に出す(#80) */}
+                  {sharing && !showJoin ? (
+                    <button type="button" className="linklike" onClick={() => setShowJoin(true)}>
+                      別の家族の台帳に参加する
                     </button>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="subhead">家族の台帳に参加する</div>
+                      <div className="muted">家族から受け取った招待コードを入力します。</div>
+                      <div className="row-inline">
+                        <input
+                          className="input grow"
+                          placeholder="招待コード"
+                          value={joinCode}
+                          onChange={(e) => setJoinCode(e.target.value)}
+                          aria-label="招待コード"
+                        />
+                        <button
+                          type="button"
+                          className="btn primary compact"
+                          onClick={doJoinHousehold}
+                        >
+                          参加
+                        </button>
+                      </div>
+                    </>
+                  )}
 
-                  {household.members.length > 1 && (
+                  {sharing && (
                     <button type="button" className="btn ghost danger" onClick={doLeaveHousehold}>
                       この家族から脱退する
                     </button>

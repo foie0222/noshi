@@ -75,7 +75,7 @@ class BedrockOcrLlm:
 
     def __init__(self, model_id: str | None = None, client: Any = None, region: str | None = None):
         self.model_id = model_id or os.environ.get(
-            "NOSHI_BEDROCK_MODEL", "jp.anthropic.claude-sonnet-4-5-20250929-v1:0"
+            "NOSHI_BEDROCK_MODEL", "jp.anthropic.claude-sonnet-4-6"
         )
         self.region = region or os.environ.get("AWS_REGION", "ap-northeast-1")
         self._client = client

@@ -7,10 +7,17 @@ import { ApiStack } from "../lib/api-stack";
 import { WorkerStack } from "../lib/worker-stack";
 import { FrontendStack } from "../lib/frontend-stack";
 import { GithubOidcStack } from "../lib/github-oidc-stack";
+import { CertificateStack } from "../lib/certificate-stack";
 
 // noshi インフラ（infrastructure-design.md / deployment-architecture.md）。リージョン ap-northeast-1。
 const app = new App();
-const env = { region: "ap-northeast-1" };
+// Route 53 参照・ACM DNS 検証・クロスリージョン参照には account が必要。
+const account = process.env.CDK_DEFAULT_ACCOUNT ?? "688567287706";
+const env = { account, region: "ap-northeast-1" };
+
+// 独自ドメイン（#72）。ホストゾーンは手動作成（属性参照）。
+const DOMAIN = "noshi.me";
+const HOSTED_ZONE_ID = "Z05828342UROTXZ54NZBT";
 
 // CI/CD: GitHub Actions(OIDC) 用のデプロイロール。初回のみ手動 deploy（自動デプロイ対象外）。
 new GithubOidcStack(app, "NoshiGithubOidcStack", { env, githubRepo: "foie0222/noshi" });
@@ -20,4 +27,20 @@ const messaging = new MessagingStack(app, "NoshiMessagingStack", { env });
 const auth = new AuthStack(app, "NoshiAuthStack", { env });
 new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId });
 new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue });
-new FrontendStack(app, "NoshiFrontendStack", { env });
+
+// CloudFront 用 ACM 証明書は us-east-1 必須。別リージョンの FrontendStack から参照する。
+const cert = new CertificateStack(app, "NoshiCertificateStack", {
+  env: { account, region: "us-east-1" },
+  crossRegionReferences: true,
+  domainName: DOMAIN,
+  hostedZoneId: HOSTED_ZONE_ID,
+  hostedZoneName: DOMAIN,
+});
+new FrontendStack(app, "NoshiFrontendStack", {
+  env,
+  crossRegionReferences: true,
+  domainName: DOMAIN,
+  hostedZoneId: HOSTED_ZONE_ID,
+  hostedZoneName: DOMAIN,
+  certificate: cert.certificate,
+});

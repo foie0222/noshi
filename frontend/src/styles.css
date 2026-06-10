@@ -882,59 +882,78 @@ body {
 .drawer-body {
   padding: var(--space-2);
 }
-.drawer-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: var(--hit-min);
-  padding: 12px 14px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--fs-body);
-  color: var(--text-body);
-  text-align: left;
-  border-radius: var(--radius-sm);
-}
-.drawer-item:hover {
-  background: var(--color-primary-tint);
-}
-.drawer-item.on {
-  color: var(--color-primary);
-  font-weight: var(--fw-bold);
-  background: var(--color-primary-tint);
-}
-.drawer-item .ic {
+/* ---- マイページ（1画面のグループ化リスト） --------------------------- */
+/* 各グループの小見出し（iOS 設定アプリ風のキャプション）。 */
+.settings-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
   color: var(--text-sub);
-  display: inline-flex;
+  letter-spacing: var(--ls-wide);
+  margin-top: var(--gap-section);
 }
-.drawer-item.on .ic {
-  color: var(--color-primary);
+/* アカウントのメール（自分の識別）。 */
+.account-id {
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  margin: var(--space-1) 0 var(--gap-stack);
 }
-/* マイページのヘッダー（ハンバーガー＋見出し） */
-.mypage-head {
+.card.dashed {
+  border-style: dashed;
+}
+/* 入力＋ボタンの横並び（招待コード・参加・開発切替で共通）。 */
+.row-inline {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 56px;
+  margin-top: var(--space-1);
 }
-.mypage-head .hamburger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: none;
-  color: var(--text-body);
-  cursor: pointer;
+.grow {
+  flex: 1;
 }
-.mypage-head .title {
-  font-family: var(--font-display);
+.btn.compact {
+  width: auto;
+  min-height: 38px;
+  padding: 0 16px;
+  margin-top: 0;
+}
+/* カード内の小見出し（招待する / 参加する / 各めやす）。 */
+.subhead {
   font-weight: var(--fw-bold);
-  font-size: var(--fs-h3);
+  font-size: var(--fs-sm);
+  margin-top: var(--space-5);
+}
+.card > .subhead:first-child {
+  margin-top: 0;
+}
+.divider {
+  border: none;
+  border-top: var(--bw-hairline) solid var(--border-faint);
+  margin: var(--space-5) 0 var(--space-2);
+}
+/* 直前要素から一段空ける汎用の上マージン。 */
+.note-top {
+  margin-top: var(--gap-stack);
+}
+/* 年間振り返りの 2 カラム。 */
+.split {
+  display: flex;
+  gap: var(--space-3);
+}
+.split > .col {
+  flex: 1;
+}
+.amount.lg {
+  font-size: var(--fs-h2);
+}
+.text-accent {
+  color: var(--color-accent);
+  font-weight: var(--fw-bold);
+}
+.text-warn {
+  color: var(--color-warning);
+}
+.field.flush {
+  margin-top: 0;
 }
 
 /* 一覧カードの控えめな削除ボタン（#36） */

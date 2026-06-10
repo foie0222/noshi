@@ -20,6 +20,7 @@ import {
   currentEmail,
   forgotPassword,
   isLoggedIn,
+  pickInitialScreen,
   signIn,
   signOut,
   signUp,
@@ -93,7 +94,10 @@ const TrustNote = () => (
 );
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>("login");
+  // リロード時はトークンの有無からホーム/ログインを復元する（毎回ログインに戻る問題の対策）。
+  const [screen, setScreen] = useState<Screen>(() =>
+    pickInitialScreen(authEnabled(), isLoggedIn()),
+  );
   const [toast, setToast] = useState<string>("");
   const [home, setHome] = useState<HomeResponse | null>(null);
   const [ledger, setLedger] = useState<LedgerResponse | null>(null);

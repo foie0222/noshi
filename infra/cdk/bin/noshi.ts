@@ -24,7 +24,12 @@ new GithubOidcStack(app, "NoshiGithubOidcStack", { env, githubRepo: "foie0222/no
 
 const data = new DataStack(app, "NoshiDataStack", { env });
 const messaging = new MessagingStack(app, "NoshiMessagingStack", { env });
-const auth = new AuthStack(app, "NoshiAuthStack", { env });
+const auth = new AuthStack(app, "NoshiAuthStack", {
+  env,
+  domainName: DOMAIN,
+  hostedZoneId: HOSTED_ZONE_ID,
+  hostedZoneName: DOMAIN,
+});
 new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId });
 new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue });
 

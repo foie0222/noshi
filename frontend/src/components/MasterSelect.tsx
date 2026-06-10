@@ -99,6 +99,7 @@ export function MasterSelect({
   }
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: ラッパの Esc キー処理。実操作は内部の combobox/option ボタン。
     <div
       className="rel"
       ref={wrapRef}

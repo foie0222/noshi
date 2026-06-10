@@ -653,9 +653,9 @@ export function App() {
   const Bar = ({ title, back, logo }: { title: string; back?: Screen; logo?: boolean }) => (
     <div className="appbar">
       {back ? (
-        <div className="back" onClick={() => go(back)} role="button" aria-label="戻る">
+        <button type="button" className="back" onClick={() => go(back)} aria-label="戻る">
           <Icon name="arrowLeft" size={22} />
-        </div>
+        </button>
       ) : (
         <div style={{ width: 28 }} />
       )}
@@ -670,7 +670,8 @@ export function App() {
     <div className={`phone${fontLarge ? " font-large" : ""}`}>
       {celebrate && (
         <div className="celebrate" role="status" aria-label="お返しを完了しました">
-          <svg width="160" height="90" viewBox="0 0 160 90">
+          <svg width="160" height="90" viewBox="0 0 160 90" role="img" aria-label="水引">
+            <title>水引</title>
             <path
               className="mizu1"
               d="M20 60 C 55 15, 105 15, 140 60"
@@ -947,7 +948,20 @@ export function App() {
             const overdue = e.days_left !== null && e.days_left < 0;
             const soon = e.days_left !== null && e.days_left <= 3;
             return (
-              <div className="card tap" key={e.id} onClick={() => openEvent(e.id)}>
+              // biome-ignore lint/a11y/useSemanticElements: 削除ボタンを内包する開閉カードのため button にできない。role+キーボードで代替。
+              <div
+                className="card tap"
+                key={e.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openEvent(e.id)}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter" || ev.key === " ") {
+                    ev.preventDefault();
+                    openEvent(e.id);
+                  }
+                }}
+              >
                 <div className="between">
                   <b>{withHonor(e.party_name)}</b>
                   <span
@@ -1071,8 +1085,8 @@ export function App() {
                   ? reviewMessage(reviewCount, fields.length)
                   : "贈った内容を入力して保存してください。"}
               </p>
-              <div className="field">
-                <label>種類</label>
+              <fieldset className="field fieldset-reset">
+                <legend className="field-label">種類</legend>
                 <div className="chips">
                   {(
                     [
@@ -1080,19 +1094,19 @@ export function App() {
                       ["given", "あげた"],
                     ] as const
                   ).map(([d, lbl]) => (
-                    <span
+                    <button
+                      type="button"
                       key={d}
                       className={`chip ${draft.direction === d ? "on" : ""}`}
-                      role="button"
                       aria-label={lbl}
                       aria-pressed={draft.direction === d}
                       onClick={() => setDraft({ ...draft, direction: d })}
                     >
                       {lbl}
-                    </span>
+                    </button>
                   ))}
                 </div>
-              </div>
+              </fieldset>
               <div className="field">
                 <label htmlFor="rev-party">お相手</label>
                 <PartySelect
@@ -1193,15 +1207,15 @@ export function App() {
                         ["given", "あげた"],
                       ] as const
                     ).map(([d, lbl]) => (
-                      <span
+                      <button
+                        type="button"
                         key={d}
                         className={`chip ${ledgerView.direction === d ? "on" : ""}`}
-                        role="button"
                         aria-pressed={ledgerView.direction === d}
                         onClick={() => setLedgerView({ ...ledgerView, direction: d })}
                       >
                         {lbl}
-                      </span>
+                      </button>
                     ))}
                   </div>
                   <div className="select-wrap" style={{ width: "auto" }}>
@@ -1230,7 +1244,20 @@ export function App() {
                 </p>
               )}
               {shown.map((r) => (
-                <div className="listitem" key={r.id} onClick={() => openEventForRecord(r.id)}>
+                /* biome-ignore lint/a11y/useSemanticElements: 削除ボタンを内包する行のため button にできない。role+キーボードで代替。 */
+                <div
+                  className="listitem"
+                  key={r.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openEventForRecord(r.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" || ev.key === " ") {
+                      ev.preventDefault();
+                      openEventForRecord(r.id);
+                    }
+                  }}
+                >
                   <span className={`dirpill dir-${r.direction}`}>
                     {r.direction === "received" ? "受領" : "贈与"}
                   </span>
@@ -1285,8 +1312,8 @@ export function App() {
           <p className="muted" style={{ marginTop: 6 }}>
             お返し品を選ぶと、このお返しは「完了」になります。
           </p>
-          {suggestions.map((s, i) => (
-            <div className="card" key={i}>
+          {suggestions.map((s) => (
+            <div className="card" key={s.title}>
               <b>{s.title}</b>
               <div className="muted">
                 {s.summary} ・ {s.price_band} ・ 外部サイト↗
@@ -1493,9 +1520,11 @@ export function App() {
                   </div>
                   <div className="chips">
                     {["received", "considering", "done"].map((st) => (
-                      <span
+                      <button
+                        type="button"
                         key={st}
                         className={`chip ${event.status === st ? "on" : ""}`}
+                        aria-pressed={event.status === st}
                         onClick={async () => {
                           const r = await api.setStatus(event.id, st);
                           setEvent(r.event);
@@ -1503,7 +1532,7 @@ export function App() {
                         }}
                       >
                         {statusLabel(st)}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 </>
@@ -1663,103 +1692,101 @@ export function App() {
             </span>
           </div>
           {mySection === "household" && household && (
-            <>
-              <div className="card">
-                {(() => {
-                  const me = currentUserId();
-                  const iAmOwner = household.members.some(
-                    (m) => m.user_id === me && m.role === "owner",
-                  );
-                  return (
-                    <>
-                      <div className="muted">この台帳を共有しているメンバー</div>
-                      <div
-                        style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0 10px" }}
-                      >
-                        {household.members.map((m) => {
-                          const label = m.email || m.user_id;
-                          const isMe = m.user_id === me;
-                          return (
-                            <span key={m.user_id} className="chip on">
-                              {label}
-                              {m.role === "owner" ? "（管理者）" : ""}
-                              {isMe ? "・あなた" : ""}
-                              {iAmOwner && !isMe && (
-                                <button
-                                  type="button"
-                                  className="memberx"
-                                  aria-label={`${label} を外す`}
-                                  onClick={() => doRemoveMember(m.user_id, label)}
-                                >
-                                  <Icon name="close" size={12} strokeWidth={2.4} />
-                                </button>
-                              )}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </>
-                  );
-                })()}
-                <div className="muted">家族を招待するコード（伝えると同じ台帳を共有できます）</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 6px" }}>
-                  <code className="invitecode">{household.invite_code}</code>
-                  <button
-                    type="button"
-                    className="btn"
-                    style={{ height: 38, width: "auto", padding: "0 12px" }}
-                    onClick={async () =>
-                      notify(
-                        (await copyText(household.invite_code))
-                          ? "コードをコピーしました"
-                          : "コピーできませんでした",
-                      )
-                    }
-                  >
-                    コピー
-                  </button>
-                </div>
-                <div className="muted" style={{ marginTop: 10 }}>
-                  家族から受け取ったコードで参加する
-                </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                  <input
-                    className="input"
-                    style={{ flex: 1 }}
-                    placeholder="招待コード"
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value)}
-                    aria-label="招待コード"
-                  />
-                  <button
-                    type="button"
-                    className="btn primary"
-                    style={{ width: "auto", padding: "0 16px" }}
-                    onClick={doJoinHousehold}
-                  >
-                    参加
-                  </button>
-                </div>
-                <div className="trustnote" style={{ marginTop: 10 }}>
-                  <span className="ic">
-                    <Icon name="lock" size={18} />
-                  </span>
-                  <div>
-                    台帳は<b>このご家族だけ</b>が見られます。
-                  </div>
-                </div>
-                {household.members.length > 1 && (
-                  <button
-                    type="button"
-                    className="btn ghost danger"
-                    style={{ marginTop: 10 }}
-                    onClick={doLeaveHousehold}
-                  >
-                    この家族から脱退する
-                  </button>
-                )}
+            <div className="card">
+              {(() => {
+                const me = currentUserId();
+                const iAmOwner = household.members.some(
+                  (m) => m.user_id === me && m.role === "owner",
+                );
+                return (
+                  <>
+                    <div className="muted">この台帳を共有しているメンバー</div>
+                    <div
+                      style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0 10px" }}
+                    >
+                      {household.members.map((m) => {
+                        const label = m.email || m.user_id;
+                        const isMe = m.user_id === me;
+                        return (
+                          <span key={m.user_id} className="chip on">
+                            {label}
+                            {m.role === "owner" ? "（管理者）" : ""}
+                            {isMe ? "・あなた" : ""}
+                            {iAmOwner && !isMe && (
+                              <button
+                                type="button"
+                                className="memberx"
+                                aria-label={`${label} を外す`}
+                                onClick={() => doRemoveMember(m.user_id, label)}
+                              >
+                                <Icon name="close" size={12} strokeWidth={2.4} />
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
+              <div className="muted">家族を招待するコード（伝えると同じ台帳を共有できます）</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 6px" }}>
+                <code className="invitecode">{household.invite_code}</code>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ height: 38, width: "auto", padding: "0 12px" }}
+                  onClick={async () =>
+                    notify(
+                      (await copyText(household.invite_code))
+                        ? "コードをコピーしました"
+                        : "コピーできませんでした",
+                    )
+                  }
+                >
+                  コピー
+                </button>
               </div>
-            </>
+              <div className="muted" style={{ marginTop: 10 }}>
+                家族から受け取ったコードで参加する
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <input
+                  className="input"
+                  style={{ flex: 1 }}
+                  placeholder="招待コード"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  aria-label="招待コード"
+                />
+                <button
+                  type="button"
+                  className="btn primary"
+                  style={{ width: "auto", padding: "0 16px" }}
+                  onClick={doJoinHousehold}
+                >
+                  参加
+                </button>
+              </div>
+              <div className="trustnote" style={{ marginTop: 10 }}>
+                <span className="ic">
+                  <Icon name="lock" size={18} />
+                </span>
+                <div>
+                  台帳は<b>このご家族だけ</b>が見られます。
+                </div>
+              </div>
+              {household.members.length > 1 && (
+                <button
+                  type="button"
+                  className="btn ghost danger"
+                  style={{ marginTop: 10 }}
+                  onClick={doLeaveHousehold}
+                >
+                  この家族から脱退する
+                </button>
+              )}
+            </div>
           )}
           {mySection === "annual" && annual && (
             <>

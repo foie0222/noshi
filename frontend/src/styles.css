@@ -46,6 +46,9 @@ body {
   height: 32px;
   cursor: pointer;
   color: var(--text-body);
+  border: none;
+  background: none;
+  padding: 0;
 }
 .appbar .title {
   flex: 1;
@@ -345,6 +348,7 @@ body {
   margin-top: var(--space-2);
 }
 .chip {
+  font-family: var(--font-body);
   border: var(--bw-hairline) solid var(--border-default);
   border-radius: var(--radius-round);
   padding: 8px 16px;
@@ -1028,4 +1032,24 @@ body {
   justify-content: space-between;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* グループ見出し（label でない項目ラベル）（#53） */
+.field-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  color: var(--text-sub);
+}
+
+/* fieldset をグループ化の意味だけ使い、既定の枠線・余白・padding は打ち消す。 */
+.fieldset-reset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.fieldset-reset > .field-label {
+  padding: 0;
 }

@@ -120,6 +120,7 @@ export interface CaptureCandidates {
   relationship: string;
   purpose: string;
   occurred_at: string;
+  item: string; // 品物（読めたら自動入力、ダメなら空で手入力）
 }
 
 export interface CaptureResponse {

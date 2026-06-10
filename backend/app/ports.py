@@ -36,6 +36,7 @@ class OcrLlmMock:
                 "relationship": "友人",
                 "purpose": "出産祝い",
                 "occurred_at": "2026-05-20",
+                "item": "現金",
             },
             "field_confidence": field_confidence,
             "confidence": min(field_confidence.values()),  # 後方互換（全体の最低値）

@@ -360,6 +360,7 @@ class NoshiService:
             party_id=party.id,
             direction=direction,
             occurred_at=extra.get("occurred_at", ""),
+            item=extra.get("item", ""),
             image_key=extra.get("image_key", ""),
         )
         self.repo.put_record(rec)
@@ -432,6 +433,8 @@ class NoshiService:
             raise ValidationError(errors)
         rec.amount = amount
         rec.purpose = purpose
+        if "item" in extra:
+            rec.item = extra["item"]
         if "occurred_at" in extra:
             rec.occurred_at = extra["occurred_at"]
         if "image_key" in extra:
@@ -520,6 +523,7 @@ class NoshiService:
             "amount": rec.amount if rec else 0,
             "direction": rec.direction if rec else "received",
             "occurred_at": occurred_at,
+            "item": rec.item if rec else "",
             "relationship": party.relationship if party else "",
             "due_at": due.isoformat() if due else None,
             "due_default": default_due.isoformat() if default_due else None,
@@ -596,6 +600,7 @@ class NoshiService:
             "amount": rec.amount,
             "direction": rec.direction,
             "occurred_at": rec.occurred_at,
+            "item": rec.item,
             "relationship": party.relationship if party else "",
             "due_at": None,
             "due_default": None,

@@ -78,6 +78,7 @@ class GiftRecord:
     direction: str = "received"  # received / given
     occurred_at: str = ""  # confidential
     party_id: str = ""  # 相手の識別（#47）。同名でも別人を区別する
+    item: str = ""  # confidential（もらった/あげた品物の内容。例: 現金/メガネ。空なら未記入）
     memo: str = ""
     image_key: str = ""  # confidential（S3 オブジェクトキー、#35）。空なら画像なし
     id: str = field(default_factory=_id)

@@ -19,7 +19,11 @@ export function filterSortRecords(records: GiftRecord[], v: LedgerView): GiftRec
   let out = records.filter((r) => {
     if (v.direction !== "all" && r.direction !== v.direction) return false;
     if (!q) return true;
-    return r.party_name.toLowerCase().includes(q) || r.purpose.toLowerCase().includes(q);
+    return (
+      r.party_name.toLowerCase().includes(q) ||
+      r.purpose.toLowerCase().includes(q) ||
+      r.item.toLowerCase().includes(q)
+    );
   });
   out = [...out].sort((a, b) => {
     if (v.sort === "amount_desc") return b.amount - a.amount;

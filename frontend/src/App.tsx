@@ -82,6 +82,17 @@ const MY_SECTIONS: { key: MySection; label: string; icon: IconName }[] = [
   { key: "account", label: "アカウント", icon: "user" },
 ];
 
+// 品物欄の定番サジェスト（自由入力可。datalist で候補表示）。
+const ITEM_SUGGESTIONS = [
+  "現金",
+  "商品券",
+  "ギフトカード",
+  "カタログギフト",
+  "お酒",
+  "お菓子",
+  "花",
+];
+
 const TrustNote = () => (
   <div className="trustnote">
     <span className="ic">
@@ -384,6 +395,7 @@ export function App() {
         field_review: job.field_review || {},
         image: capturedImage,
         party_id: "", // 確認画面で相手を選ぶ/作る（#47）
+        item: "", // 品物は確認画面で手入力（OCR では抽出しない）
       });
       setReviewTried(false);
       go("review");
@@ -412,6 +424,7 @@ export function App() {
       field_review: {},
       image: "",
       party_id: "",
+      item: "",
     });
     setReviewTried(false);
     go("review");
@@ -453,6 +466,7 @@ export function App() {
         party_id: draft.party_id,
         direction: draft.direction,
         occurred_at: draft.occurred_at || "",
+        item: draft.item?.trim() || "",
         image_key,
       };
       const res = await api.createRecord(input);
@@ -554,6 +568,7 @@ export function App() {
       purpose: event.purpose,
       occurred_at: event.occurred_at || "",
       party_id: event.party_id || "",
+      item: event.item || "",
     });
   }
   async function saveEdit() {
@@ -574,6 +589,7 @@ export function App() {
         purpose: editDraft.purpose.trim(),
         party_id: editDraft.party_id, // 相手の付け替え（#47）
         occurred_at: editDraft.occurred_at.trim(), // もらった日。期限の自動計算に反映される
+        item: editDraft.item.trim(), // 品物（例: 現金/メガネ）
       });
       // 記録ベースで取り直す（given=イベントなしでも動く、#48）。期限も再計算。
       const r = await api.eventForRecord(event.record_id);
@@ -1199,6 +1215,22 @@ export function App() {
                   </div>
                 );
               })}
+              <div className="field">
+                <label htmlFor="rev-item">品物（任意）</label>
+                <input
+                  id="rev-item"
+                  className="input"
+                  list="item-suggestions"
+                  placeholder="現金・メガネ など"
+                  value={draft.item}
+                  onChange={(e) => setDraft({ ...draft, item: e.target.value })}
+                />
+              </div>
+              <datalist id="item-suggestions">
+                {ITEM_SUGGESTIONS.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
               <TrustNote />
               <button
                 type="button"
@@ -1295,7 +1327,10 @@ export function App() {
                   </span>
                   <div style={{ flex: 1 }}>
                     <b>{r.party_name}</b>
-                    <div className="muted">{r.purpose}</div>
+                    <div className="muted">
+                      {r.purpose}
+                      {r.item && ` ・ ${r.item}`}
+                    </div>
                   </div>
                   <div className="amount">{yen(r.amount)}</div>
                   <button
@@ -1394,6 +1429,12 @@ export function App() {
                       <span className="muted">用途</span>
                       <span>{event.purpose}</span>
                     </div>
+                    {event.item && (
+                      <div className="between">
+                        <span className="muted">品物</span>
+                        <span>{event.item}</span>
+                      </div>
+                    )}
                     {event.relationship && (
                       <div className="between">
                         <span className="muted">続柄</span>
@@ -1521,6 +1562,22 @@ export function App() {
                         変更すると、お返し期限が自動で計算し直されます。
                       </span>
                     )}
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-item">品物（任意）</label>
+                    <input
+                      id="edit-item"
+                      className="input"
+                      list="item-suggestions"
+                      placeholder="現金・メガネ など"
+                      value={editDraft.item}
+                      onChange={(e) => setEditDraft({ ...editDraft, item: e.target.value })}
+                    />
+                    <datalist id="item-suggestions">
+                      {ITEM_SUGGESTIONS.map((s) => (
+                        <option key={s} value={s} />
+                      ))}
+                    </datalist>
                   </div>
                   <p className="muted" style={{ marginTop: 4 }}>
                     続柄は相手（人）の情報です。お相手の選択肢から変更できます。

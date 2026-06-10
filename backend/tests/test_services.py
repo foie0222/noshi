@@ -20,6 +20,31 @@ def test_記録を作成すると台帳と受領イベントができる():
     assert ev.record_id == rec.id and ev.status == "received"
 
 
+def test_品物を記録して詳細で取得できる():
+    """もらった物の品名（例: メガネ/現金）を保存し、記録詳細で取得できることを検証する。"""
+    svc = make_service()
+    rec, _ = svc.create_record(
+        "u1",
+        amount=20000,
+        purpose="お祝い",
+        party_name="佐藤",
+        direction="received",
+        item="メガネ",
+    )
+    detail = svc.record_detail("u1", rec.id)
+    assert detail["item"] == "メガネ"
+
+
+def test_品物は記録修正で変更できる():
+    """記録修正で品名を変更でき、変更後の値が詳細に反映されることを検証する。"""
+    svc = make_service()
+    rec, _ = svc.create_record(
+        "u1", amount=5000, purpose="お祝い", party_name="佐藤", direction="received", item="現金"
+    )
+    svc.update_record("u1", rec.id, amount=5000, purpose="お祝い", item="商品券")
+    assert svc.record_detail("u1", rec.id)["item"] == "商品券"
+
+
 def test_不正な入力は検証エラーになる():
     """金額0など不正な入力での記録作成がValidationErrorになることを検証する（BR-VAL）。"""
     svc = make_service()

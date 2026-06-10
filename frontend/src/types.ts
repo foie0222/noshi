@@ -10,6 +10,7 @@ export interface GiftRecord {
   purpose: string;
   direction: Direction;
   occurred_at: string;
+  item: string;
   relationship: string;
   memo: string;
 }
@@ -31,6 +32,7 @@ export interface EventView {
   amount: number;
   direction: Direction;
   occurred_at: string;
+  item: string;
   relationship: string;
   due_at: string | null;
   due_default: string | null;
@@ -138,6 +140,7 @@ export type Draft = CaptureCandidates & {
   field_review: Record<string, boolean>;
   image: string;
   party_id: string; // 選択/作成した相手（#47）
+  item: string; // もらった/あげた品物（例: 現金/メガネ。任意）
 };
 
 /** 半返し画面の表示データ（算出結果＋元の金額・用途）。 */
@@ -149,6 +152,7 @@ export interface EditDraft {
   purpose: string;
   occurred_at: string;
   party_id: string;
+  item: string;
 }
 
 /** 続柄マスタ（システム既定＋世帯独自）。#1 */

@@ -11,6 +11,7 @@ function rec(p: Partial<GiftRecord>): GiftRecord {
     purpose: "",
     direction: "received",
     occurred_at: "",
+    item: "",
     relationship: "",
     memo: "",
     ...p,
@@ -50,6 +51,11 @@ describe("台帳の検索・絞り込み・並べ替え（#51）", () => {
   it("相手名・用途で検索できることを検証する", () => {
     expect(filterSortRecords(data, { ...LEDGER_DEFAULT, query: "佐藤" })).toHaveLength(2);
     expect(filterSortRecords(data, { ...LEDGER_DEFAULT, query: "結婚" })).toHaveLength(1);
+  });
+
+  it("品物名でも検索できることを検証する", () => {
+    const withItem = [...data, rec({ party_name: "鈴木", purpose: "快気祝い", item: "メガネ" })];
+    expect(filterSortRecords(withItem, { ...LEDGER_DEFAULT, query: "メガネ" })).toHaveLength(1);
   });
 
   it("方向で絞り込めることを検証する", () => {

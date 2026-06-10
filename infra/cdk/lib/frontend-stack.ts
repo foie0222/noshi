@@ -41,12 +41,45 @@ export class FrontendStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY, // 静的・再生成可
       autoDeleteObjects: true,
     });
+    // 旧 CloudFront ドメイン等、独自ドメイン以外でのアクセスは noshi.me へ 301 する（#72）。
+    // viewer-request で Host を見て分岐。パス・クエリは保持する。
+    const redirectFn = useDomain
+      ? new cloudfront.Function(this, "ApexRedirect", {
+          comment: `redirect non-${domainName} hosts to ${domainName}`,
+          code: cloudfront.FunctionCode.fromInline(
+            [
+              "function handler(event) {",
+              "  var req = event.request;",
+              "  var host = req.headers.host && req.headers.host.value;",
+              `  if (host && host !== '${domainName}') {`,
+              "    var qs = req.querystring || {};",
+              "    var q = Object.keys(qs).map(function (k) { return k + '=' + qs[k].value; }).join('&');",
+              `    var loc = 'https://${domainName}' + req.uri + (q ? '?' + q : '');`,
+              "    return { statusCode: 301, statusDescription: 'Moved Permanently', headers: { location: { value: loc } } };",
+              "  }",
+              "  return req;",
+              "}",
+            ].join("\n"),
+          ),
+        })
+      : undefined;
+
     const dist = new cloudfront.Distribution(this, "SiteDist", {
       defaultRootObject: "index.html",
       ...(useDomain ? { domainNames: [domainName as string], certificate: props?.certificate } : {}),
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        ...(redirectFn
+          ? {
+              functionAssociations: [
+                {
+                  function: redirectFn,
+                  eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+                },
+              ],
+            }
+          : {}),
       },
       errorResponses: [
         { httpStatus: 403, responseHttpStatus: 200, responsePagePath: "/index.html" },

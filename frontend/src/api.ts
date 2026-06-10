@@ -62,6 +62,7 @@ export interface RecordInput {
   party_name?: string;
   direction: Direction;
   occurred_at?: string;
+  item?: string;
   image_key?: string;
 }
 
@@ -85,6 +86,7 @@ export const api = {
       purpose: string;
       party_id?: string;
       occurred_at?: string;
+      item?: string;
       image_key?: string;
     },
   ) =>

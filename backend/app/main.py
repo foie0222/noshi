@@ -176,6 +176,7 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
             party_id=body.party_id,
             party_name=body.party_name,
             occurred_at=body.occurred_at,
+            item=body.item,
             image_key=body.image_key,
         )
         # given はお返しイベントを持たない（ev is None）。安全に null を返す（FR-8-1）。
@@ -270,7 +271,11 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # None のフィールドは渡さない＝既存値を保持（金額のみ修正で日付が消えないように）。
         extra = {
             k: v
-            for k, v in (("occurred_at", body.occurred_at), ("image_key", body.image_key))
+            for k, v in (
+                ("occurred_at", body.occurred_at),
+                ("item", body.item),
+                ("image_key", body.image_key),
+            )
             if v is not None
         }
         if body.party_id:  # 空なら相手は変更しない（#47）

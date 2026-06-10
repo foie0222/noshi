@@ -12,6 +12,7 @@ class RecordIn(BaseModel):
     party_name: str = ""  # フォールバック（party_id 未指定時に名前から解決）
     direction: str = Field(pattern="^(received|given)$")
     occurred_at: str = ""
+    item: str = ""  # もらった/あげた品物の内容（例: 現金/メガネ。任意）
     image_key: str = ""  # 事前にアップロード済みのS3キー（#35）
 
 
@@ -34,6 +35,7 @@ class RecordUpdateIn(BaseModel):
     party_id: str = ""  # 相手の付け替え（#47）。空なら相手は変更しない
     # 未指定(None)なら既存値を保持する。"" を渡すと明示的にクリアできる。
     occurred_at: str | None = None
+    item: str | None = None  # 品物の内容。None で保持 / "" でクリア
     image_key: str | None = None  # 差し替え=新キー / 削除="" / 保持=None（#35）
 
 

@@ -14,6 +14,7 @@ interface ApiStackProps extends StackProps {
   queue: sqs.Queue;
   imageBucket: s3.Bucket;
   userPoolId: string; // Cognito 世帯認証（JWT を RS256/JWKS で検証）
+  catalogTable: dynamodb.Table;
 }
 
 /**
@@ -38,6 +39,7 @@ export class ApiStack extends Stack {
         NOSHI_USE_DYNAMO: "1",                   // 本番は DynamoDB 永続化（必須）
         EXTRACTION_QUEUE_URL: props.queue.queueUrl,
         NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName, // #35: 撮影画像のS3バケット
+        NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
 
         NOSHI_USE_BEDROCK: "1",                  // 実 OCR/LLM（Bedrock/Claude）
         // 既定で Cognito 認証を強制（安全側、#101）。POOL_ID 注入で JWT(RS256/JWKS) 検証が有効になる。
@@ -50,6 +52,10 @@ export class ApiStack extends Stack {
     props.table.grantReadWriteData(apiFn);
     props.queue.grantSendMessages(apiFn);
     props.imageBucket.grantReadWrite(apiFn);
+    props.catalogTable.grantReadData(apiFn); // カタログ読み取り
+    // クリック記録（CLICK# への put）。テーブルは公開データ専用なので write 許容
+    // （ユーザーテーブルとは分離済み。スペック§8 の IAM 分離）
+    props.catalogTable.grantWriteData(apiFn);
     // Bedrock(Claude) 推論呼び出しのみ許可（OCR/礼状生成）。
     // jp./apac. 等のクロスリージョン推論プロファイルは複数リージョンの基盤モデルへ
     // ルーティングするため、foundation-model は全リージョン(*)を許可する。

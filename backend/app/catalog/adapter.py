@@ -73,20 +73,20 @@ class DynamoCatalogAdapter:
 
 
 def _is_fresh(fetched_at: str, now: datetime) -> bool:
-    """価格鮮度（23h以内）。パース不能は安全側（False=マスク）。"""
+    """価格鮮度（23h以内）。パース不能・tz情報なしは安全側（False=マスク）。"""
     try:
         return now - datetime.fromisoformat(fetched_at) < _MASK_AFTER
-    except ValueError:
+    except (ValueError, TypeError):  # TypeError: naive と aware の比較
         return False
 
 
 def _sale_expired(ends_at: str, now: datetime) -> bool:
-    """セール期限切れ判定。不明な期限は安全側（True=落とす）。"""
+    """セール期限切れ判定。不明な期限・tz情報なしは安全側（True=落とす）。"""
     if not ends_at:
         return False
     try:
         return datetime.fromisoformat(ends_at) < now
-    except ValueError:
+    except (ValueError, TypeError):  # TypeError: naive と aware の比較
         return True
 
 

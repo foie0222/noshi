@@ -77,6 +77,20 @@ def test_セール期限切れはsale_noteだけ落ちる():
     assert "sale_note" not in s and s["price"] == 5400
 
 
+def test_tzなしのprice_fetched_atは安全側でマスクされる():
+    naive = datetime(2026, 6, 11, 12, 0)  # noqa: DTZ001 -- tz-naive を意図的に検証
+    a = _adapter({("baby", "5000-9999"): [_row(fetched=naive)]})
+    s = a.suggest(7000, "友人", "出産祝い")[0]
+    assert "price" not in s and "price_fetched_at" not in s and "sale_note" not in s
+    assert s["title"] == "今治タオル"
+
+
+def test_tzなしのsale_ends_atはsale_noteだけ落ちる():
+    a = _adapter({("baby", "5000-9999"): [_row(sale_ends="2026-06-11T00:00:00")]})
+    s = a.suggest(7000, "友人", "出産祝い")[0]
+    assert "sale_note" not in s and s["price"] == 5400
+
+
 def test_3件未満なら隣接帯から下側優先で補完する():
     a = _adapter(
         {

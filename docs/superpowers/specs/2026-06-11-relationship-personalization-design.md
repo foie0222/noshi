@@ -197,7 +197,7 @@ suggest(budget, relationship, purpose):
 整合性レビューで列挙された変更箇所の全リスト:
 relationships.py（新規）／curation.py（プロンプト・validate_output・maxTokens）／
 job.py（_curate マージに fit 透過・退化検知）／store.py（Put 4属性・_from_ddb 補完・
-put_click relGroup）／adapter.py（fit ソート・rel_group 付与・キルスイッチ）／
+put_click relGroup）／adapter.py（fit ソート・rel_group 付与）／
 services.py・main.py（rel_group の受け渡し）／schemas.py（SuggestionClickIn.rel_group）／
 frontend: App.tsx（"友人"固定の除去）・api.ts（rel_group echo）・types.ts（rel_group?）
 

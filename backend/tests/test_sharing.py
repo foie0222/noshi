@@ -130,3 +130,26 @@ def test_世帯外の人は外せない():
     svc.resolve_household("stranger")  # 別世帯
     with pytest.raises(ValidationError):
         svc.remove_member("u1", "stranger")
+
+
+def test_最後の利用者のアカウント削除で世帯データが完全消去される():
+    """他に家族がいない人がアカウント削除すると、記録など世帯データが消えることを検証する（#118）。"""
+    svc = make()
+    svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
+    svc.delete_account("u1")
+    assert svc.repo.get_membership("u1") is None
+    # 再アクセスでは空の新世帯（過去データは残らない）
+    assert svc.list_records("u1") == []
+
+
+def test_家族が残るアカウント削除は世帯データを保持しownerを引き継ぐ():
+    """家族が残る世帯で owner がアカウント削除すると、台帳は残り owner が引き継がれることを検証する。"""
+    svc = make()
+    svc.join_household("u2", svc.household_invite_code("u1"))
+    svc.create_record("u1", amount=10000, purpose="香典", party_name="田中", direction="received")
+    svc.delete_account("u1")
+    assert svc.repo.get_membership("u1") is None
+    assert len(svc.list_records("u2")) == 1
+    assert svc.repo.get_membership("u2").role == "owner"

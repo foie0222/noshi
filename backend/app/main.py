@@ -139,6 +139,19 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         svc.leave_household(ident.user_id)
         return {"household": svc.household_view(ident.user_id)}
 
+    @app.delete("/api/account")
+    def delete_account(ident: Identity = Depends(current_identity)) -> dict[str, Any]:
+        # アカウント削除（#118）。世帯データを消し（最後の利用者なら）、Cognito ユーザー本体も削除する。
+        svc.delete_account(ident.user_id)
+        import os
+
+        pool = os.environ.get("NOSHI_COGNITO_POOL_ID")
+        if pool:
+            import boto3  # 遅延 import（テスト/ローカルでは Cognito 削除はスキップ）
+
+            boto3.client("cognito-idp").admin_delete_user(UserPoolId=pool, Username=ident.user_id)
+        return {"ok": True}
+
     @app.delete("/api/household/members/{target_user_id}")
     def remove_member(
         target_user_id: str, ident: Identity = Depends(current_identity)

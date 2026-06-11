@@ -164,6 +164,49 @@ class NoshiService:
         self._audit(user_id, "remove_member", target_user_id)  # A09
         return self.household_view(user_id)
 
+    def delete_account(self, user_id: str) -> None:
+        """アカウントを削除する（#118）。本人の世帯メンバーシップを外し、家族が残れば
+        台帳は保持して owner を引き継ぐ。最後の利用者なら世帯データを完全消去する。
+        Cognito ユーザー本体の削除は呼び出し側（main）で行う。"""
+        m = self.repo.get_membership(user_id)
+        hid = m.household_id if m else ""
+        if m:
+            others = [x for x in self.repo.list_members(hid) if x.user_id != user_id]
+            if others:
+                # 管理者が抜けて家族が残るなら最古参へ引き継ぐ（台帳は家族の資産として残す）。
+                if m.role == "owner":
+                    heir = sorted(others, key=lambda x: x.joined_at)[0]
+                    self.repo.put_membership(
+                        Membership(
+                            user_id=heir.user_id,
+                            household_id=hid,
+                            role="owner",
+                            email=heir.email,
+                            joined_at=heir.joined_at,
+                        )
+                    )
+                    self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
+            else:
+                self._purge_household(hid)  # 最後の利用者: 世帯データを完全消去
+            self.repo.delete_membership(user_id)
+        self._audit(user_id, "delete_account", hid)  # A09
+
+    def _purge_household(self, hid: str) -> None:
+        """世帯に属する全データ（記録・お返し・相手・マスタ・世帯本体）と画像を消す。"""
+        for rec in self.repo.list_records(hid):
+            if rec.image_key and self.images.enabled():
+                self.images.delete(rec.image_key)
+            self.repo.delete_record(hid, rec.id)
+        for ev in self.repo.list_events(hid):
+            self.repo.delete_event(hid, ev.id)
+        for p in self.repo.list_parties(hid):
+            self.repo.delete_party(hid, p.id)
+        for name in list(self.repo.list_household_purposes(hid)):
+            self.repo.remove_household_purpose(hid, name)
+        for name in list(self.repo.list_household_relationships(hid)):
+            self.repo.remove_household_relationship(hid, name)
+        self.repo.delete_household(hid)
+
     # --- 続柄マスタ（システム既定 ＋ 世帯独自）（#1）---
     def relationship_master(self, user_id: str) -> dict[str, Any]:
         """選択肢に出す続柄一覧。既定（システム固定）＋世帯独自の追加分（重複排除）。"""

@@ -214,6 +214,22 @@ export function App() {
     go("login");
     notify("ログアウトしました");
   }
+  async function doDeleteAccount() {
+    if (
+      !confirm(
+        "アカウントを削除しますか？\nあなたの記録・画像がすべて消え、この操作は取り消せません。\n（家族で共有中の台帳は、残る家族に引き継がれます）",
+      )
+    )
+      return;
+    try {
+      await api.deleteAccount();
+      signOut();
+      go("login");
+      notify("アカウントを削除しました");
+    } catch (e) {
+      handleErr(e);
+    }
+  }
   async function doForgot() {
     if (!authEmail.trim()) {
       notify("メールアドレスを入力してください。");
@@ -1770,6 +1786,12 @@ export function App() {
               <button type="button" className="btn ghost danger" onClick={doSignOut}>
                 ログアウト
               </button>
+              <div className="account-danger">
+                <button type="button" className="danger-link" onClick={doDeleteAccount}>
+                  <Icon name="trash" size={14} />
+                  アカウントを削除
+                </button>
+              </div>
             </div>
           ) : (
             <div className="card dashed">

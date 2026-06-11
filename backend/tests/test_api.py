@@ -465,7 +465,7 @@ def test_クリック計測はカタログの失敗でも204を返す():
     from app.services import NoshiService
 
     class FailingCatalog(GiftCatalogMock):
-        def log_click(self, item_code: str, bucket: str, position: int) -> None:
+        def log_click(self, item_code: str, bucket: str, position: int, rel_group: str) -> None:
             raise RuntimeError("boom")
 
     svc = NoshiService(InMemoryRepository(), OcrLlmMock(), FailingCatalog())

@@ -44,7 +44,10 @@ class DynamoCatalogAdapter:
         rows = rows[:_MAX_ITEMS]
         if not rows:
             return list(self.fallback.suggest(budget, relationship, purpose))
-        return [self._to_suggestion(r, i + 1, band, now) for i, r in enumerate(rows)]
+        # ラベルは商品自身の帯で表示（補完品にリクエスト帯を付けると誤認を招く）
+        return [
+            self._to_suggestion(r, i + 1, _band_of_row(r, band), now) for i, r in enumerate(rows)
+        ]
 
     def log_click(self, item_code: str, bucket: str, position: int) -> None:
         """クリック計測（ストアに委譲）。"""
@@ -74,6 +77,12 @@ class DynamoCatalogAdapter:
             if note and not _sale_expired(row.get("sale_ends_at", ""), now):
                 out["sale_note"] = note
         return out
+
+
+def _band_of_row(row: dict[str, Any], fallback: str) -> str:
+    """行自身の価格帯を bucket（"BUCKET#<slug>#<band>"）から導出。異常時はリクエスト帯。"""
+    parts = str(row.get("bucket", "")).split("#")
+    return parts[2] if len(parts) == 3 and parts[2] else fallback
 
 
 def _is_fresh(fetched_at: str, now: datetime) -> bool:

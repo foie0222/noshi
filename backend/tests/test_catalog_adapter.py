@@ -8,7 +8,9 @@ from app.ports import GiftCatalogMock
 NOW = datetime(2026, 6, 11, 12, 0, tzinfo=UTC)
 
 
-def _row(code="shop:1", fetched=None, sale="ポイント5倍", sale_ends=""):
+def _row(
+    code="shop:1", fetched=None, sale="ポイント5倍", sale_ends="", bucket="BUCKET#baby#5000-9999"
+):
     return {
         "item_code": code,
         "title": "今治タオル",
@@ -22,7 +24,7 @@ def _row(code="shop:1", fetched=None, sale="ポイント5倍", sale_ends=""):
         "sale_ends_at": sale_ends,
         "rating": 4.5,
         "review_count": 800,
-        "bucket": "BUCKET#baby#5000-9999",
+        "bucket": bucket,
         "rank": "RANK#01",
     }
 
@@ -112,6 +114,18 @@ def test_隣接帯補完で同一商品は重複しない():
     )
     out = a.suggest(7000, "友人", "出産祝い")
     assert [s["item_code"] for s in out] == ["shop:1", "shop:2"]
+
+
+def test_補完商品の価格帯ラベルは商品自身の帯になる():
+    a = _adapter(
+        {
+            ("baby", "5000-9999"): [_row("shop:1")],
+            ("baby", "10000-14999"): [_row("shop:3", bucket="BUCKET#baby#10000-14999")],
+        }
+    )
+    out = a.suggest(7000, "友人", "出産祝い")
+    assert out[0]["price_band"] == "〜¥9,999"  # 自バケツ品はリクエスト帯のまま
+    assert out[1]["price_band"] == "〜¥14,999"  # 補完品は自身の帯で表示
 
 
 def test_3件以上あれば補完しない():

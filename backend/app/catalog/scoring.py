@@ -14,6 +14,7 @@ _MIN_RATING = 4.0
 
 # 用途別NGワード（スペック§6①の初期リスト）
 _NG_KODEN = ("御祝", "お祝い", "出産", "結婚", "誕生日", "クリスマス", "紅白")
+# 「志」はのし表書きの『志』（弔事）対策。『志望』等の誤爆はあるが安全側に倒す
 _NG_CELEBRATION = ("御供", "仏事", "弔事", "香典", "法要", "志")
 _NG_COMMON = ("訳あり", "アウトレット", "中古")
 
@@ -71,7 +72,10 @@ def sale_score(point_rate: int, discount: float) -> float:
 def linear_score(
     item: dict[str, Any], rank: int | None, global_mean: float, genre_specific: bool
 ) -> float:
-    """score = 0.6×口コミ + 0.3×トレンド + 0.1×セール + ギフト加点。"""
+    """score = 0.6×口コミ + 0.3×トレンド + 0.1×セール + ギフト加点。
+
+    値域は最大 1.05（ギフト加点込み）。
+    """
     w_review = _weight("NOSHI_CATALOG_W_REVIEW", 0.6)
     w_trend = _weight("NOSHI_CATALOG_W_TREND", 0.3)
     w_sale = _weight("NOSHI_CATALOG_W_SALE", 0.1)
@@ -86,7 +90,11 @@ def linear_score(
 
 
 def sale_note(item: dict[str, Any]) -> str:
-    """saleNote の機械生成（スペック§6。LLMには作らせない）。"""
+    """saleNote の機械生成（スペック§6。LLMには作らせない）。
+
+    %OFF 表記は未対応（楽天 Ichiba Search API は割引率・定価を返さないため。
+    discount はスコア計算専用で既定0）。
+    """
     rate = item.get("point_rate", 1)
     if rate < 2:
         return ""

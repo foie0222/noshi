@@ -76,6 +76,10 @@ def test_ベイズ平均は件数が多いほど商品評価に寄る():
     assert 0.0 <= few <= 1.0 and 0.0 <= many <= 1.0
 
 
+def test_ベイズ平均はレビュー0件でもゼロ除算せず全体平均に一致():
+    assert bayes_score(rating=4.5, count=0, global_mean=4.2) == 4.2 / 5.0
+
+
 def test_トレンドは順位1で最大かつ圏外は0():
     assert trend_score(1) == 1.0
     assert trend_score(2) < 1.0

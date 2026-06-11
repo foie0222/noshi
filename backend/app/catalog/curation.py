@@ -28,11 +28,12 @@ _BAN_PATTERNS = (
     r"\d+月\d+日まで",
     r"https?://",
     r"最安",
-    r"No\.?1",
+    r"[Nn][Oo]\.?\s*[1１]",  # re.IGNORECASE は全角に効かないため英字・全角１を明示
     r"ナンバーワン",
     r"絶対",
     r"必ず",
 )
+# プロンプト指示は60字だが機械検証は20字のバッファを持つ（スペック§6③）
 _MAX_REASON = 80
 
 
@@ -74,8 +75,11 @@ def validate_output(
     fallback_by_code: dict[str, str],
 ) -> list[dict[str, Any]]:
     """LLM出力の機械検証。未知 itemCode は棄却、不正な理由文はテンプレに差し替え。"""
+    items = parsed.get("items") or []
+    if not isinstance(items, list):
+        items = []
     out: list[dict[str, Any]] = []
-    for row in parsed.get("items", [])[:10]:
+    for row in items[:10]:
         code = str(row.get("itemCode", ""))
         if code not in allowed:
             continue  # ハルシネーション棄却
@@ -86,10 +90,14 @@ def validate_output(
             or any(re.search(p, reason, re.IGNORECASE) for p in _BAN_PATTERNS)
         ):
             reason = fallback_by_code.get(code, "")
+        try:
+            llm_score = int(row.get("score", 0))
+        except (TypeError, ValueError):
+            llm_score = 0  # 項目単位で許容し、バケツ全体のフォールバックは避ける（スペック§6）
         out.append(
             {
                 "item_code": code,
-                "llm_score": int(row.get("score", 0)),
+                "llm_score": llm_score,
                 "reason": reason,
             }
         )

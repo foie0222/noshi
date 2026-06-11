@@ -33,6 +33,7 @@ import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } f
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
 import { seasonNudge, seasonOf } from "./lib/season";
+import { priceLine } from "./lib/suggestion";
 import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
 import {
@@ -1353,11 +1354,33 @@ export function App() {
             お返し品を選ぶと、このお返しは「完了」になります。
           </p>
           {suggestions.map((s) => (
-            <div className="card" key={s.title}>
+            <div className="card" key={s.item_code ?? s.title}>
+              {s.image_url && (
+                <img
+                  src={s.image_url}
+                  alt=""
+                  width={96}
+                  height={96}
+                  style={{ borderRadius: 8, objectFit: "cover", float: "right" }}
+                />
+              )}
               <b>{s.title}</b>
-              <div className="muted">
-                {s.summary} ・ {s.price_band} ・ 外部サイト↗
+              <div className="muted">{s.summary}</div>
+              <div>
+                {priceLine(s)}
+                {s.sale_note ? ` ・ ${s.sale_note}` : ""}
+                {s.rating ? ` ・ ★${s.rating}（${s.review_count}件）` : ""}
               </div>
+              {s.external_ref && (
+                <a
+                  href={s.external_ref}
+                  target="_blank"
+                  rel="noopener sponsored"
+                  onClick={() => api.clickSuggestion(s)}
+                >
+                  楽天市場で見る↗
+                </a>
+              )}
               <button
                 type="button"
                 className="btn primary"
@@ -1368,6 +1391,11 @@ export function App() {
               </button>
             </div>
           ))}
+          <p className="muted" style={{ fontSize: 12 }}>
+            価格は変動します。購入時は楽天市場の表示が優先されます。
+            <br />
+            Supported by Rakuten Developers
+          </p>
         </>
       )}
 

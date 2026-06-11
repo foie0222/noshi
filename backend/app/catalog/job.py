@@ -175,7 +175,7 @@ def _curate(
 
 
 def _is_degenerate(items: list[dict[str, Any]]) -> bool:
-    """バケツ内の全商品で fit 4値がすべて同値＝差別化放棄（スペック§3 退化検知）。"""
+    """各商品の fit 4値がすべて同値（タイプ間の差別化放棄）のバケツを退化とみなす（スペック§3 退化検知）。"""
     return all(len(set(i["fit"].values())) == 1 for i in items)
 
 

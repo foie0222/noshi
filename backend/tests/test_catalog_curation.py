@@ -123,3 +123,60 @@ def test_キュレータはconverse応答をパースして返す():
     out = cur.curate("koden", "5000-9999", _cands(1), season_note="")
     assert out[0]["item_code"] == "shop:0"
     assert out[0]["reason"] == "落ち着いた定番の品です"
+
+
+def test_プロンプトはfitの4基準とトップ10限定を含む():
+    p = build_user_prompt("koden", "5000-9999", _cands(), season_note="")
+    for kw in ["family", "friend", "work", "other", "格式", "個包装", "無難"]:
+        assert kw in p, kw
+    assert "選定した商品のみ" in p  # 候補30件全件に fit を付けさせない
+
+
+def test_検証はfitを常に4キーで返す():
+    out = validate_output(
+        {
+            "items": [
+                {
+                    "itemCode": "shop:0",
+                    "score": 80,
+                    "reason": "良い品です",
+                    "fit": {"family": 90, "friend": 70, "work": 40, "other": 60},
+                }
+            ]
+        },
+        allowed={"shop:0"},
+        fallback_by_code={"shop:0": "fb"},
+    )
+    assert out[0]["fit"] == {"family": 90, "friend": 70, "work": 40, "other": 60}
+
+
+def test_検証はfitの不正をキー単位でscore埋めする():
+    # 欠損キー・範囲外・非数値はそのキーだけ score(=80) で埋める
+    out = validate_output(
+        {
+            "items": [
+                {
+                    "itemCode": "shop:0",
+                    "score": 80,
+                    "reason": "良い品です",
+                    "fit": {"family": 150, "friend": "bad", "work": 40},
+                }
+            ]
+        },
+        allowed={"shop:0"},
+        fallback_by_code={"shop:0": "fb"},
+    )
+    assert out[0]["fit"] == {"family": 80, "friend": 80, "work": 40, "other": 80}
+
+
+def test_検証はfit自体が無くてもscoreで埋める():
+    for bad_fit in [None, "x", [], {}]:
+        items = [{"itemCode": "shop:0", "score": 75, "reason": "良い品です"}]
+        if bad_fit is not None:
+            items[0]["fit"] = bad_fit
+        out = validate_output(
+            {"items": items},
+            allowed={"shop:0"},
+            fallback_by_code={"shop:0": "fb"},
+        )
+        assert out[0]["fit"] == {"family": 75, "friend": 75, "work": 75, "other": 75}, bad_fit

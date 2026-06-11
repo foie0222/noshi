@@ -1,7 +1,7 @@
 # お返し品提案の続柄パーソナライズ（相手による出し分け）設計
 
 日付: 2026-06-11
-状態: レビュー中（マルチエージェントレビュー反映済み v2）
+状態: 承認済み（キルスイッチはプレリリースのため不要と判断し削除）
 前提: `docs/superpowers/specs/2026-06-11-return-gift-suggestion-design.md`（お返し品提案 MVP・リリース済み）
 
 ## 1. 目的
@@ -16,7 +16,6 @@
 - **コスト構造を変えない**: 楽天API・LLM のコール数は現状維持（既存コールの出力拡張のみ）
 - 配信レイテンシを増やさない（並べ替えのみ）
 - 出し分けの効果を**数字で検証できる**こと（グループ別 CTR）
-- **即座に切り戻せる**こと（環境変数キルスイッチ）
 
 スコープ外（YAGNI）: 相手個人の履歴（過去に贈った品の除外・好み学習）は次フェーズ。
 バケツ軸への続柄追加（候補母集団の出し分け）も今回はやらない。
@@ -137,12 +136,6 @@ suggest(budget, relationship, purpose):
 - RANK#01〜10 は LLM 総合スコア降順で付番済み（前提スペック§8）なので、
   タイブレークは「総合的に良い品が先」を意味する
 
-### キルスイッチ（切り戻し）
-
-- 環境変数 `NOSHI_RELFIT_DISABLED=1` で並べ替えを無効化（RANK 順のまま返す。
-  rel_group の付与と fit の保存は継続＝データは貯まり続ける）
-- 切り戻しは API Lambda の環境変数変更のみ（コードデプロイ不要）
-
 ### レスポンス
 
 - `rel_group`（family/friend/work/other）を suggestion dict に追加（計測用 §7）
@@ -179,7 +172,6 @@ suggest(budget, relationship, purpose):
 | fit 退化（全グループ同値） | 並べ替え中立＋`CatalogFitDegenerationCount` で可視化 |
 | 未知の続柄文字列 | other グループ（安全側） |
 | クリックの rel_group 欠落 | optional のため受理（集計時は unknown 扱い） |
-| 並べ替え起因の品質問題 | `NOSHI_RELFIT_DISABLED=1` で即時切り戻し（環境変数のみ） |
 
 既存の多段フォールバック（線形→前回データ→金額目安）は一切変更しない。
 
@@ -194,7 +186,7 @@ suggest(budget, relationship, purpose):
    読み取りで属性欠けは llmScore 補完
 4. adapter: 同一バケツで group により順序が変わる／**量子化**（fit 差9点以内は RANK 順維持・
    10点跨ぎで逆転）／**補完分は高 fit でも自バケツの後ろ**（境界ケース）／
-   旧データ（fit なし）で順序不変／`NOSHI_RELFIT_DISABLED=1` で RANK 順
+   旧データ（fit なし）で順序不変
 5. プロンプト: `_FIT_INSTRUCTION` の4基準が含まれる／「トップ10のみ fit」の指示
 6. job: fit が `_curate` のマージを通って store まで届く／退化検知メトリクス
 7. API: rel_group 付きクリック 204・不正値 422・空文字 204

@@ -76,4 +76,4 @@ class SuggestionClickIn(BaseModel):
     # クリック計測（PIIなし）。bucket はカタログのPK形式のみ許可（インジェクション対策）。
     item_code: str = Field(min_length=1, max_length=100)
     bucket: str = Field(pattern=r"^BUCKET#[a-z]+#\d+-\d*$")
-    position: int = Field(ge=1, le=10)
+    position: int = Field(ge=1, le=10)  # 上限は adapter._MAX_ITEMS（=10）と合わせること

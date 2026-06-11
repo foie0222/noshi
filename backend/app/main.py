@@ -346,7 +346,7 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         except Exception:  # noqa: BLE001
             import logging
 
-            logging.getLogger(__name__).exception("click logging failed")
+            logging.getLogger("noshi").exception("click logging failed")
         return Response(status_code=204)
 
     @app.patch("/api/events/{event_id}")

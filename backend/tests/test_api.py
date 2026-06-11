@@ -458,6 +458,26 @@ def test_クリック計測は未認証を拒否する(client):
     assert r.status_code == 401
 
 
+def test_クリック計測はカタログの失敗でも204を返す():
+    """計測の失敗がUXをブロックしない（log_click が例外でも 204）ことを検証する。"""
+    from app.ports import GiftCatalogMock, OcrLlmMock
+    from app.repository import InMemoryRepository
+    from app.services import NoshiService
+
+    class FailingCatalog(GiftCatalogMock):
+        def log_click(self, item_code: str, bucket: str, position: int) -> None:
+            raise RuntimeError("boom")
+
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), FailingCatalog())
+    c = TestClient(create_app(service=svc))
+    r = c.post(
+        "/api/suggestions/click",
+        json={"item_code": "shop:1", "bucket": "BUCKET#baby#5000-9999", "position": 1},
+        headers=_h(),
+    )
+    assert r.status_code == 204
+
+
 def test_相手APIで同名でも別人を作り集計が分離する():
     """POST /api/parties で同名の別人を作り、記録を紐付けるとおつきあいが別エントリになることを検証する（#47）。"""
     c = TestClient(create_app())

@@ -45,7 +45,9 @@ class RakutenClient:
         affiliate_id: str,
         fetch: Callable[[str], dict[str, Any]] | None = None,
         sleep: Callable[[float], None] = time.sleep,
-        max_calls: int = 500,  # 日次上限（スペック§7。超過は RuntimeError でジョブ打ち切り）
+        # 日次上限（スペック§7）。リトライ分も含めた実APIヒット数の上限。
+        # 超過は RuntimeError でジョブ打ち切り。
+        max_calls: int = 500,
     ):
         self.app_id = app_id
         self.affiliate_id = affiliate_id
@@ -94,7 +96,11 @@ class RakutenClient:
         return [self._normalize(w.get("Item", {})) for w in data.get("Items", [])]
 
     def ranking(self, genre_id: str | None) -> dict[str, int]:
-        """ジャンル別（None なら総合）ランキング: itemCode -> 順位。"""
+        """ジャンル別（None なら総合）ランキング: itemCode -> 順位。
+
+        rank が取得できない場合は 0（scoring.trend_score は rank<1 を
+        圏外=0.0 として扱うため安全）。
+        """
         params: dict[str, Any] = {}
         if genre_id:
             params["genreId"] = genre_id
@@ -113,15 +119,15 @@ class RakutenClient:
         return {
             "item_code": str(raw.get("itemCode", "")),
             "title": str(raw.get("itemName", "")),
-            "price": int(raw.get("itemPrice", 0)),
+            "price": int(raw.get("itemPrice") or 0),
             "item_url": str(raw.get("itemUrl", "")),
             "affiliate_url": str(raw.get("affiliateUrl", "")),
             "image_url": str(image),
             "shop_name": str(raw.get("shopName", "")),
-            "rating": float(raw.get("reviewAverage", 0.0)),
-            "review_count": int(raw.get("reviewCount", 0)),
-            "point_rate": int(raw.get("pointRate", 1)),
+            "rating": float(raw.get("reviewAverage") or 0.0),
+            "review_count": int(raw.get("reviewCount") or 0),
+            "point_rate": int(raw.get("pointRate") or 1),
             "point_end": _iso_jst(str(raw.get("pointRateEndTime", "") or "")),
-            "availability": int(raw.get("availability", 0)),
-            "gift_flag": int(raw.get("giftFlag", 0)),
+            "availability": int(raw.get("availability") or 0),
+            "gift_flag": int(raw.get("giftFlag") or 0),
         }

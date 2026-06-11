@@ -83,6 +83,42 @@ def test_失敗時は2秒待って1回だけリトライする():
     assert len(attempts) == 2 and 2.0 in slept
 
 
+def test_2回連続失敗で例外が呼び出し元に伝播する():
+    import pytest
+
+    slept: list[float] = []
+
+    def always_fail(url: str) -> dict:
+        raise OSError("503")
+
+    c = RakutenClient(app_id="A", affiliate_id="F", fetch=always_fail, sleep=slept.append)
+    with pytest.raises(OSError):
+        c.search_items("x", 1000, 2999, page=1)
+    assert slept == [2.0]  # リトライ前の2秒のみ（リトライ失敗後は待たずに伝播）
+
+
+def test_nullを含むアイテムでも正規化が例外にならない():
+    item = RakutenClient._normalize(
+        {
+            "itemCode": "x",
+            "itemPrice": None,
+            "reviewAverage": None,
+            "reviewCount": None,
+            "pointRate": None,
+            "pointRateEndTime": None,
+            "availability": None,
+            "giftFlag": None,
+        }
+    )
+    assert item["price"] == 0
+    assert item["rating"] == 0.0
+    assert item["review_count"] == 0
+    assert item["point_rate"] == 1
+    assert item["point_end"] == ""
+    assert item["availability"] == 0
+    assert item["gift_flag"] == 0
+
+
 def test_日次上限を超えるとRuntimeError():
     import pytest
 

@@ -14,7 +14,9 @@ interface CatalogBatchStackProps extends StackProps {
 /**
  * CatalogBatchStack — お返し品カタログの日次バッチ（スペック2026-06-11 §7）。
  * JST 5:00/17:00 に楽天API→スコアリング→LLM→カタログテーブル総入れ替え。
- * 二重実行ガード: reserved concurrency=1 ＋ 非同期リトライ0（楽天1req/秒規約の担保）。
+ * 二重実行ガード: DynamoDB 条件付き書き込みのジョブロック（job.handler 内）＋
+ * 非同期リトライ0。reserved concurrency はアカウントの同時実行数上限が小さく
+ * 確保できないため使わない（最低 Unreserved 10 を割るとデプロイ不可）。
  */
 export class CatalogBatchStack extends Stack {
   constructor(scope: Construct, id: string, props: CatalogBatchStackProps) {
@@ -25,7 +27,6 @@ export class CatalogBatchStack extends Stack {
       code: backendLambdaCode(),
       timeout: Duration.minutes(15),
       memorySize: 1024,
-      reservedConcurrentExecutions: 1, // 二重実行ガード
       environment: { NOSHI_CATALOG_TABLE: props.catalogTable.tableName },
     });
     props.catalogTable.grantWriteData(fn); // バッチは書き込みのみ（IAM分離、スペック§8）

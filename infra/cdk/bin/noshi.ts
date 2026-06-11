@@ -9,6 +9,7 @@ import { FrontendStack } from "../lib/frontend-stack";
 import { GithubOidcStack } from "../lib/github-oidc-stack";
 import { CertificateStack } from "../lib/certificate-stack";
 import { CatalogBatchStack } from "../lib/catalog-batch-stack";
+import { CostStack } from "../lib/cost-stack";
 
 // noshi インフラ（infrastructure-design.md / deployment-architecture.md）。リージョン ap-northeast-1。
 const app = new App();
@@ -34,6 +35,10 @@ const auth = new AuthStack(app, "NoshiAuthStack", {
 new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId, catalogTable: data.catalogTable });
 new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue });
 new CatalogBatchStack(app, "NoshiCatalogBatchStack", { env, catalogTable: data.catalogTable });
+
+// コスト予算アラート（#122）。通知先は context budgetEmail で上書き可。
+const budgetEmail = (app.node.tryGetContext("budgetEmail") as string) ?? "daikinoue0222@gmail.com";
+new CostStack(app, "NoshiCostStack", { env, email: budgetEmail, monthlyLimitUsd: 20 });
 
 // CloudFront 用 ACM 証明書は us-east-1 必須。別リージョンの FrontendStack から参照する。
 const cert = new CertificateStack(app, "NoshiCertificateStack", {

@@ -10,6 +10,7 @@ import { GithubOidcStack } from "../lib/github-oidc-stack";
 import { CertificateStack } from "../lib/certificate-stack";
 import { CatalogBatchStack } from "../lib/catalog-batch-stack";
 import { CostStack } from "../lib/cost-stack";
+import { MailStack } from "../lib/mail-stack";
 
 // noshi インフラ（infrastructure-design.md / deployment-architecture.md）。リージョン ap-northeast-1。
 const app = new App();
@@ -39,6 +40,17 @@ new CatalogBatchStack(app, "NoshiCatalogBatchStack", { env, catalogTable: data.c
 // コスト予算アラート（#122）。通知先は context budgetEmail で上書き可。
 const budgetEmail = (app.node.tryGetContext("budgetEmail") as string) ?? "daikinoue0222@gmail.com";
 new CostStack(app, "NoshiCostStack", { env, email: budgetEmail, monthlyLimitUsd: 20 });
+
+// 問い合わせ窓口の受信メール転送（#135）。SES 受信は us-east-1 必須。
+const forwardTo = (app.node.tryGetContext("contactForwardTo") as string) ?? "daikinoue0222@gmail.com";
+new MailStack(app, "NoshiMailStack", {
+  env: { account, region: "us-east-1" },
+  domainName: DOMAIN,
+  hostedZoneId: HOSTED_ZONE_ID,
+  hostedZoneName: DOMAIN,
+  recipient: `contact@${DOMAIN}`,
+  forwardTo,
+});
 
 // CloudFront 用 ACM 証明書は us-east-1 必須。別リージョンの FrontendStack から参照する。
 const cert = new CertificateStack(app, "NoshiCertificateStack", {

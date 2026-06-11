@@ -17,8 +17,8 @@ export interface LegalDoc {
   sections: LegalSection[];
 }
 
-const OPERATOR = "［運営者名を記入］";
-const CONTACT = "［連絡先メールを記入］";
+const OPERATOR = "noshi 運営";
+const CONTACT = "contact@noshi.me";
 const UPDATED = "2026年6月11日";
 
 export const LEGAL_DOCS: Record<LegalDocKey, LegalDoc> = {

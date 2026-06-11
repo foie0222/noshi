@@ -33,8 +33,19 @@ _PURPOSE_TO_SLUG: dict[str, str] = {
 }
 
 # slug -> 楽天ランキングAPIのジャンルID。None は総合ランキング（トレンド寄与は半減）。
-# 実装後に Genre Search API で確定して埋める（計画 Task 13 参照）。
-RAKUTEN_GENRE_BY_CATEGORY: dict[str, str | None] = {slug: None for slug in CATEGORIES}
+# 2026-06-11 確定: 各カテゴリの検索上位30件の最頻ジャンルを採取し、
+# Ranking API が応答することを実機確認済み（計画 Task 13）。
+RAKUTEN_GENRE_BY_CATEGORY: dict[str, str | None] = {
+    "baby": "566732",
+    "wedding": "566732",
+    "school": "205222",
+    "housewarming": "205222",
+    "kaiki": "203226",
+    "koden": "566732",
+    "ochugen": "566732",
+    "oseibo": "110411",
+    "general": "566732",
+}
 
 # (下限, 上限(含む)。None は上端なし, ラベル)
 PRICE_BANDS: list[tuple[int, int | None, str]] = [

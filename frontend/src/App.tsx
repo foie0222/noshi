@@ -8,11 +8,13 @@ import {
   uploadToS3,
 } from "./api";
 import { Icon } from "./components/Icon";
+import { LegalView } from "./components/LegalView";
 import { Logo } from "./components/Logo";
 import { MasterSelect } from "./components/MasterSelect";
 import { PartySelect } from "./components/PartySelect";
 import { PasswordInput } from "./components/PasswordInput";
 import { Select } from "./components/Select";
+import { LEGAL_DOCS, type LegalDocKey } from "./legal";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -63,7 +65,8 @@ type Screen =
   | "suggest"
   | "event"
   | "relations"
-  | "mypage";
+  | "mypage"
+  | "legal";
 
 // 品物欄の定番サジェスト（自由入力可。datalist で候補表示）。
 const ITEM_SUGGESTIONS = [
@@ -99,6 +102,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() =>
     pickInitialScreen(authEnabled(), isLoggedIn()),
   );
+  const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(null);
   const [toast, setToast] = useState<string>("");
   const [home, setHome] = useState<HomeResponse | null>(null);
   const [ledger, setLedger] = useState<LedgerResponse | null>(null);
@@ -161,6 +165,10 @@ export function App() {
     setTimeout(() => setToast(""), 1500);
   };
   const go = (s: Screen) => setScreen(s);
+  function openLegal(k: LegalDocKey) {
+    setLegalDoc(k);
+    go("legal");
+  }
   // 401（トークン切れ等）はログイン画面へ戻す。それ以外はトースト表示。
   const handleErr = (e: unknown) => {
     if (e instanceof UnauthorizedError) {
@@ -1949,6 +1957,22 @@ export function App() {
             </div>
           </div>
 
+          <div className="settings-label">規約・ポリシー</div>
+          <div className="card legal-links">
+            {(
+              [
+                ["privacy", "プライバシーポリシー"],
+                ["terms", "利用規約"],
+                ["operator", "運営者情報・お問い合わせ"],
+              ] as const
+            ).map(([k, label]) => (
+              <button key={k} type="button" className="legal-link-row" onClick={() => openLegal(k)}>
+                <span>{label}</span>
+                <Icon name="chevronRight" size={18} />
+              </button>
+            ))}
+          </div>
+
           {/* めやす・ふりかえり（旧マイページのツール群を集約） */}
           <div className="settings-label">めやす・ふりかえり</div>
           {annual && (
@@ -2035,7 +2059,14 @@ export function App() {
         </>
       )}
 
-      {screen !== "login" && (
+      {screen === "legal" && legalDoc && (
+        <>
+          <Bar title={LEGAL_DOCS[legalDoc].title} back="mypage" />
+          <LegalView docKey={legalDoc} />
+        </>
+      )}
+
+      {screen !== "login" && screen !== "legal" && (
         <div className="tabbar">
           <button
             type="button"

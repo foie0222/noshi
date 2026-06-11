@@ -1223,3 +1223,60 @@ body {
 a.btn {
   text-decoration: none; /* アンカーをボタンとして使う（提案カードのCTA） */
 }
+
+/* 規約・ポリシーのリンク行と法的文書ページ（#115-117） */
+.legal-links {
+  padding: 0;
+  overflow: hidden;
+}
+.legal-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-faint);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--text-body);
+  cursor: pointer;
+}
+.legal-link-row:last-child {
+  border-bottom: none;
+}
+.legal-link-row:active {
+  background: var(--color-primary-tint);
+}
+.legal {
+  padding: var(--space-2) 0 var(--space-6);
+}
+.legal-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-bold);
+  color: var(--text-body);
+  margin: 0 0 var(--space-1);
+}
+.legal-updated {
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  margin: 0 0 var(--space-4);
+}
+.legal-section {
+  margin-bottom: var(--space-4);
+}
+.legal-heading {
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+  color: var(--text-body);
+  margin: 0 0 var(--space-2);
+}
+.legal-body {
+  font-size: var(--fs-body);
+  line-height: 1.85;
+  color: var(--text-body);
+  margin: 0 0 var(--space-2);
+}

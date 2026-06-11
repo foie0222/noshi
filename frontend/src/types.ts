@@ -112,6 +112,17 @@ export interface Suggestion {
   summary: string;
   price_band: string;
   external_ref: string;
+  // 楽天カタログ由来の拡張（バックエンドが規約24h−1hの23hマスク済みのものだけ送る）
+  price?: number;
+  price_fetched_at?: string;
+  sale_note?: string;
+  image_url?: string;
+  shop_name?: string;
+  rating?: number;
+  review_count?: number;
+  item_code?: string;
+  bucket?: string;
+  position?: number;
 }
 
 export interface CaptureCandidates {

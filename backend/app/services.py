@@ -488,6 +488,16 @@ class NoshiService:
         self.repo.put_event(ev)
         return sug
 
+    def log_suggestion_click(
+        self, user_id: str, item_code: str, bucket: str, position: int
+    ) -> None:
+        """提案リンクのクリック計測（効果計測のMVP分）。
+
+        user_id は認可文脈の明示用に受け取るが catalog には渡さない（PIIなし）。
+        他のサービスメソッドとシグネチャの一貫性を保つため引数として維持。
+        """
+        self.catalog.log_click(item_code, bucket, position)
+
     # --- イベント状態 ---
     def set_event_status(self, user_id: str, event_id: str, status: str) -> GiftEvent:
         # considering=対応中（表示名）。キーは互換のため据え置き（#4）。

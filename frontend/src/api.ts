@@ -112,6 +112,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify(s),
     }),
+  // クリック計測。keepalive でタブ遷移後も送信を保証。失敗は握りつぶす（UX非ブロック）。
+  clickSuggestion: (s: Suggestion) => {
+    if (!s.item_code || !s.bucket || !s.position) return; // フォールバック候補は計測対象外
+    fetch(`${API_BASE}/api/suggestions/click`, {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ item_code: s.item_code, bucket: s.bucket, position: s.position }),
+    }).catch(() => {});
+  },
   setStatus: (eventId: string, status: string) =>
     req<{ event: EventView }>(`/events/${eventId}`, {
       method: "PATCH",

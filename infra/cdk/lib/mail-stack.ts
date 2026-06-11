@@ -75,9 +75,14 @@ export class MailStack extends Stack {
     });
 
     // MX: noshi.me 宛を us-east-1 の SES 受信エンドポイントへ。
-    const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", {
+    const zone = route53.PublicHostedZone.fromPublicHostedZoneAttributes(this, "Zone", {
       hostedZoneId: props.hostedZoneId,
       zoneName: props.hostedZoneName,
+    });
+    // SES 受信・転送送信のため、この受信リージョン(us-east-1)でも noshi.me を検証する（DKIM）。
+    // 未検証だと受信が拒否され、Lambda の転送送信もできない（送信用の auth-stack は別リージョン）。
+    new ses.EmailIdentity(this, "Identity", {
+      identity: ses.Identity.publicHostedZone(zone),
     });
     new route53.MxRecord(this, "Mx", {
       zone,

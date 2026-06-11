@@ -1,6 +1,6 @@
 """スモークCLI（スペック§11-5）。1バケツだけ実行して動作確認・初回シードに使う。
 
-使い方（backend/ で実行。要 NOSHI_RAKUTEN_APP_ID / NOSHI_RAKUTEN_AFFILIATE_ID）:
+使い方（backend/ で実行。要 NOSHI_RAKUTEN_APP_ID / NOSHI_RAKUTEN_AFFILIATE_ID / NOSHI_RAKUTEN_ACCESS_KEY）:
   dry-run（書き込みなし・結果表示のみ）:
     python -m app.catalog --bucket baby:5000-9999
   実書き込み（初回シード等。要 NOSHI_CATALOG_TABLE）:
@@ -52,6 +52,7 @@ def main() -> int:
     rakuten = RakutenClient(
         app_id=os.environ["NOSHI_RAKUTEN_APP_ID"],
         affiliate_id=os.environ["NOSHI_RAKUTEN_AFFILIATE_ID"],
+        access_key=os.environ["NOSHI_RAKUTEN_ACCESS_KEY"],
     )
     store: Any = CatalogStore() if args.write else _DryRunStore()
 

@@ -15,7 +15,9 @@ def _client(payload: dict) -> tuple["RakutenClient", list[str]]:
         calls.append(url)
         return payload
 
-    c = RakutenClient(app_id="APP", affiliate_id="AFF", fetch=fake_fetch, sleep=lambda s: None)
+    c = RakutenClient(
+        app_id="APP", affiliate_id="AFF", access_key="KEY", fetch=fake_fetch, sleep=lambda s: None
+    )
     return c, calls
 
 
@@ -37,6 +39,7 @@ def test_検索結果を正規化して返す():
     assert a["availability"] == 1 and a["gift_flag"] == 1
     # クエリに必須パラメータが乗る
     assert "applicationId=APP" in calls[0] and "affiliateId=AFF" in calls[0]
+    assert "accessKey=KEY" in calls[0]  # 新APIは applicationId + accessKey の両方が必須
     assert "minPrice=5000" in calls[0] and "maxPrice=9999" in calls[0]
 
 

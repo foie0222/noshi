@@ -1,5 +1,8 @@
-"""楽天ウェブサービス API クライアント（Ichiba Item Search API 2 / Item Ranking API）。
+"""楽天ウェブサービス API クライアント（2026年新API: openapi.rakuten.co.jp）。
 
+- 認証: applicationId ＋ accessKey の両方が必須（2026年のAPI刷新）。さらに
+  アプリ登録の「Allowed websites」に載せたドメインを Origin/Referer ヘッダで
+  名乗る必要がある（無いと 403 REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING）。
 - レート制御: リクエスト間に1秒（規約の約1req/秒）。呼び出しは単一プロセス直列前提
   （バッチ Lambda は reserved concurrency=1）。
 - 失敗はバックオフ2秒で1回リトライ。日次コール上限（max_calls）超過は RuntimeError
@@ -10,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 import urllib.parse
 import urllib.request
@@ -17,13 +21,16 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-_SEARCH_URL = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601"
-_RANKING_URL = "https://app.rakuten.co.jp/services/api/IchibaItem/Ranking/20220601"
+_SEARCH_URL = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401"
+_RANKING_URL = "https://openapi.rakuten.co.jp/ichibaranking/api/IchibaItem/Ranking/20220601"
 _JST = timezone(timedelta(hours=9))
 
 
 def _default_fetch(url: str) -> dict[str, Any]:
-    with urllib.request.urlopen(url, timeout=15) as r:  # noqa: S310 (https固定)
+    # Allowed websites 検証のため Origin/Referer を名乗る（既定はサービスドメイン）
+    site = os.environ.get("NOSHI_RAKUTEN_SITE", "https://noshi.me")
+    req = urllib.request.Request(url, headers={"Origin": site, "Referer": f"{site}/"})
+    with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (https固定)
         loaded = json.loads(r.read().decode("utf-8"))
     return loaded if isinstance(loaded, dict) else {}
 
@@ -43,6 +50,7 @@ class RakutenClient:
         self,
         app_id: str,
         affiliate_id: str,
+        access_key: str = "",
         fetch: Callable[[str], dict[str, Any]] | None = None,
         sleep: Callable[[float], None] = time.sleep,
         # 日次上限（スペック§7）。リトライ分も含めた実APIヒット数の上限。
@@ -51,6 +59,7 @@ class RakutenClient:
     ):
         self.app_id = app_id
         self.affiliate_id = affiliate_id
+        self.access_key = access_key
         self._fetch = fetch or _default_fetch
         self._sleep = sleep
         self._first = True
@@ -63,6 +72,7 @@ class RakutenClient:
         self._first = False
         params = {
             "applicationId": self.app_id,
+            "accessKey": self.access_key,  # 新APIで必須（applicationId とセット）
             "affiliateId": self.affiliate_id,
             "format": "json",
             **params,

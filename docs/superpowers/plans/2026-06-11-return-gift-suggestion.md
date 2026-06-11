@@ -2501,7 +2501,11 @@ https://webservice.rakuten.co.jp/ でアプリを登録し appId とアフィリ
 ```bash
 aws ssm put-parameter --name /noshi/rakuten/app-id --type SecureString --value '<appId>' --region ap-northeast-1
 aws ssm put-parameter --name /noshi/rakuten/affiliate-id --type SecureString --value '<affiliateId>' --region ap-northeast-1
+aws ssm put-parameter --name /noshi/rakuten/access-key --type SecureString --value '<accessKey>' --region ap-northeast-1
 ```
+
+※2026年の楽天API刷新により accessKey が必須。アプリ登録の「Allowed websites」に
+サービスドメイン（noshi.me）を入れ、リクエストは Origin/Referer ヘッダで同ドメインを名乗る。
 
 - [ ] **Step 3: ジャンルIDの確定**
 

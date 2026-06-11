@@ -171,6 +171,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     rakuten = RakutenClient(
         app_id=_ssm(ssm, "/noshi/rakuten/app-id"),
         affiliate_id=_ssm(ssm, "/noshi/rakuten/affiliate-id"),
+        access_key=_ssm(ssm, "/noshi/rakuten/access-key"),
     )
     return run_job(rakuten, BedrockCurator(), CatalogStore(), now=now, deadline=deadline)
 

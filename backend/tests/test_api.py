@@ -478,6 +478,34 @@ def test_クリック計測はカタログの失敗でも204を返す():
     assert r.status_code == 204
 
 
+def test_クリック計測はrel_groupつきで204を返す(client):
+    r = client.post(
+        "/api/suggestions/click",
+        json={
+            "item_code": "shop:1",
+            "bucket": "BUCKET#baby#5000-9999",
+            "position": 1,
+            "rel_group": "family",
+        },
+        headers={"X-User-Id": "demo-user"},
+    )
+    assert r.status_code == 204
+
+
+def test_クリック計測は不正なrel_groupを拒否する(client):
+    r = client.post(
+        "/api/suggestions/click",
+        json={
+            "item_code": "shop:1",
+            "bucket": "BUCKET#baby#5000-9999",
+            "position": 1,
+            "rel_group": "boss",
+        },
+        headers={"X-User-Id": "demo-user"},
+    )
+    assert r.status_code == 422
+
+
 def test_相手APIで同名でも別人を作り集計が分離する():
     """POST /api/parties で同名の別人を作り、記録を紐付けるとおつきあいが別エントリになることを検証する（#47）。"""
     c = TestClient(create_app())

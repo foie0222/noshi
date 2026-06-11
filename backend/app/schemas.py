@@ -77,3 +77,5 @@ class SuggestionClickIn(BaseModel):
     item_code: str = Field(min_length=1, max_length=100)
     bucket: str = Field(pattern=r"^BUCKET#[a-z]+#\d+-\d*$")
     position: int = Field(ge=1, le=10)  # 上限は adapter._MAX_ITEMS（=10）と合わせること
+    # 配信時に返した続柄グループの echo（効果計測用・任意）
+    rel_group: str = Field(default="", pattern=r"^(family|friend|work|other)?$")

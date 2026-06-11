@@ -9,7 +9,12 @@ NOW = datetime(2026, 6, 11, 12, 0, tzinfo=UTC)
 
 
 def _row(
-    code="shop:1", fetched=None, sale="ポイント5倍", sale_ends="", bucket="BUCKET#baby#5000-9999"
+    code="shop:1",
+    fetched=None,
+    sale="ポイント5倍",
+    sale_ends="",
+    bucket="BUCKET#baby#5000-9999",
+    fit=None,
 ):
     return {
         "item_code": code,
@@ -26,6 +31,7 @@ def _row(
         "review_count": 800,
         "bucket": bucket,
         "rank": "RANK#01",
+        "fit": fit or {"family": 50, "friend": 50, "work": 50, "other": 50},
     }
 
 
@@ -37,8 +43,8 @@ class FakeStore:
     def read_bucket(self, slug, band, now):
         return self.buckets.get((slug, band), [])
 
-    def put_click(self, item_code, bucket, position, now):
-        self.clicks.append((item_code, bucket, position))
+    def put_click(self, item_code, bucket, position, rel_group, now):
+        self.clicks.append((item_code, bucket, position, rel_group))
 
 
 def _adapter(buckets):
@@ -144,5 +150,74 @@ def test_全空なら金額目安フォールバック():
 def test_log_clickはストアに委譲する():
     store = FakeStore({})
     a = DynamoCatalogAdapter(store=store, fallback=GiftCatalogMock(), now=lambda: NOW)
-    a.log_click("shop:1", "BUCKET#baby#5000-9999", 2)
-    assert store.clicks == [("shop:1", "BUCKET#baby#5000-9999", 2)]
+    a.log_click("shop:1", "BUCKET#baby#5000-9999", 2, "")
+    assert store.clicks == [("shop:1", "BUCKET#baby#5000-9999", 2, "")]
+
+
+# ── fit ソート・rel_group テスト ─────────────────────────────────────────────
+
+
+def _fit(family=50, friend=50, work=50, other=50):
+    return {"family": family, "friend": friend, "work": work, "other": other}
+
+
+def test_続柄グループによって並び順が変わる():
+    rows = [
+        _row("shop:1", fit=_fit(family=90, work=30)),
+        _row("shop:2", fit=_fit(family=30, work=90)),
+        _row("shop:3", fit=_fit(family=60, work=60)),
+    ]
+    a = _adapter({("baby", "5000-9999"): rows})
+    fam = [s["item_code"] for s in a.suggest(7000, "親", "出産祝い")]
+    work = [s["item_code"] for s in a.suggest(7000, "同僚・仕事", "出産祝い")]
+    assert fam == ["shop:1", "shop:3", "shop:2"]
+    assert work == ["shop:2", "shop:3", "shop:1"]
+
+
+def test_fitの差9点以内はRANK順を維持する():
+    # 量子化（//10）: 61 と 69 は同じ帯 → 元の順序（RANK順）を維持
+    rows = [_row("shop:1", fit=_fit(family=61)), _row("shop:2", fit=_fit(family=69))]
+    a = _adapter({("baby", "5000-9999"): rows})
+    assert [s["item_code"] for s in a.suggest(7000, "親", "出産祝い")] == ["shop:1", "shop:2"]
+
+
+def test_fitが10点帯を跨げば逆転する():
+    rows = [_row("shop:1", fit=_fit(family=69)), _row("shop:2", fit=_fit(family=70))]
+    a = _adapter({("baby", "5000-9999"): rows})
+    assert [s["item_code"] for s in a.suggest(7000, "親", "出産祝い")] == ["shop:2", "shop:1"]
+
+
+def test_補完分は高fitでも自バケツの後ろ():
+    a = _adapter(
+        {
+            ("baby", "5000-9999"): [_row("shop:1", fit=_fit(family=10))],
+            ("baby", "3000-4999"): [
+                _row("shop:2", bucket="BUCKET#baby#3000-4999", fit=_fit(family=95)),
+            ],
+        }
+    )
+    out = a.suggest(7000, "親", "出産祝い")
+    assert [s["item_code"] for s in out] == ["shop:1", "shop:2"]  # 価格帯適合 > 続柄適合
+
+
+def test_fitが無い旧データ行は順序不変():
+    # store の補完を経ない fit キー欠損行でもソートキー0で中立（RANK順維持）
+    rows = [_row("shop:1"), _row("shop:2"), _row("shop:3")]
+    for r in rows:
+        del r["fit"]
+    a = _adapter({("baby", "5000-9999"): rows})
+    out = [s["item_code"] for s in a.suggest(7000, "親", "出産祝い")]
+    assert out == ["shop:1", "shop:2", "shop:3"]
+
+
+def test_レスポンスにrel_groupが付く():
+    a = _adapter({("baby", "5000-9999"): [_row()]})
+    assert a.suggest(7000, "親", "出産祝い")[0]["rel_group"] == "family"
+    assert a.suggest(7000, "", "出産祝い")[0]["rel_group"] == "other"
+
+
+def test_log_clickはrel_groupをストアへ透過する():
+    store = FakeStore({})
+    a = DynamoCatalogAdapter(store=store, fallback=GiftCatalogMock(), now=lambda: NOW)
+    a.log_click("shop:1", "BUCKET#baby#5000-9999", 2, "work")
+    assert store.clicks == [("shop:1", "BUCKET#baby#5000-9999", 2, "work")]

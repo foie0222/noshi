@@ -52,7 +52,12 @@ class FakeCurator:
         if self.empty:
             return []
         return [
-            {"item_code": c["item_code"], "llm_score": 90 - i, "reason": "良い品です"}
+            {
+                "item_code": c["item_code"],
+                "llm_score": 90 - i,
+                "reason": "良い品です",
+                "fit": {"family": 90 - i, "friend": 50, "work": 30, "other": 60},
+            }
             for i, c in enumerate(candidates[:10])
         ]
 
@@ -60,9 +65,11 @@ class FakeCurator:
 class FakeStore:
     def __init__(self):
         self.replaced = []
+        self.items_by_bucket: dict = {}
 
     def replace_bucket(self, slug, band, items, job_run_id, now):
         self.replaced.append((slug, band, [i["item_code"] for i in items]))
+        self.items_by_bucket[(slug, band)] = items
 
 
 def test_全バケツを処理して書き込む():
@@ -137,3 +144,74 @@ def test_1バケツ指定で絞り込める():
     )
     assert len(store.replaced) == 1
     assert store.replaced[0][0] == "baby" and store.replaced[0][1] == "5000-9999"
+
+
+def test_LLMのfitがstoreまで透過する():
+    store, cur = FakeStore(), FakeCurator()
+    run_job(
+        FakeRakuten(),
+        cur,
+        store,
+        now=NOW,
+        deadline=None,
+        categories={"baby": "出産内祝い"},
+        bands=[(5000, 9999, "5000-9999")],
+    )
+    items = store.items_by_bucket[("baby", "5000-9999")]
+    assert all("fit" in i and set(i["fit"]) == {"family", "friend", "work", "other"} for i in items)
+
+
+def test_線形フォールバック品にはfitが無い():
+    store = FakeStore()
+    run_job(
+        FakeRakuten(),
+        FakeCurator(fail=True),
+        store,
+        now=NOW,
+        deadline=None,
+        categories={"baby": "出産内祝い"},
+        bands=[(5000, 9999, "5000-9999")],
+    )
+    items = store.items_by_bucket[("baby", "5000-9999")]
+    assert all("fit" not in i for i in items)  # 書かない → 読み取り補完で中立（スペック§4）
+
+
+def test_fit退化はサマリに計上される():
+    class DegenerateCurator(FakeCurator):
+        def curate(self, slug, band, candidates, season_note):
+            self.calls += 1
+            return [
+                {
+                    "item_code": c["item_code"],
+                    "llm_score": 80,
+                    "reason": "良い品です",
+                    "fit": {"family": 70, "friend": 70, "work": 70, "other": 70},
+                }
+                for c in candidates[:10]
+            ]
+
+    store = FakeStore()
+    summary = run_job(
+        FakeRakuten(),
+        DegenerateCurator(),
+        store,
+        now=NOW,
+        deadline=None,
+        categories={"baby": "出産内祝い"},
+        bands=[(5000, 9999, "5000-9999")],
+    )
+    assert summary["fit_degenerate"] == 1
+
+
+def test_差別化されたfitは退化に数えない():
+    store = FakeStore()
+    summary = run_job(
+        FakeRakuten(),
+        FakeCurator(),
+        store,
+        now=NOW,
+        deadline=None,
+        categories={"baby": "出産内祝い"},
+        bands=[(5000, 9999, "5000-9999")],
+    )
+    assert summary["fit_degenerate"] == 0

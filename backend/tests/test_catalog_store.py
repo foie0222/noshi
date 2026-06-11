@@ -104,7 +104,7 @@ def test_読み取りは期限切れを除外するフィルタつきQuery():
 def test_クリック記録はPIIなしで書かれる():
     ddb = FakeDdb()
     store = CatalogStore(table_name="catalog", client=ddb)
-    store.put_click("shop:1", "BUCKET#baby#5000-9999", 2, NOW)
+    store.put_click("shop:1", "BUCKET#baby#5000-9999", 2, "", NOW)
     item = ddb.puts[0]["Item"]
     assert item["PK"]["S"] == "CLICK#2026-06-11"
     assert item["itemCode"]["S"] == "shop:1"
@@ -139,3 +139,79 @@ def test_ジョブロックが先行ジョブに取られていればFalse():
     store = CatalogStore(table_name="catalog", client=ddb)
     assert store.acquire_job_lock(NOW) is False
     assert ddb.puts == []  # 書き込まれない
+
+
+def test_fitありの書き込みは4属性が乗る():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="catalog", client=ddb)
+    item = _item("shop:1")
+    item["fit"] = {"family": 90, "friend": 70, "work": 40, "other": 60}
+    store.replace_bucket("baby", "5000-9999", [item], "job-1", NOW)
+    put = ddb.transacts[0][0]["Put"]["Item"]
+    assert put["fitFamily"]["N"] == "90"
+    assert put["fitFriend"]["N"] == "70"
+    assert put["fitWork"]["N"] == "40"
+    assert put["fitOther"]["N"] == "60"
+
+
+def test_fitなしの書き込みは属性を書かない():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="catalog", client=ddb)
+    store.replace_bucket("baby", "5000-9999", [_item("shop:1")], "job-1", NOW)
+    put = ddb.transacts[0][0]["Put"]["Item"]
+    assert "fitFamily" not in put  # 線形フォールバック品（スペック§4）
+
+
+def _bucket_row(**over):
+    base = {
+        "PK": {"S": "BUCKET#baby#5000-9999"},
+        "SK": {"S": "RANK#01"},
+        "itemCode": {"S": "shop:1"},
+        "title": {"S": "タオル"},
+        "price": {"N": "5400"},
+        "priceFetchedAt": {"S": "2026-06-11T00:00:00+00:00"},
+        "imageUrl": {"S": "https://x.jpg"},
+        "shopName": {"S": "店"},
+        "affiliateUrl": {"S": "https://hb.afl.rakuten.co.jp/x"},
+        "llmReason": {"S": "良い品です"},
+        "saleNote": {"S": ""},
+        "saleEndsAt": {"S": ""},
+        "rating": {"N": "4.5"},
+        "reviewCount": {"N": "800"},
+        "llmScore": {"N": "85"},
+    }
+    base.update(over)
+    return base
+
+
+def test_読み取りはfit4属性をdictで返す():
+    ddb = FakeDdb(
+        query_items=[
+            _bucket_row(
+                fitFamily={"N": "90"},
+                fitFriend={"N": "70"},
+                fitWork={"N": "40"},
+                fitOther={"N": "60"},
+            )
+        ]
+    )
+    store = CatalogStore(table_name="catalog", client=ddb)
+    rows = store.read_bucket("baby", "5000-9999", NOW)
+    assert rows[0]["fit"] == {"family": 90, "friend": 70, "work": 40, "other": 60}
+
+
+def test_読み取りはfit属性が欠けていればllmScoreで補完する():
+    # 1つでも欠けていれば全グループを llmScore で補完（スペック§4・並べ替え中立）
+    ddb = FakeDdb(query_items=[_bucket_row(fitFamily={"N": "90"})])
+    store = CatalogStore(table_name="catalog", client=ddb)
+    rows = store.read_bucket("baby", "5000-9999", NOW)
+    assert rows[0]["fit"] == {"family": 85, "friend": 85, "work": 85, "other": 85}
+
+
+def test_クリックはrelGroupを保存し空なら書かない():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="catalog", client=ddb)
+    store.put_click("shop:1", "BUCKET#baby#5000-9999", 2, "family", NOW)
+    assert ddb.puts[0]["Item"]["relGroup"]["S"] == "family"
+    store.put_click("shop:1", "BUCKET#baby#5000-9999", 2, "", NOW)
+    assert "relGroup" not in ddb.puts[1]["Item"]

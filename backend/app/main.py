@@ -355,7 +355,9 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     def suggestion_click(body: SuggestionClickIn, uid: str = Depends(current_user)) -> Response:
         # 計測はUXをブロックしない（失敗してもエラーを返さない）
         try:
-            svc.log_suggestion_click(uid, body.item_code, body.bucket, body.position)
+            svc.log_suggestion_click(
+                uid, body.item_code, body.bucket, body.position, body.rel_group
+            )
         except Exception:  # noqa: BLE001
             import logging
 

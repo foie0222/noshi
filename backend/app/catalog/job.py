@@ -70,6 +70,7 @@ def run_job(
     season = _season_note(now)
     failed = 0
     llm_fallback = 0
+    fit_degenerate = 0
 
     # ランキングはカテゴリ単位で1回だけ取得（9コール）
     ranks: dict[str, dict[str, int]] = {}
@@ -99,13 +100,25 @@ def run_job(
                     top = [
                         {**c, "llm_score": 0, "reason": template_reason(c)} for c in candidates[:10]
                     ]
+                if top and all("fit" in i for i in top) and _is_degenerate(top):
+                    fit_degenerate += 1
                 store.replace_bucket(slug, band, top or [], job_run_id, now)
             except Exception:  # noqa: BLE001
                 logger.exception("bucket failed: %s %s", slug, band)
                 failed += 1
 
-    _emf({"CatalogJobBucketsFailed": failed, "CatalogLlmFallbackCount": llm_fallback})
-    return {"buckets_failed": failed, "llm_fallback": llm_fallback}
+    _emf(
+        {
+            "CatalogJobBucketsFailed": failed,
+            "CatalogLlmFallbackCount": llm_fallback,
+            "CatalogFitDegenerationCount": fit_degenerate,
+        }
+    )
+    return {
+        "buckets_failed": failed,
+        "llm_fallback": llm_fallback,
+        "fit_degenerate": fit_degenerate,
+    }
 
 
 def _select(
@@ -147,13 +160,23 @@ def _curate(
             picked = curator.curate(slug, band, candidates, season_note=season)
             # LLM の選定順に、収集済みの全属性をマージして返す
             return [
-                {**by_code[p["item_code"]], "llm_score": p["llm_score"], "reason": p["reason"]}
+                {
+                    **by_code[p["item_code"]],
+                    "llm_score": p["llm_score"],
+                    "reason": p["reason"],
+                    "fit": p["fit"],
+                }
                 for p in picked
                 if p["item_code"] in by_code
             ]
         except Exception:  # noqa: BLE001
             logger.exception("curation failed (attempt %d): %s %s", attempt, slug, band)
     return None
+
+
+def _is_degenerate(items: list[dict[str, Any]]) -> bool:
+    """各商品の fit 4値がすべて同値（タイプ間の差別化放棄）のバケツを退化とみなす（スペック§3 退化検知）。"""
+    return all(len(set(i["fit"].values())) == 1 for i in items)
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, int]:

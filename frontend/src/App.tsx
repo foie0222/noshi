@@ -666,7 +666,12 @@ export function App() {
   }
   async function loadSuggestions() {
     if (!event || !range) return;
-    const r = await api.suggestions(event.id, range.recommended, "友人", range.purpose);
+    const r = await api.suggestions(
+      event.id,
+      range.recommended,
+      event.relationship || "",
+      range.purpose,
+    );
     setSuggestions(r.suggestions);
     go("suggest");
   }

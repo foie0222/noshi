@@ -40,9 +40,9 @@ export class ApiStack extends Stack {
         NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName, // #35: 撮影画像のS3バケット
 
         NOSHI_USE_BEDROCK: "1",                  // 実 OCR/LLM（Bedrock/Claude）
-        // Cognito 認証の強制は context `enforceAuth=true` で有効化（要: フロントの Cognito ログイン）。
-        // 既定（デモ公開）はスタブ認証のまま——フロントの「ユーザー切替」で家族共有を体験可能。
-        ...(this.node.tryGetContext("enforceAuth") ? { NOSHI_COGNITO_POOL_ID: props.userPoolId } : {}),
+        // 既定で Cognito 認証を強制（安全側、#101）。POOL_ID 注入で JWT(RS256/JWKS) 検証が有効になる。
+        // デモ/ローカル等でスタブ認証(X-User-Id)を使う場合のみ context `allowStubAuth=true` を指定する。
+        ...(this.node.tryGetContext("allowStubAuth") ? {} : { NOSHI_COGNITO_POOL_ID: props.userPoolId }),
       },
     });
 

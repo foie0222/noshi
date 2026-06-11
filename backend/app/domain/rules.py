@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.domain.entities import GiftRecord
+from app.domain.tone import tone_of
 
 CONFIDENCE_THRESHOLD = 0.7
 
@@ -128,16 +129,17 @@ def half_return(amount: int, purpose: str) -> ReturnRange:
     return ReturnRange(recommended, min(low, recommended), max(high, recommended), ratio, rationale)
 
 
-# 弔事キーワード（BR-4-TONE）。社会通念上の贈答で集計除外する用途（BR-4-TAX）。
-_MOURNING_KEYWORDS = ("香典", "御霊前", "御仏前", "法事", "法要", "弔慰", "お悔やみ")
+# 社会通念上の贈答で集計除外する用途（BR-4-TAX）。
 _GIFT_TAX_EXCLUDED = ("香典", "御霊前", "御仏前", "お中元", "お歳暮", "中元", "歳暮")
 GIFT_TAX_EXEMPTION = 1_100_000  # 暦年課税の基礎控除
 
 
 def tone(purpose: str) -> str:
-    """用途を弔事(mourning)/慶事(celebration)に分類する（BR-4-TONE）。"""
-    p = purpose or ""
-    return "mourning" if any(k in p for k in _MOURNING_KEYWORDS) else "celebration"
+    """用途を弔事(mourning)/慶事(celebration)に分類する（BR-4-TONE）。
+
+    実体は app.domain.tone に集約（こちらは後方互換のための委譲）。
+    """
+    return tone_of(purpose)
 
 
 def gift_tax_summary(records: list[GiftRecord], year: int) -> dict[str, Any]:

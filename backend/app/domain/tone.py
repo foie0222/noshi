@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+# 弔事キーワード。tone.ts との同期検証（パリティテスト）のため公開している。
 MOURNING = ("香典", "御霊前", "御仏前", "法事", "法要", "弔慰", "お悔やみ")
 
 

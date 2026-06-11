@@ -18,11 +18,18 @@ def test_それ以外は慶事になる():
 
 
 def test_キーワード一覧はフロントエンドと一致する():
-    """frontend/src/lib/tone.ts の MOURNING 配列と同期していることを検証（パリティテスト）。"""
+    """frontend/src/lib/tone.ts の MOURNING 配列と双方向に同期していることを検証（パリティテスト）。"""
+    import re
     from pathlib import Path
 
     ts = (Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "tone.ts").read_text(
         encoding="utf-8"
     )
-    for word in MOURNING:
-        assert f'"{word}"' in ts, f"tone.ts に {word} がない（両者を同期させること）"
+    # tone.ts の `const MOURNING = [...]` の中身を抽出して双方向に比較する
+    m = re.search(r"const MOURNING = \[(.*?)\]", ts, re.DOTALL)
+    assert m, "tone.ts に MOURNING 配列がない"
+    ts_words = set(re.findall(r'"([^"]+)"', m.group(1)))
+    assert ts_words == set(MOURNING), (
+        f"tone.ts と tone.py の MOURNING が不一致（両者を同期させること）: "
+        f"TSのみ={ts_words - set(MOURNING)} Pythonのみ={set(MOURNING) - ts_words}"
+    )

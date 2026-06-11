@@ -1174,6 +1174,14 @@ body {
 .danger-link:active {
   color: var(--color-accent);
 }
+/* アカウント削除（#118）。ログアウトと区切り、控えめな危険導線として下部に置く。 */
+.account-danger {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-default);
+}
 
 /* ---- お返し品の提案カード ---------------------------------------------- */
 .sug-head {

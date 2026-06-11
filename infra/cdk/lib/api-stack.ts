@@ -64,6 +64,11 @@ export class ApiStack extends Stack {
       resources: ["arn:aws:bedrock:*::foundation-model/*",
                   `arn:aws:bedrock:*:${this.account}:inference-profile/*`],
     }));
+    // アカウント削除（#118）: 本人の Cognito ユーザーを削除する。
+    apiFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["cognito-idp:AdminDeleteUser"],
+      resources: [`arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${props.userPoolId}`],
+    }));
 
     const api = new apigw.HttpApi(this, "NoshiHttpApi", {
       apiName: "noshi-api",

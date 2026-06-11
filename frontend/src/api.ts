@@ -179,6 +179,7 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ name, relationship }),
     }),
+  deleteAccount: () => req<{ ok: boolean }>("/account", { method: "DELETE" }),
 };
 
 /**

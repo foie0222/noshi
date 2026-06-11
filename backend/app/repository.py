@@ -39,6 +39,7 @@ class Repository(Protocol):
     def put_household(self, h: Household) -> Household: ...
     def get_household(self, household_id: str) -> Household | None: ...
     def get_household_by_invite(self, code: str) -> Household | None: ...
+    def delete_household(self, household_id: str) -> bool: ...
     def put_membership(self, m: Membership) -> Membership: ...
     def get_membership(self, user_id: str) -> Membership | None: ...
     def list_members(self, household_id: str) -> list[Membership]: ...
@@ -138,6 +139,9 @@ class InMemoryRepository:
 
     def get_household_by_invite(self, code: str) -> Household | None:
         return next((h for h in self._households.values() if h.invite_code == code), None)
+
+    def delete_household(self, household_id: str) -> bool:
+        return self._households.pop(household_id, None) is not None
 
     def put_membership(self, m: Membership) -> Membership:
         self._memberships[m.user_id] = m
@@ -322,6 +326,15 @@ class DynamoRepository:
     def get_household_by_invite(self, code: str) -> Household | None:
         idx = self.table.get_item(Key={"PK": f"INVITE#{code}", "SK": "INVITE"}).get("Item")
         return self.get_household(idx["household_id"]) if idx else None
+
+    def delete_household(self, household_id: str) -> bool:
+        h = self.get_household(household_id)
+        if h is None:
+            return False
+        # 招待コードの逆引きインデックスも後始末してから世帯本体を削除する。
+        self.table.delete_item(Key={"PK": f"INVITE#{h.invite_code}", "SK": "INVITE"})
+        self.table.delete_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": "META"})
+        return True
 
     def put_membership(self, m: Membership) -> Membership:
         self.table.put_item(Item=self._item(f"USER#{m.user_id}", "MEMBERSHIP", "membership", m))

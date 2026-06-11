@@ -99,3 +99,14 @@ def test_クリック記録はPIIなしで書かれる():
     assert "userId" not in item  # PIIなし
     # TTL 13ヶ月
     assert int(item["expiresAt"]["N"]) > int(NOW.timestamp()) + 380 * 24 * 3600
+
+
+def test_空リストでもDelete10件で全スロットを消す():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="catalog", client=ddb)
+    store.replace_bucket("baby", "5000-9999", [], "job-1", NOW)
+    ops = ddb.transacts[0]
+    assert len(ops) == 10
+    assert all("Delete" in o for o in ops)
+    assert ops[0]["Delete"]["Key"]["SK"]["S"] == "RANK#01"
+    assert ops[-1]["Delete"]["Key"]["SK"]["S"] == "RANK#10"

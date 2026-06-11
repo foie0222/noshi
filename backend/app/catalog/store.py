@@ -100,6 +100,7 @@ class CatalogStore:
             TableName=self.table_name,
             KeyConditionExpression="PK = :pk AND begins_with(SK, :rank)",
             FilterExpression="expiresAt > :now",
+            Limit=_SLOTS,  # SK は最大10件設計だが防御として（スペック§9）
             ExpressionAttributeValues={
                 ":pk": {"S": bucket_pk(slug, band)},
                 ":rank": {"S": "RANK#"},
@@ -119,14 +120,13 @@ class CatalogStore:
                 "SK": {"S": f"{now.isoformat()}#{uuid.uuid4().hex[:8]}"},
                 "itemCode": {"S": item_code},
                 "bucket": {"S": bucket},
-                "position": {"N": str(position)},
+                "position": {"N": str(int(position))},
                 "expiresAt": {"N": str(int((now + _CLICK_TTL).timestamp()))},
             },
         )
         self._emit_click_metric()
 
-    @staticmethod
-    def _emit_click_metric() -> None:
+    def _emit_click_metric(self) -> None:
         """SuggestionClicks メトリクスを EMF フォーマットで出力する。
 
         print するだけで CloudWatch Embedded Metric Format としてメトリクスが記録される。
@@ -151,6 +151,7 @@ class CatalogStore:
 
     @staticmethod
     def _from_ddb(item: dict[str, Any]) -> dict[str, Any]:
+        # linearScore/llmScore/jobRunId はデバッグ用属性のため配信レスポンスに含めない
         def s(k: str) -> str:
             return str(item.get(k, {}).get("S", ""))
 

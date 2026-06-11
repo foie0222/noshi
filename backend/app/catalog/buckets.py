@@ -58,14 +58,18 @@ def slug_of(purpose: str) -> str:
 
 def band_of(budget: int) -> str:
     """お返し予算（半返し換算済み）→ 価格帯ラベル。1000円未満は最下帯に丸める。"""
-    for _low, high, label in PRICE_BANDS:
+    # budget < 1000 は最初の high=2999 チェックで最下帯に丸まる
+    for _, high, label in PRICE_BANDS:
         if high is None or budget <= high:
             return label
     return PRICE_BANDS[-1][2]
 
 
 def band_neighbors(band: str) -> list[str]:
-    """隣接価格帯を下側優先で返す（±1帯のみ。スペック§9の補完規則）。"""
+    """隣接価格帯を下側優先で返す（±1帯のみ。スペック§9の補完規則）。
+
+    band は band_of の返り値か PRICE_BANDS のラベルであること（未知値は ValueError）。
+    """
     labels = [label for _, _, label in PRICE_BANDS]
     i = labels.index(band)
     out: list[str] = []

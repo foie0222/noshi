@@ -3,6 +3,7 @@
 from app.catalog.buckets import (
     CATEGORIES,
     PRICE_BANDS,
+    RAKUTEN_GENRE_BY_CATEGORY,
     band_neighbors,
     band_of,
     bucket_pk,
@@ -23,6 +24,8 @@ def test_カテゴリは9個でASCIIスラッグ():
         "oseibo",
         "general",
     }
+    # ジャンルID表のキーはカテゴリと常に一致させる
+    assert set(RAKUTEN_GENRE_BY_CATEGORY) == set(CATEGORIES)
 
 
 def test_既定用途はスラッグに写像される():
@@ -49,6 +52,12 @@ def test_価格帯は7個で境界が正しい():
     assert band_of(2999) == "1000-2999"
     assert band_of(3000) == "3000-4999"
     assert band_of(9999) == "5000-9999"
+    assert band_of(10000) == "10000-14999"
+    assert band_of(14999) == "10000-14999"
+    assert band_of(15000) == "15000-24999"
+    assert band_of(24999) == "15000-24999"
+    assert band_of(25000) == "25000-49999"
+    assert band_of(49999) == "25000-49999"
     assert band_of(50000) == "50000-"
     assert band_of(999999) == "50000-"
 

@@ -1382,6 +1382,10 @@ export function App() {
           <p className="muted" style={{ marginTop: 6 }}>
             気に入った品は「この品に決める」で、このお返しを完了にできます。
           </p>
+          <div className="ad-disclosure">
+            <Icon name="info" size={15} />
+            以下の商品リンクはアフィリエイト広告（楽天市場）です。
+          </div>
           {suggestions.map((s) => (
             <div className="card" key={s.item_code ?? s.title}>
               <div className="sug-head">

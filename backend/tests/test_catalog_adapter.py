@@ -200,6 +200,16 @@ def test_補完分は高fitでも自バケツの後ろ():
     assert [s["item_code"] for s in out] == ["shop:1", "shop:2"]  # 価格帯適合 > 続柄適合
 
 
+def test_fitが無い旧データ行は順序不変():
+    # store の補完を経ない fit キー欠損行でもソートキー0で中立（RANK順維持）
+    rows = [_row("shop:1"), _row("shop:2"), _row("shop:3")]
+    for r in rows:
+        del r["fit"]
+    a = _adapter({("baby", "5000-9999"): rows})
+    out = [s["item_code"] for s in a.suggest(7000, "親", "出産祝い")]
+    assert out == ["shop:1", "shop:2", "shop:3"]
+
+
 def test_レスポンスにrel_groupが付く():
     a = _adapter({("baby", "5000-9999"): [_row()]})
     assert a.suggest(7000, "親", "出産祝い")[0]["rel_group"] == "family"

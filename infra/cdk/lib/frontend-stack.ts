@@ -1,4 +1,4 @@
-import { Stack, StackProps, RemovalPolicy, CfnOutput } from "aws-cdk-lib";
+import { Stack, StackProps, RemovalPolicy, CfnOutput, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as fs from "fs";
 import * as path from "path";
@@ -64,12 +64,55 @@ export class FrontendStack extends Stack {
         })
       : undefined;
 
+    // セキュリティヘッダ（#99）。CSP はアプリが使うオリジンのみ許可する:
+    // - connect: API Gateway / Cognito IDP / S3(presigned)
+    // - style/font: Google Fonts、img: data/blob/S3
+    // React のインラインスタイルのため style-src は unsafe-inline を許可する。
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com",
+      "connect-src 'self' https://cognito-idp.ap-northeast-1.amazonaws.com https://*.execute-api.ap-northeast-1.amazonaws.com https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+    ].join("; ");
+    const securityHeaders = new cloudfront.ResponseHeadersPolicy(this, "SecurityHeaders", {
+      securityHeadersBehavior: {
+        strictTransportSecurity: {
+          accessControlMaxAge: Duration.days(365),
+          includeSubdomains: true,
+          override: true,
+        },
+        contentTypeOptions: { override: true },
+        frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+        contentSecurityPolicy: { contentSecurityPolicy: csp, override: true },
+      },
+      customHeadersBehavior: {
+        customHeaders: [
+          {
+            header: "Permissions-Policy",
+            value: "camera=(self), microphone=(), geolocation=()",
+            override: true,
+          },
+        ],
+      },
+    });
+
     const dist = new cloudfront.Distribution(this, "SiteDist", {
       defaultRootObject: "index.html",
       ...(useDomain ? { domainNames: [domainName as string], certificate: props?.certificate } : {}),
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        responseHeadersPolicy: securityHeaders,
         ...(redirectFn
           ? {
               functionAssociations: [

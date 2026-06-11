@@ -1351,43 +1351,37 @@ export function App() {
         <>
           <Bar title="お返し品の提案" back="half" />
           <p className="muted" style={{ marginTop: 6 }}>
-            お返し品を選ぶと、このお返しは「完了」になります。
+            気に入った品は「この品に決める」で、このお返しを完了にできます。
           </p>
           {suggestions.map((s) => (
             <div className="card" key={s.item_code ?? s.title}>
-              {s.image_url && (
-                <img
-                  src={s.image_url}
-                  alt=""
-                  width={96}
-                  height={96}
-                  style={{ borderRadius: 8, objectFit: "cover", float: "right" }}
-                />
-              )}
-              <b>{s.title}</b>
-              <div className="muted">{s.summary}</div>
-              <div>
-                {priceLine(s)}
-                {s.sale_note ? ` ・ ${s.sale_note}` : ""}
-                {s.rating ? ` ・ ★${s.rating}（${s.review_count}件）` : ""}
+              <div className="sug-head">
+                {s.image_url && <img src={s.image_url} alt="" width={72} height={72} />}
+                <div className="sug-headtext">
+                  <div className="sug-title">{s.title}</div>
+                  <div className="sug-meta">
+                    {s.rating
+                      ? `★${s.rating}（${(s.review_count ?? 0).toLocaleString()}件）・`
+                      : ""}
+                    {priceLine(s)}
+                    {s.sale_note ? `・${s.sale_note}` : ""}
+                  </div>
+                </div>
               </div>
+              {s.summary && <p className="sug-reason">{s.summary}</p>}
               {s.external_ref && (
                 <a
+                  className="btn primary"
                   href={s.external_ref}
                   target="_blank"
                   rel="noopener sponsored"
                   onClick={() => api.clickSuggestion(s)}
                 >
-                  楽天市場で見る↗
+                  楽天市場で見る ↗
                 </a>
               )}
-              <button
-                type="button"
-                className="btn primary"
-                style={{ minHeight: 40 }}
-                onClick={() => chooseSuggestion(s)}
-              >
-                これにして完了
+              <button type="button" className="btn ghost" onClick={() => chooseSuggestion(s)}>
+                この品に決める
               </button>
             </div>
           ))}

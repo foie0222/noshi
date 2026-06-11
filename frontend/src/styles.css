@@ -1174,3 +1174,44 @@ body {
 .danger-link:active {
   color: var(--color-accent);
 }
+
+/* ---- お返し品の提案カード ---------------------------------------------- */
+.sug-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.sug-head img {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  border: var(--bw-hairline) solid var(--border-default);
+}
+.sug-headtext {
+  min-width: 0; /* line-clamp を flex 内で効かせる */
+}
+.sug-title {
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-snug);
+  /* 楽天の商品名はキーワード羅列で長いため2行で省略する */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sug-meta {
+  margin-top: var(--space-1);
+  color: var(--text-sub);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+.sug-reason {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+a.btn {
+  text-decoration: none; /* アンカーをボタンとして使う（提案カードのCTA） */
+}

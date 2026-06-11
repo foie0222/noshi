@@ -496,7 +496,7 @@ class NoshiService:
         user_id は認可文脈の明示用に受け取るが catalog には渡さない（PIIなし）。
         他のサービスメソッドとシグネチャの一貫性を保つため引数として維持。
         """
-        self.catalog.log_click(item_code, bucket, position)
+        self.catalog.log_click(item_code, bucket, position, "")  # rel_group は Task 6 で配線
 
     # --- イベント状態 ---
     def set_event_status(self, user_id: str, event_id: str, status: str) -> GiftEvent:

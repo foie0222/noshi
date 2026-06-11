@@ -92,9 +92,11 @@ def test_時間バジェット超過後はLLMを呼ばない():
     cur = FakeCurator()
     store = FakeStore()
     # deadline を過去にする → 全バケツが線形のみ
-    run_job(FakeRakuten(), cur, store, now=NOW, deadline=NOW)
+    summary = run_job(FakeRakuten(), cur, store, now=NOW, deadline=NOW)
     assert cur.calls == 0
     assert len(store.replaced) == 63
+    # 時間切れはLLM失敗ではないので llm_fallback には数えない
+    assert summary["llm_fallback"] == 0
 
 
 def test_検索が例外のバケツはスキップして続行する():
@@ -108,6 +110,18 @@ def test_検索が例外のバケツはスキップして続行する():
     summary = run_job(Flaky(), FakeCurator(), store, now=NOW, deadline=None)
     assert summary["buckets_failed"] == 7  # koden の7価格帯のみ失敗
     assert len(store.replaced) == 56
+
+
+def test_ランキング取得が例外でも全バケツを処理する():
+    class NoRanking(FakeRakuten):
+        def ranking(self, genre_id):
+            raise RuntimeError("ranking api down")
+
+    store = FakeStore()
+    summary = run_job(NoRanking(), FakeCurator(), store, now=NOW, deadline=None)
+    # ランキング失敗はトレンド寄与0として続行（バケツ失敗にしない）
+    assert summary["buckets_failed"] == 0
+    assert len(store.replaced) == 63
 
 
 def test_1バケツ指定で絞り込める():

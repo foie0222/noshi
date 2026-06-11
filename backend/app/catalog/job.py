@@ -158,6 +158,8 @@ def _curate(
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     """Lambda エントリポイント（EventBridge から起動）。"""
+    import boto3
+
     from app.catalog.curation import BedrockCurator
     from app.catalog.rakuten import RakutenClient
     from app.catalog.store import CatalogStore
@@ -165,16 +167,15 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     now = datetime.now(UTC)
     remaining_ms = context.get_remaining_time_in_millis() if context else 15 * 60 * 1000
     deadline = now + timedelta(milliseconds=remaining_ms)
+    ssm = boto3.client("ssm")
     rakuten = RakutenClient(
-        app_id=_ssm("/noshi/rakuten/app-id"),
-        affiliate_id=_ssm("/noshi/rakuten/affiliate-id"),
+        app_id=_ssm(ssm, "/noshi/rakuten/app-id"),
+        affiliate_id=_ssm(ssm, "/noshi/rakuten/affiliate-id"),
     )
     return run_job(rakuten, BedrockCurator(), CatalogStore(), now=now, deadline=deadline)
 
 
-def _ssm(name: str) -> str:
+def _ssm(client: Any, name: str) -> str:
     """SSM Parameter Store から認証情報を取得（SecureString 対応）。"""
-    import boto3
-
-    r = boto3.client("ssm").get_parameter(Name=name, WithDecryption=True)
+    r = client.get_parameter(Name=name, WithDecryption=True)
     return str(r["Parameter"]["Value"])

@@ -144,7 +144,7 @@ export const api = {
       method: "DELETE",
     }),
   imageUploadUrl: (contentType: string) =>
-    req<{ url: string; key: string }>("/images/upload-url", {
+    req<{ url: string; fields: Record<string, string>; key: string }>("/images/upload-url", {
       method: "POST",
       body: JSON.stringify({ content_type: contentType }),
     }),
@@ -171,12 +171,18 @@ export const api = {
     }),
 };
 
-/** 署名付きURLでS3へ直接アップロードする（認証ヘッダ不要・/api は通さない）（#35）。 */
-export async function uploadToS3(url: string, blob: Blob, contentType: string): Promise<void> {
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
+/**
+ * サイズ上限つき署名付き POST で S3 へ直接アップロードする（認証ヘッダ不要・/api は通さない）（#35/#100）。
+ * fields（policy/signature 等）を先に、file を最後に積む（S3 POST の要件）。
+ */
+export async function uploadToS3(
+  url: string,
+  fields: Record<string, string>,
+  blob: Blob,
+): Promise<void> {
+  const form = new FormData();
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  form.append("file", blob);
+  const res = await fetch(url, { method: "POST", body: form });
   if (!res.ok) throw new Error("画像のアップロードに失敗しました。");
 }

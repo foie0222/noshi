@@ -61,11 +61,12 @@ class NoshiService:
 
     # --- 撮影画像（S3・署名付きURL）（#35）---
     def image_upload_url(self, user_id: str, content_type: str) -> dict[str, Any]:
-        """アップロード用の署名付きPUT URLと、保存先キーを払い出す（世帯スコープ）。"""
+        """アップロード用のサイズ上限つき署名POST(url/fields)と保存先キーを払い出す（世帯スコープ）。"""
         if content_type not in ("image/jpeg", "image/png", "image/webp"):
             raise ValidationError(["対応していない画像形式です。"])
         key = self.images.new_key(self._scope(user_id), content_type)
-        return {"url": self.images.upload_url(key, content_type), "key": key}
+        post = self.images.upload_post(key, content_type)
+        return {"url": post["url"], "fields": post["fields"], "key": key}
 
     # --- 監査 ---
     def _audit(self, actor_id: str, action: str, target_ref: str) -> None:

@@ -47,10 +47,11 @@ export class DataStack extends Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       versioned: true, // RPO
       enforceSSL: true,
-      // 署名付きURLでのブラウザ直 PUT/GET を許可（#35）。アクセス自体は署名で制限。
+      // 署名付きでのブラウザ直アップロード/表示を許可（#35）。アクセス自体は署名で制限。
       cors: [
         {
-          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+          // POST: サイズ上限つき署名付き POST（#100）。GET/HEAD: 署名付き表示。
+          allowedMethods: [s3.HttpMethods.POST, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
           allowedOrigins: ["*"],
           allowedHeaders: ["*"],
           maxAge: 3000,

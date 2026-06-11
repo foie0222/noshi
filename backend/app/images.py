@@ -13,8 +13,9 @@ import uuid
 from typing import Any
 
 _EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-_PUT_TTL = 300  # 署名付きPUTの有効期限（秒）
+_PUT_TTL = 300  # 署名付きアップロードの有効期限（秒）
 _GET_TTL = 3600  # 署名付きGETの有効期限（秒）
+_MAX_BYTES = 10 * 1024 * 1024  # アップロードの最大サイズ（10MB、サーバ側で強制）
 
 
 class ImageStore:
@@ -37,11 +38,21 @@ class ImageStore:
         ext = _EXT.get(content_type, "jpg")
         return f"households/{scope}/{uuid.uuid4().hex}.{ext}"
 
-    def upload_url(self, key: str, content_type: str) -> str:
-        return str(
-            self._s3().generate_presigned_url(
-                "put_object",
-                Params={"Bucket": self.bucket, "Key": key, "ContentType": content_type},
+    def upload_post(self, key: str, content_type: str) -> dict[str, Any]:
+        """サイズ上限つきの署名付き POST（ブラウザ直アップロード）。
+
+        content-length-range 条件で最大サイズをサーバ側で強制する（巨大アップロード
+        による濫用・コスト増を防ぐ、#100）。返り値は {"url", "fields"}。
+        """
+        return dict(
+            self._s3().generate_presigned_post(
+                Bucket=self.bucket,
+                Key=key,
+                Fields={"Content-Type": content_type},
+                Conditions=[
+                    {"Content-Type": content_type},
+                    ["content-length-range", 1, _MAX_BYTES],
+                ],
                 ExpiresIn=_PUT_TTL,
             )
         )

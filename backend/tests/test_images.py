@@ -18,12 +18,19 @@ def test_バケット未設定なら画像機能は無効():
     assert ImageStore("noshi-images").enabled() is True
 
 
-def test_アップロードURLは世帯スコープのキーと署名URLを返す():
-    """image_upload_url が世帯スコープを含むキーと、そのキーを含む署名付きURLを返すことを検証する。"""
+def test_アップロードは世帯スコープのキーとサイズ上限つき署名POSTを返す():
+    """image_upload_url が世帯スコープのキーと、content-length-range 条件つきの署名POST(url/fields)を返すことを検証する。"""
+    import base64
+    import json
+
     svc = make_service("noshi-images")
     out = svc.image_upload_url("u1", "image/jpeg")
     assert out["key"].endswith(".jpg") and "households/" in out["key"]
-    assert out["key"] in out["url"] and out["url"].startswith("https://")
+    assert out["url"].startswith("https://")
+    assert out["fields"]["key"] == out["key"]
+    # ポリシーに content-length-range（サイズ上限）が含まれる（サーバ側でサイズを強制）
+    policy = json.loads(base64.b64decode(out["fields"]["policy"]))
+    assert any(isinstance(c, list) and c[0] == "content-length-range" for c in policy["conditions"])
 
 
 def test_非対応の画像形式は拒否される():
@@ -98,12 +105,14 @@ def test_API_S3未設定ならアップロードURLは501():
     assert r.status_code == 501
 
 
-def test_API_S3設定済みならアップロードURLを返す():
-    """S3 設定済みサービスを注入すると 200 で url/key を返すことを検証する。"""
+def test_API_S3設定済みならアップロードPOSTを返す():
+    """S3 設定済みサービスを注入すると 200 で url/fields/key を返すことを検証する。"""
     app = create_app(service=make_service("noshi-images"))
     c = TestClient(app)
     r = c.post(
         "/api/images/upload-url", headers={"X-User-Id": "u1"}, json={"content_type": "image/jpeg"}
     )
     assert r.status_code == 200
-    assert r.json()["key"] in r.json()["url"]
+    body = r.json()
+    assert body["url"].startswith("https://")
+    assert body["fields"]["key"] == body["key"]

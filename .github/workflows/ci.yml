@@ -106,7 +106,7 @@ jobs:
         run: >
           npx cdk deploy
           NoshiDataStack NoshiAuthStack NoshiMessagingStack NoshiApiStack NoshiWorkerStack
-          --require-approval never --context enforceAuth=true
+          --require-approval never
           --outputs-file cdk-outputs.json
       - name: build frontend (point at deployed API + Cognito)
         working-directory: frontend

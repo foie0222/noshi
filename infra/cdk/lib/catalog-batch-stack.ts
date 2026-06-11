@@ -32,7 +32,11 @@ export class CatalogBatchStack extends Stack {
     fn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:InvokeModel"],
-        resources: ["*"], // クロスリージョン推論プロファイル（jp.）のため * 指定
+        // クロスリージョン推論プロファイル（jp.）は inference-profile/* でカバー（api-stack と同一パターン）
+        resources: [
+          "arn:aws:bedrock:*::foundation-model/*",
+          `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
+        ],
       }),
     );
     fn.addToRolePolicy(

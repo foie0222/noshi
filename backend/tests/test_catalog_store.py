@@ -7,16 +7,29 @@ from app.catalog.store import CatalogStore
 NOW = datetime(2026, 6, 11, 0, 0, tzinfo=UTC)
 
 
+class _CondFailed(Exception):
+    pass
+
+
+class _FakeExceptions:
+    ConditionalCheckFailedException = _CondFailed
+
+
 class FakeDdb:
-    def __init__(self, query_items=None):
+    exceptions = _FakeExceptions()
+
+    def __init__(self, query_items=None, lock_held=False):
         self.transacts: list[dict] = []
         self.puts: list[dict] = []
         self.query_items = query_items or []
+        self.lock_held = lock_held
 
     def transact_write_items(self, TransactItems):
         self.transacts.append(TransactItems)
 
     def put_item(self, **kw):
+        if "ConditionExpression" in kw and self.lock_held:
+            raise _CondFailed()
         self.puts.append(kw)
 
     def query(self, **kw):
@@ -110,3 +123,19 @@ def test_空リストでもDelete10件で全スロットを消す():
     assert all("Delete" in o for o in ops)
     assert ops[0]["Delete"]["Key"]["SK"]["S"] == "RANK#01"
     assert ops[-1]["Delete"]["Key"]["SK"]["S"] == "RANK#10"
+
+
+def test_ジョブロックは取得できるとTrueを返す():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="catalog", client=ddb)
+    assert store.acquire_job_lock(NOW) is True
+    item = ddb.puts[0]["Item"]
+    assert item["PK"]["S"] == "JOBLOCK"
+    assert int(item["expiresAt"]["N"]) == int(NOW.timestamp()) + 3600
+
+
+def test_ジョブロックが先行ジョブに取られていればFalse():
+    ddb = FakeDdb(lock_held=True)
+    store = CatalogStore(table_name="catalog", client=ddb)
+    assert store.acquire_job_lock(NOW) is False
+    assert ddb.puts == []  # 書き込まれない

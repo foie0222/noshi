@@ -165,6 +165,11 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     from app.catalog.store import CatalogStore
 
     now = datetime.now(UTC)
+    store = CatalogStore()
+    if not store.acquire_job_lock(now):
+        # 二重実行ガード（スペック§7）。先行ジョブのロックが生きている間はスキップ
+        logger.warning("job lock is held by another run; skipping")
+        return {"buckets_failed": 0, "llm_fallback": 0, "skipped": 1}
     remaining_ms = context.get_remaining_time_in_millis() if context else 15 * 60 * 1000
     deadline = now + timedelta(milliseconds=remaining_ms)
     ssm = boto3.client("ssm")
@@ -173,7 +178,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
         affiliate_id=_ssm(ssm, "/noshi/rakuten/affiliate-id"),
         access_key=_ssm(ssm, "/noshi/rakuten/access-key"),
     )
-    return run_job(rakuten, BedrockCurator(), CatalogStore(), now=now, deadline=deadline)
+    return run_job(rakuten, BedrockCurator(), store, now=now, deadline=deadline)
 
 
 def _ssm(client: Any, name: str) -> str:

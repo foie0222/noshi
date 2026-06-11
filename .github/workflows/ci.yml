@@ -115,9 +115,9 @@ jobs:
           API=$(node -p "require('../infra/cdk/cdk-outputs.json').NoshiApiStack.ApiUrl")
           CLIENT=$(node -p "require('../infra/cdk/cdk-outputs.json').NoshiAuthStack.UserPoolClientId")
           VITE_API_BASE="$API" VITE_COGNITO_CLIENT_ID="$CLIENT" VITE_AWS_REGION=ap-northeast-1 npm run build
-      - name: deploy frontend (ACM us-east-1 + S3 + CloudFront + Route53)
+      - name: deploy frontend (ACM us-east-1 + S3 + CloudFront + Route53) ＋ メール転送(us-east-1)
         working-directory: infra/cdk
-        run: npx cdk deploy NoshiCertificateStack NoshiFrontendStack --require-approval never --outputs-file cdk-outputs-frontend.json
+        run: npx cdk deploy NoshiCertificateStack NoshiMailStack NoshiFrontendStack --require-approval never --outputs-file cdk-outputs-frontend.json
       - name: print site url
         working-directory: infra/cdk
         run: |

@@ -123,6 +123,7 @@ export interface Suggestion {
   item_code?: string;
   bucket?: string;
   position?: number;
+  rel_group?: string; // 配信時の続柄グループ（クリック計測で echo する）
 }
 
 export interface CaptureCandidates {

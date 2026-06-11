@@ -119,7 +119,12 @@ export const api = {
       method: "POST",
       keepalive: true,
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ item_code: s.item_code, bucket: s.bucket, position: s.position }),
+      body: JSON.stringify({
+        item_code: s.item_code,
+        bucket: s.bucket,
+        position: s.position,
+        rel_group: s.rel_group ?? "",
+      }),
     }).catch(() => {});
   },
   setStatus: (eventId: string, status: string) =>

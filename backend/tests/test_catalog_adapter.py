@@ -37,7 +37,7 @@ class FakeStore:
     def read_bucket(self, slug, band, now):
         return self.buckets.get((slug, band), [])
 
-    def put_click(self, item_code, bucket, position, now):
+    def put_click(self, item_code, bucket, position, rel_group, now):
         self.clicks.append((item_code, bucket, position))
 
 

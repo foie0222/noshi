@@ -54,33 +54,34 @@ class CatalogStore:
         expires = str(int((now + _ITEM_TTL).timestamp()))
         ops: list[dict[str, Any]] = []
         for i, item in enumerate(items[:_SLOTS], start=1):
-            ops.append(
-                {
-                    "Put": {
-                        "TableName": self.table_name,
-                        "Item": {
-                            "PK": {"S": pk},
-                            "SK": {"S": f"RANK#{i:02d}"},
-                            "itemCode": {"S": item["item_code"]},
-                            "title": {"S": item["title"]},
-                            "price": {"N": str(item["price"])},
-                            "priceFetchedAt": {"S": now.isoformat()},
-                            "imageUrl": {"S": item.get("image_url", "")},
-                            "shopName": {"S": item.get("shop_name", "")},
-                            "affiliateUrl": {"S": item["affiliate_url"]},
-                            "llmReason": {"S": item.get("reason", "")},
-                            "saleNote": {"S": item.get("sale", "")},
-                            "saleEndsAt": {"S": item.get("point_end", "")},
-                            "rating": {"N": str(item.get("rating", 0))},
-                            "reviewCount": {"N": str(item.get("review_count", 0))},
-                            "linearScore": {"N": str(round(item.get("linear_score", 0.0), 6))},
-                            "llmScore": {"N": str(item.get("llm_score", 0))},
-                            "jobRunId": {"S": job_run_id},
-                            "expiresAt": {"N": expires},
-                        },
-                    }
-                }
-            )
+            ddb_item: dict[str, Any] = {
+                "PK": {"S": pk},
+                "SK": {"S": f"RANK#{i:02d}"},
+                "itemCode": {"S": item["item_code"]},
+                "title": {"S": item["title"]},
+                "price": {"N": str(item["price"])},
+                "priceFetchedAt": {"S": now.isoformat()},
+                "imageUrl": {"S": item.get("image_url", "")},
+                "shopName": {"S": item.get("shop_name", "")},
+                "affiliateUrl": {"S": item["affiliate_url"]},
+                "llmReason": {"S": item.get("reason", "")},
+                "saleNote": {"S": item.get("sale", "")},
+                "saleEndsAt": {"S": item.get("point_end", "")},
+                "rating": {"N": str(item.get("rating", 0))},
+                "reviewCount": {"N": str(item.get("review_count", 0))},
+                "linearScore": {"N": str(round(item.get("linear_score", 0.0), 6))},
+                "llmScore": {"N": str(item.get("llm_score", 0))},
+                "jobRunId": {"S": job_run_id},
+                "expiresAt": {"N": expires},
+            }
+            # fit がある場合のみ4属性を書く。線形フォールバック品には書かない（スペック§4）
+            fit = item.get("fit")
+            if isinstance(fit, dict):
+                ddb_item["fitFamily"] = {"N": str(int(fit.get("family", 0)))}
+                ddb_item["fitFriend"] = {"N": str(int(fit.get("friend", 0)))}
+                ddb_item["fitWork"] = {"N": str(int(fit.get("work", 0)))}
+                ddb_item["fitOther"] = {"N": str(int(fit.get("other", 0)))}
+            ops.append({"Put": {"TableName": self.table_name, "Item": ddb_item}})
         for i in range(len(items[:_SLOTS]) + 1, _SLOTS + 1):
             ops.append(
                 {
@@ -134,19 +135,21 @@ class CatalogStore:
 
     # --- クリック計測 ---
 
-    def put_click(self, item_code: str, bucket: str, position: int, now: datetime) -> None:
-        """クリックを記録（PIIなし・user_id は持たない）。"""
-        self._client.put_item(
-            TableName=self.table_name,
-            Item={
-                "PK": {"S": f"CLICK#{now.date().isoformat()}"},
-                "SK": {"S": f"{now.isoformat()}#{uuid.uuid4().hex[:8]}"},
-                "itemCode": {"S": item_code},
-                "bucket": {"S": bucket},
-                "position": {"N": str(int(position))},
-                "expiresAt": {"N": str(int((now + _CLICK_TTL).timestamp()))},
-            },
-        )
+    def put_click(
+        self, item_code: str, bucket: str, position: int, rel_group: str, now: datetime
+    ) -> None:
+        """クリックを記録（PIIなし・user_id は持たない）。rel_group は空なら書かない。"""
+        click_item: dict[str, Any] = {
+            "PK": {"S": f"CLICK#{now.date().isoformat()}"},
+            "SK": {"S": f"{now.isoformat()}#{uuid.uuid4().hex[:8]}"},
+            "itemCode": {"S": item_code},
+            "bucket": {"S": bucket},
+            "position": {"N": str(int(position))},
+            "expiresAt": {"N": str(int((now + _CLICK_TTL).timestamp()))},
+        }
+        if rel_group:
+            click_item["relGroup"] = {"S": rel_group}
+        self._client.put_item(TableName=self.table_name, Item=click_item)
         self._emit_click_metric()
 
     def _emit_click_metric(self) -> None:
@@ -174,12 +177,26 @@ class CatalogStore:
 
     @staticmethod
     def _from_ddb(item: dict[str, Any]) -> dict[str, Any]:
-        # linearScore/llmScore/jobRunId はデバッグ用属性のため配信レスポンスに含めない
+        # linearScore/jobRunId はデバッグ用属性のため配信レスポンスに含めない（llmScore は fit の補完にのみ使用）
         def s(k: str) -> str:
             return str(item.get(k, {}).get("S", ""))
 
         def n(k: str) -> float:
             return float(item.get(k, {}).get("N", "0"))
+
+        # fit: 4属性が揃っていれば採用、1つでも欠けていれば llmScore で全補完
+        # （旧データ・線形フォールバック品は並べ替え中立になる。スペック§4）
+        fit_attrs = ("fitFamily", "fitFriend", "fitWork", "fitOther")
+        if all(k in item for k in fit_attrs):
+            fit: dict[str, int] = {
+                "family": int(n("fitFamily")),
+                "friend": int(n("fitFriend")),
+                "work": int(n("fitWork")),
+                "other": int(n("fitOther")),
+            }
+        else:
+            neutral = int(n("llmScore"))
+            fit = {"family": neutral, "friend": neutral, "work": neutral, "other": neutral}
 
         return {
             "item_code": s("itemCode"),
@@ -196,4 +213,5 @@ class CatalogStore:
             "review_count": int(n("reviewCount")),
             "bucket": s("PK"),
             "rank": s("SK"),
+            "fit": fit,
         }

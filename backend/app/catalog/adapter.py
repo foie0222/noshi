@@ -51,7 +51,7 @@ class DynamoCatalogAdapter:
 
     def log_click(self, item_code: str, bucket: str, position: int) -> None:
         """クリック計測（ストアに委譲）。"""
-        self.store.put_click(item_code, bucket, position, self._now())
+        self.store.put_click(item_code, bucket, position, "", self._now())
 
     def _to_suggestion(
         self, row: dict[str, Any], position: int, band: str, now: datetime

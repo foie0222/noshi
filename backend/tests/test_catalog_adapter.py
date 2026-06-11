@@ -103,6 +103,17 @@ def test_3件未満なら隣接帯から下側優先で補完する():
     assert [s["item_code"] for s in out] == ["shop:1", "shop:2", "shop:3"]
 
 
+def test_隣接帯補完で同一商品は重複しない():
+    a = _adapter(
+        {
+            ("baby", "5000-9999"): [_row("shop:1")],
+            ("baby", "3000-4999"): [_row("shop:1"), _row("shop:2")],
+        }
+    )
+    out = a.suggest(7000, "友人", "出産祝い")
+    assert [s["item_code"] for s in out] == ["shop:1", "shop:2"]
+
+
 def test_3件以上あれば補完しない():
     rows = [_row(f"shop:{i}") for i in range(3)]
     a = _adapter({("baby", "5000-9999"): rows, ("baby", "3000-4999"): [_row("shop:9")]})

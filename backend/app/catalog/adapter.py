@@ -35,8 +35,12 @@ class DynamoCatalogAdapter:
         band = band_of(budget)
         rows = self.store.read_bucket(slug, band, now)
         if len(rows) < _MIN_ITEMS:  # 隣接帯補完（下側優先・±1のみ。スペック§9）
+            seen = {r["item_code"] for r in rows}  # 自バケツ優先（先勝ち）で重複排除
             for nb in band_neighbors(band):
-                rows.extend(self.store.read_bucket(slug, nb, now))
+                for r in self.store.read_bucket(slug, nb, now):
+                    if r["item_code"] not in seen:
+                        seen.add(r["item_code"])
+                        rows.append(r)
         rows = rows[:_MAX_ITEMS]
         if not rows:
             return list(self.fallback.suggest(budget, relationship, purpose))

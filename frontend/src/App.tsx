@@ -425,8 +425,8 @@ export function App() {
     setUploading(true);
     try {
       const blob = await downscaleImage(dataUrl);
-      const { url, key } = await api.imageUploadUrl("image/jpeg");
-      await uploadToS3(url, blob, "image/jpeg");
+      const { url, fields, key } = await api.imageUploadUrl("image/jpeg");
+      await uploadToS3(url, fields, blob);
       return { key, failed: false };
     } catch {
       return { key: "", failed: true };

@@ -73,7 +73,7 @@ export class FrontendStack extends Stack {
       "script-src 'self'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com",
+      "img-src 'self' data: blob: https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com https://thumbnail.image.rakuten.co.jp",
       "connect-src 'self' https://cognito-idp.ap-northeast-1.amazonaws.com https://*.execute-api.ap-northeast-1.amazonaws.com https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com",
       "object-src 'none'",
       "base-uri 'self'",

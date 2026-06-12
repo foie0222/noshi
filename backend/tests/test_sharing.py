@@ -153,3 +153,21 @@ def test_家族が残るアカウント削除は世帯データを保持しowner
     assert svc.repo.get_membership("u1") is None
     assert len(svc.list_records("u2")) == 1
     assert svc.repo.get_membership("u2").role == "owner"
+
+
+def test_email無しで作られたメンバーのemailが後から補完される():
+    """データAPI経由（email無し）で世帯が自動作成された後、email付きのアクセスで
+    membership に email が補完され、メンバー一覧に表示されることを検証する（#167）。"""
+    svc = make()
+    svc.resolve_household("u1")  # _scope() 相当: email 不明のまま世帯作成
+    assert svc.household_members("u1")[0]["email"] == ""
+    svc.resolve_household("u1", email="taro@example.jp")  # /api/household 相当
+    assert svc.household_members("u1")[0]["email"] == "taro@example.jp"
+
+
+def test_emailが変わったら追従する():
+    """登録済み email と異なる email でアクセスしたとき、最新の email に更新されることを検証する（#167）。"""
+    svc = make()
+    svc.resolve_household("u1", email="old@example.jp")
+    svc.resolve_household("u1", email="new@example.jp")
+    assert svc.household_members("u1")[0]["email"] == "new@example.jp"

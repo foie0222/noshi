@@ -79,6 +79,12 @@ class NoshiService:
         if m is not None:
             h = self.repo.get_household(m.household_id)
             if h is not None:
+                # email を自己修復する（#167）: _scope() 経由の初回アクセスで世帯が
+                # 作られると email="" のまま保存され、メンバー一覧で「ご家族のメンバー」
+                # としか表示できない。email が判明している呼び出しで補完・追従する。
+                if email and m.email != email:
+                    m.email = email
+                    self.repo.put_membership(m)
                 return h
         h = Household()
         self.repo.put_household(h)

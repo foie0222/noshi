@@ -28,7 +28,8 @@ export function Logo({
       style={{
         width: sealSize,
         height: sealSize,
-        borderRadius: "var(--radius-round)",
+        // 印の形は favicon と同じ角丸比率（22%）。デザインシステム Logo に合わせる（#163）
+        borderRadius: Math.round(sealSize * 0.22),
         background: "var(--color-accent)",
         color: "#fff",
         display: "inline-flex",
@@ -37,10 +38,12 @@ export function Logo({
         fontFamily: "var(--font-display)",
         fontWeight: "var(--fw-heavy)",
         fontSize: sealSize * 0.55,
+        lineHeight: 1, // 継承の行高だと「の」が下にズレる（#163）
         flex: "none",
       }}
     >
-      の
+      {/* 明朝の「の」は字面が下寄りなので、視覚的中心に少し持ち上げる（デザインシステム準拠） */}
+      <span style={{ display: "block", transform: "translateY(-0.03em)" }}>の</span>
     </span>
   );
 

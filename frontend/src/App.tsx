@@ -103,6 +103,8 @@ export function App() {
     pickInitialScreen(authEnabled(), isLoggedIn()),
   );
   const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(null);
+  const [legalBack, setLegalBack] = useState<Screen>("mypage"); // 法的文書からの戻り先（ログイン前は login）
+  const [agreedTerms, setAgreedTerms] = useState<boolean>(false); // 規約・ポリシーへの同意（#152）
   const [toast, setToast] = useState<string>("");
   const [home, setHome] = useState<HomeResponse | null>(null);
   const [ledger, setLedger] = useState<LedgerResponse | null>(null);
@@ -167,6 +169,7 @@ export function App() {
   const go = (s: Screen) => setScreen(s);
   function openLegal(k: LegalDocKey) {
     setLegalDoc(k);
+    setLegalBack(screen); // ログイン画面（サインアップの同意リンク）からも開けるように戻り先を記録
     go("legal");
   }
   // 401（トークン切れ等）はログイン画面へ戻す。それ以外はトースト表示。
@@ -885,10 +888,37 @@ export function App() {
 
               {authMode === "signup" && (
                 <>
+                  <div className="agree-row">
+                    <input
+                      id="agree-terms"
+                      type="checkbox"
+                      aria-label="利用規約とプライバシーポリシーに同意する"
+                      checked={agreedTerms}
+                      onChange={(e) => setAgreedTerms(e.target.checked)}
+                    />
+                    <span className="agree-text">
+                      <button
+                        type="button"
+                        className="text-link"
+                        onClick={() => openLegal("terms")}
+                      >
+                        利用規約
+                      </button>
+                      ・
+                      <button
+                        type="button"
+                        className="text-link"
+                        onClick={() => openLegal("privacy")}
+                      >
+                        プライバシーポリシー
+                      </button>
+                      に同意します
+                    </span>
+                  </div>
                   <button
                     type="button"
                     className="btn primary"
-                    disabled={authBusy}
+                    disabled={authBusy || !agreedTerms}
                     onClick={doSignUp}
                   >
                     {authBusy ? "送信中…" : "登録（確認コードを送る）"}
@@ -2070,7 +2100,7 @@ export function App() {
 
       {screen === "legal" && legalDoc && (
         <>
-          <Bar title={LEGAL_DOCS[legalDoc].title} back="mypage" />
+          <Bar title={LEGAL_DOCS[legalDoc].title} back={legalBack} />
           <LegalView docKey={legalDoc} />
         </>
       )}

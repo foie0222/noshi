@@ -121,10 +121,14 @@ export class AuthStack extends Stack {
       timeout: Duration.seconds(10),
       memorySize: 256,
     });
+    // 権限の resources に userPool.userPoolArn（トークン参照）を使うと、
+    // UserPool→トリガLambda→IAMロール→UserPoolArn の循環参照になる（CFN がデプロイを拒否）。
+    // 文字列構築 ARN で参照を断つ。アクションは2つに限定、対象は当アカウント・リージョンの
+    // user pool（pool は1つのみ）。
     presignupFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["cognito-idp:ListUsers", "cognito-idp:AdminLinkProviderForUser"],
-        resources: [this.userPool.userPoolArn],
+        resources: [`arn:aws:cognito-idp:${this.region}:${this.account}:userpool/*`],
       }),
     );
     this.userPool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, presignupFn);

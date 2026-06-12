@@ -11,11 +11,11 @@ const STATUS_LABELS: Record<string, string> = {
 // 既に付いている敬称（重ねない）。法人の「御中」も対象（#49）。
 const _HONORIFIC = /(様|さん|くん|君|ちゃん|殿|御中)$/;
 
-/** 名前に「様」を付ける。既に敬称が付く・空文字なら二重付与しない（#49）。 */
+/** 名前に「さん」を付ける。既に敬称が付く・空文字なら二重付与しない（#49, #165）。 */
 export function withHonor(name: string): string {
   const n = (name || "").trim();
   if (!n) return "";
-  return _HONORIFIC.test(n) ? n : `${n} 様`;
+  return _HONORIFIC.test(n) ? n : `${n} さん`;
 }
 
 export function statusLabel(status: string): string {

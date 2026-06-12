@@ -1428,7 +1428,7 @@ export function App() {
                   }}
                 >
                   <span className={`dirpill dir-${r.direction}`}>
-                    {r.direction === "received" ? "受領" : "贈与"}
+                    {r.direction === "received" ? "もらった" : "あげた"}
                   </span>
                   <div style={{ flex: 1 }}>
                     <b>{r.party_name}</b>
@@ -1573,7 +1573,7 @@ export function App() {
                     )}
                     <div className="between">
                       <span className="muted">種類</span>
-                      <span>{event.direction === "received" ? "受領" : "贈与"}</span>
+                      <span>{event.direction === "received" ? "もらった" : "あげた"}</span>
                     </div>
                     <div className="between">
                       <span className="muted">

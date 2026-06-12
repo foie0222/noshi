@@ -57,9 +57,9 @@ export class AuthStack extends Stack {
       // email は mutable:true 必須。false だと Google 等の外部 IdP がユーザー作成時に
       // email を書き込めず "user.email: Attribute cannot be updated" で失敗する。
       standardAttributes: { email: { required: true, mutable: true } },
-      // 外部 IdP の email_verified を取り込むためのカスタム属性（Pre-signup トリガの
-      // 乗っ取りガードに使う。標準 email_verified は IdP からマップできないため custom 経由）。
-      customAttributes: { email_verified: new cognito.StringAttribute({ mutable: true }) },
+      // email_verified は標準属性がそのまま IdP マッピングの書き込み先になる。
+      // 同名の customAttributes を定義すると標準属性と衝突し CreateUserPool が
+      // 400（You can not change AttributeDataType ... email_verified）で失敗する。
       // 認証メールを noshi.me から SES 送信する（迷惑メール対策・#90）。
       email: cognito.UserPoolEmail.withSES({
         fromEmail: `no-reply@${props.domainName}`,

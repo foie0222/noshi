@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { daysLeftLabel, diffLabel, statusLabel, summarize, withHonor, yen } from "./format";
 
 describe("敬称の付与（#49: 二重付与を防ぐ）", () => {
-  it("通常の名前には「様」を付けることを検証する", () => {
-    expect(withHonor("田中")).toBe("田中 様");
+  it("通常の名前には「さん」を付けることを検証する（#165）", () => {
+    expect(withHonor("田中")).toBe("田中 さん");
   });
   it("既に敬称（様/さん/殿/御中/くん/ちゃん）が付く名前には重ねないことを検証する", () => {
     expect(withHonor("山本 様")).toBe("山本 様");

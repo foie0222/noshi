@@ -65,16 +65,18 @@ export class FrontendStack extends Stack {
       : undefined;
 
     // セキュリティヘッダ（#99）。CSP はアプリが使うオリジンのみ許可する:
-    // - connect: API Gateway / Cognito IDP / S3(presigned)
+    // - connect: API Gateway / Cognito IDP / Cognito Hosted UI(トークン交換) / S3(presigned)
     // - style/font: Google Fonts、img: data/blob/S3
     // React のインラインスタイルのため style-src は unsafe-inline を許可する。
+    // Hosted UI ドメインはワイルドカードにしない（*.auth... は他者のプールも含むため）。
+    // prefix を変えたら auth-stack.ts の domainPrefix と合わせてここも更新する。
     const csp = [
       "default-src 'self'",
       "script-src 'self'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com https://thumbnail.image.rakuten.co.jp",
-      "connect-src 'self' https://cognito-idp.ap-northeast-1.amazonaws.com https://*.execute-api.ap-northeast-1.amazonaws.com https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com",
+      "connect-src 'self' https://cognito-idp.ap-northeast-1.amazonaws.com https://noshi-me.auth.ap-northeast-1.amazoncognito.com https://*.execute-api.ap-northeast-1.amazonaws.com https://*.s3.ap-northeast-1.amazonaws.com https://*.s3.amazonaws.com",
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'none'",

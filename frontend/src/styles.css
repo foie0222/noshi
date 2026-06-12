@@ -191,6 +191,9 @@ body {
   color: #3c4043;
   border-color: var(--border-default);
 }
+.btn.social-google:active {
+  background: #f8f8f8;
+}
 .btn.social-line {
   background: #06c755; /* LINE ブランドカラー（規定値） */
   color: #fff;

@@ -7,9 +7,22 @@ const REGION = import.meta.env.VITE_AWS_REGION ?? "ap-northeast-1";
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? "";
 const ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
 const TOKEN_KEY = "noshi-id-token";
+const DOMAIN = (import.meta.env.VITE_COGNITO_DOMAIN ?? "").replace(/\/$/, "");
+// sessionStorage キー（スペック§5で確定）
+const VERIFIER_KEY = "noshi_pkce_verifier";
+const STATE_KEY = "noshi_oauth_state";
+const PROVIDER_KEY = "noshi_oauth_provider";
+const RETRY_KEY = "noshi_oauth_retry";
+
+export type SocialProvider = "Google" | "LINE";
 
 export function authEnabled(): boolean {
   return CLIENT_ID.length > 0;
+}
+
+/** ソーシャルログインが使えるか（Cognito ドメイン未注入のローカルではボタン非表示）。 */
+export function socialEnabled(): boolean {
+  return authEnabled() && DOMAIN.length > 0;
 }
 export function getIdToken(): string {
   return localStorage.getItem(TOKEN_KEY) || "";
@@ -110,4 +123,147 @@ export async function signIn(email: string, password: string): Promise<void> {
   const idToken = data?.AuthenticationResult?.IdToken;
   if (!idToken) throw new Error("ログインに失敗しました。");
   localStorage.setItem(TOKEN_KEY, idToken);
+}
+
+// ---- ソーシャルログイン（認可コード + PKCE・依存ゼロ）。スペック§5 ----
+
+/** バイト列を base64url（パディングなし）に。 */
+export function b64url(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/** PKCE の verifier と challenge（S256）を生成する。 */
+export async function pkcePair(): Promise<{ verifier: string; challenge: string }> {
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return { verifier, challenge: b64url(new Uint8Array(digest)) };
+}
+
+export function buildAuthorizeUrl(p: {
+  domain: string;
+  clientId: string;
+  provider: SocialProvider;
+  redirectUri: string;
+  state: string;
+  challenge: string;
+}): string {
+  const q = new URLSearchParams({
+    identity_provider: p.provider,
+    response_type: "code",
+    client_id: p.clientId,
+    redirect_uri: p.redirectUri,
+    scope: "openid email profile",
+    state: p.state,
+    code_challenge: p.challenge,
+    code_challenge_method: "S256",
+  });
+  return `${p.domain}/oauth2/authorize?${q.toString()}`;
+}
+
+/** Google/LINE の認証画面へリダイレクトする（Hosted UI はスキップ）。 */
+export async function socialSignIn(provider: SocialProvider): Promise<void> {
+  const { verifier, challenge } = await pkcePair();
+  const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+  sessionStorage.setItem(VERIFIER_KEY, verifier);
+  sessionStorage.setItem(STATE_KEY, state);
+  sessionStorage.setItem(PROVIDER_KEY, provider);
+  location.href = buildAuthorizeUrl({
+    domain: DOMAIN,
+    clientId: CLIENT_ID,
+    provider,
+    redirectUri: `${location.origin}/`,
+    state,
+    challenge,
+  });
+}
+
+export type CallbackResult = "ok" | "retry" | "error" | "none";
+
+type CallbackClass =
+  | { kind: "none" }
+  | { kind: "retry"; provider: SocialProvider }
+  | { kind: "token"; code: string }
+  | { kind: "error" };
+
+/** コールバック URL の分岐判定（純関数・テスト対象）。 */
+export function classifyCallback(
+  params: URLSearchParams,
+  stored: { state: string | null; provider: SocialProvider | null; retried: boolean },
+): CallbackClass {
+  const code = params.get("code");
+  const error = params.get("error");
+  if (!code && !error) return { kind: "none" };
+  if (error) {
+    const desc = params.get("error_description") ?? "";
+    // Pre-signup の自動統合直後だけ1回リトライ（スペック§4/§5）。provider は保存値のみ信用
+    if (desc.includes("ALREADY_LINKED_RETRY") && !stored.retried && stored.provider) {
+      return { kind: "retry", provider: stored.provider };
+    }
+    return { kind: "error" };
+  }
+  const state = params.get("state");
+  if (!state || !stored.state || state !== stored.state) return { kind: "error" }; // CSRF対策
+  return { kind: "token", code: code as string };
+}
+
+/** アプリ起動時に1回呼ぶ。URL の code/error を処理して結果を返す（スペック§5）。 */
+export async function handleAuthCallback(): Promise<CallbackResult> {
+  const params = new URLSearchParams(location.search);
+  const cls = classifyCallback(params, {
+    state: sessionStorage.getItem(STATE_KEY),
+    provider: sessionStorage.getItem(PROVIDER_KEY) as SocialProvider | null,
+    retried: sessionStorage.getItem(RETRY_KEY) === "1",
+  });
+  if (cls.kind === "none") return "none";
+
+  const stripUrl = () => history.replaceState(null, "", location.pathname);
+  const cleanup = () => {
+    for (const k of [VERIFIER_KEY, STATE_KEY, PROVIDER_KEY, RETRY_KEY])
+      sessionStorage.removeItem(k);
+    stripUrl();
+  };
+
+  if (cls.kind === "retry") {
+    sessionStorage.setItem(RETRY_KEY, "1");
+    stripUrl();
+    await socialSignIn(cls.provider); // 新しい verifier/state で再認可（RETRY_KEY は残す）
+    return "retry";
+  }
+  if (cls.kind === "error") {
+    cleanup();
+    return "error";
+  }
+
+  const verifier = sessionStorage.getItem(VERIFIER_KEY) ?? "";
+  if (!verifier) {
+    cleanup();
+    return "error";
+  }
+  try {
+    const res = await fetch(`${DOMAIN}/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: CLIENT_ID,
+        code: cls.code,
+        redirect_uri: `${location.origin}/`,
+        code_verifier: verifier, // PKCE: verifier 無しの交換経路は作らない（スペック§3）
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { id_token?: string };
+    if (!res.ok || !data.id_token) {
+      cleanup();
+      return "error";
+    }
+    localStorage.setItem(TOKEN_KEY, data.id_token);
+    cleanup();
+    return "ok";
+  } catch {
+    cleanup();
+    return "error";
+  }
 }

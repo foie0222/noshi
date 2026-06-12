@@ -155,8 +155,9 @@ sessionStorage キー（確定）: `noshi_pkce_verifier` / `noshi_oauth_state` /
     `history.replaceState` で URL から code/state/error/error_description を除去。
     これによりリロード時の code 再利用と無限リトライを防ぐ
 - 環境変数: `VITE_COGNITO_DOMAIN` を追加（ci.yml が cdk-outputs.json の
-  `NoshiAuthStack.CognitoDomain` から注入）。`authEnabled()` は CLIENT_ID と DOMAIN の
-  両方が非空のとき true（未注入のローカルではソーシャルボタン非表示）
+  `NoshiAuthStack.CognitoDomain` から注入）。新設の `socialEnabled()` が CLIENT_ID と DOMAIN の
+  両方が非空のとき true（authEnabled は従来どおり CLIENT_ID のみ。メール+パスワードは
+  domain 未注入環境でも使える。未注入のローカルではソーシャルボタン非表示）
 
 ### App.tsx の処理対応（戻り値ごと）
 
@@ -176,7 +177,7 @@ sessionStorage キー（確定）: `noshi_pkce_verifier` / `noshi_oauth_state` /
 
 | 障害 | 挙動 / 文面 |
 |---|---|
-| state 不一致（CSRF の疑い） | token 交換せずログイン画面＋「セッションが無効になりました。もう一度お試しください。」 |
+| state 不一致（CSRF の疑い） | token 交換せずログイン画面＋「ログインに失敗しました。もう一度お試しください。」（classifyCallback はエラー理由を区別せず "error" を返すため文言は1種類） |
 | トークン交換失敗（4xx/5xx/ネットワーク） | ログイン画面＋「ログインに失敗しました。もう一度お試しください。」（cognitoErrorMessage に追記） |
 | リンク直後の ALREADY_LINKED_RETRY | 自動リトライ1回（フラグ）。再失敗は通常エラー表示 |
 | LINE がメール未提供（権限未申請・ユーザー拒否） | 「LINEログインにはメールアドレスの許可が必要です。」 |

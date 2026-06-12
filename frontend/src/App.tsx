@@ -1179,12 +1179,14 @@ export function App() {
               </>
             )}
           </label>
+          {/* capture 属性は付けない: 付けるとスマホでカメラ直起動になり、
+              ギャラリー/ファイルからの選択ができなくなる。無しなら OS の
+              選択シート（カメラ/ライブラリ/ファイル）が出て撮影も可能。 */}
           <input
             id="noshi-camera"
             className="visually-hidden"
             type="file"
             accept="image/*"
-            capture="environment"
             onChange={(e) => onPickImage(e.target.files?.[0] ?? null)}
           />
 

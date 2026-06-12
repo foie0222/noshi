@@ -8,7 +8,8 @@ const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? "";
 const ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
 const TOKEN_KEY = "noshi-id-token";
 const DOMAIN = (import.meta.env.VITE_COGNITO_DOMAIN ?? "").replace(/\/$/, "");
-// sessionStorage キー（スペック§5で確定）
+// 一時保存キー。iOS Safari はクロスサイトのログイン往復で sessionStorage を保持しない
+// ことがあるため localStorage を使い、callback 処理後（cleanup）に確実に削除する。
 const VERIFIER_KEY = "noshi_pkce_verifier";
 const STATE_KEY = "noshi_oauth_state";
 const PROVIDER_KEY = "noshi_oauth_provider";
@@ -168,9 +169,9 @@ export function buildAuthorizeUrl(p: {
 export async function socialSignIn(provider: SocialProvider): Promise<void> {
   const { verifier, challenge } = await pkcePair();
   const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
-  sessionStorage.setItem(VERIFIER_KEY, verifier);
-  sessionStorage.setItem(STATE_KEY, state);
-  sessionStorage.setItem(PROVIDER_KEY, provider);
+  localStorage.setItem(VERIFIER_KEY, verifier);
+  localStorage.setItem(STATE_KEY, state);
+  localStorage.setItem(PROVIDER_KEY, provider);
   location.href = buildAuthorizeUrl({
     domain: DOMAIN,
     clientId: CLIENT_ID,
@@ -218,12 +219,12 @@ let callbackHandled = false;
 /** アプリ起動時に1回呼ぶ。URL の code/error を処理して結果を返す（スペック§5）。 */
 export async function handleAuthCallback(): Promise<CallbackResult> {
   const params = new URLSearchParams(location.search);
-  const v = sessionStorage.getItem(PROVIDER_KEY);
+  const v = localStorage.getItem(PROVIDER_KEY);
   const sp = v === "Google" || v === "LINE" ? v : null;
   const cls = classifyCallback(params, {
-    state: sessionStorage.getItem(STATE_KEY),
+    state: localStorage.getItem(STATE_KEY),
     provider: sp,
-    retried: sessionStorage.getItem(RETRY_KEY) === "1",
+    retried: localStorage.getItem(RETRY_KEY) === "1",
   });
   if (cls.kind === "none") return "none";
   if (callbackHandled) return "none"; // StrictMode の二重実行・再入を防ぐ
@@ -231,13 +232,12 @@ export async function handleAuthCallback(): Promise<CallbackResult> {
 
   const stripUrl = () => history.replaceState(null, "", location.pathname);
   const cleanup = () => {
-    for (const k of [VERIFIER_KEY, STATE_KEY, PROVIDER_KEY, RETRY_KEY])
-      sessionStorage.removeItem(k);
+    for (const k of [VERIFIER_KEY, STATE_KEY, PROVIDER_KEY, RETRY_KEY]) localStorage.removeItem(k);
     stripUrl();
   };
 
   if (cls.kind === "retry") {
-    sessionStorage.setItem(RETRY_KEY, "1");
+    localStorage.setItem(RETRY_KEY, "1");
     await socialSignIn(cls.provider); // 新しい verifier/state で再認可（RETRY_KEY は残す）
     return "retry";
   }
@@ -246,7 +246,7 @@ export async function handleAuthCallback(): Promise<CallbackResult> {
     return "error";
   }
 
-  const verifier = sessionStorage.getItem(VERIFIER_KEY) ?? "";
+  const verifier = localStorage.getItem(VERIFIER_KEY) ?? "";
   if (!verifier) {
     cleanup();
     return "error";

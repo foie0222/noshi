@@ -24,6 +24,7 @@ export function authEnabled(): boolean {
 export function socialEnabled(): boolean {
   return authEnabled() && DOMAIN.length > 0;
 }
+
 export function getIdToken(): string {
   return localStorage.getItem(TOKEN_KEY) || "";
 }
@@ -204,17 +205,20 @@ export function classifyCallback(
     }
     return { kind: "error" };
   }
+  if (!code) return { kind: "error" };
   const state = params.get("state");
   if (!state || !stored.state || state !== stored.state) return { kind: "error" }; // CSRF対策
-  return { kind: "token", code: code as string };
+  return { kind: "token", code };
 }
 
 /** アプリ起動時に1回呼ぶ。URL の code/error を処理して結果を返す（スペック§5）。 */
 export async function handleAuthCallback(): Promise<CallbackResult> {
   const params = new URLSearchParams(location.search);
+  const v = sessionStorage.getItem(PROVIDER_KEY);
+  const sp = v === "Google" || v === "LINE" ? v : null;
   const cls = classifyCallback(params, {
     state: sessionStorage.getItem(STATE_KEY),
-    provider: sessionStorage.getItem(PROVIDER_KEY) as SocialProvider | null,
+    provider: sp,
     retried: sessionStorage.getItem(RETRY_KEY) === "1",
   });
   if (cls.kind === "none") return "none";
@@ -228,7 +232,6 @@ export async function handleAuthCallback(): Promise<CallbackResult> {
 
   if (cls.kind === "retry") {
     sessionStorage.setItem(RETRY_KEY, "1");
-    stripUrl();
     await socialSignIn(cls.provider); // 新しい verifier/state で再認可（RETRY_KEY は残す）
     return "retry";
   }

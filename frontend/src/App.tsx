@@ -173,7 +173,13 @@ export function App() {
     setToast(m);
     setTimeout(() => setToast(""), 1500);
   };
-  const go = (s: Screen) => setScreen(s);
+  // 画面遷移をブラウザ履歴に積み、戻る/進むで一つ前の「画面」に戻れるようにする（#168）。
+  // 履歴には screen 名だけを積み、URL は変えない（詳細などのコンテキストはメモリ上の
+  // state が持つ。URL 直リンクは法的文書のみ＝#155 の仕様を維持）。
+  const go = (s: Screen) => {
+    if (s !== screen) window.history.pushState({ screen: s }, "", window.location.pathname);
+    setScreen(s);
+  };
   function openLegal(k: LegalDocKey) {
     setLegalDoc(k);
     setLegalBack(screen); // ログイン画面（サインアップの同意リンク）からも開けるように戻り先を記録
@@ -320,10 +326,25 @@ export function App() {
     if (authEnabled() && !isLoggedIn() && screen !== "login" && screen !== "legal") go("login");
   }, [screen]);
 
+  // ブラウザの戻る/進むで画面を復元する（#168）。go() が積んだ {screen} を読む。
+  // state が無い履歴（起動エントリや OAuth コールバック後）は初期画面の判定にフォールバック。
+  // biome-ignore lint/correctness/useExhaustiveDependencies: リスナー登録は起動時1回だけ
+  useEffect(() => {
+    // 起動時の履歴エントリにも screen を持たせ、戻ってきたときに復元できるようにする。
+    window.history.replaceState({ screen }, "", window.location.pathname);
+    const onPop = (e: PopStateEvent) => {
+      const s = (e.state as { screen?: Screen } | null)?.screen;
+      setScreen(s ?? pickInitialScreen(authEnabled(), isLoggedIn()));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   // 法的文書を開いている間は URL を同期し、閉じたら / に戻す（直リンク共有用、#155）。
+  // replaceState で {screen} を保持し、戻る/進むの復元（#168）を壊さない。
   useEffect(() => {
     const path = screen === "legal" && legalDoc ? `/${legalDoc}` : "/";
-    if (window.location.pathname !== path) window.history.replaceState(null, "", path);
+    if (window.location.pathname !== path) window.history.replaceState({ screen }, "", path);
   }, [screen, legalDoc]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: 画面遷移時のみ再取得する意図

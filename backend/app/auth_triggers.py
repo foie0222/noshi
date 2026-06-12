@@ -27,7 +27,8 @@ def presignup_handler(event: dict[str, Any], context: Any, client: Any = None) -
 
     attrs = event.get("request", {}).get("userAttributes", {})
     email = (attrs.get("email") or "").strip()
-    if not email or '"' in email:  # 空 or ListUsers フィルタに安全に渡せない値は素通し
+    # 空 or ListUsers フィルタに安全に渡せない値（" や \ を含む）は素通し
+    if not email or '"' in email or "\\" in email:
         return event
 
     # userName は "<ProviderName>_<IdP側sub>" 形式（例: Google_12345 / LINE_Uabc）
@@ -88,6 +89,7 @@ def _linkable_native_users(
     リンク条件: CONFIRMED・email_verified・native（identities 無し）。
     全ユーザーが0件かどうかで「新規メール」と「条件未達の既存メール」を区別する。
     """
+    # list_users は最大60件・ページネーション未対応。特定メール検索のため通常1件で実害なし（既知の制約）
     r = client.list_users(UserPoolId=pool_id, Filter=f'email = "{email}"')
     all_users = r.get("Users", [])
     out = []

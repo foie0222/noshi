@@ -106,6 +106,16 @@ def test_リンク対象は検証済みCONFIRMEDのnativeに限る():
         assert fake.linked == [] and out["response"] == {}, user
 
 
+def test_条件未達の既存ユーザーがいればautoConfirmせず別アカウント扱い():
+    # リンク不可（UNCONFIRMED）な既存ユーザーが居る場合、新規メールではないので
+    # autoConfirmUser/autoVerifyEmail はセットせず素通しする（別アカウント作成に委ねる）
+    fake = FakeIdp(users=[_native_user(status="UNCONFIRMED")])
+    out = presignup_handler(_event(), None, client=fake)
+    assert fake.linked == []
+    assert "autoConfirmUser" not in out.get("response", {})
+    assert "autoVerifyEmail" not in out.get("response", {})
+
+
 def test_複数候補は決定不能として素通し():
     fake = FakeIdp(users=[_native_user("a"), _native_user("b")])
     out = presignup_handler(_event(), None, client=fake)
@@ -120,4 +130,9 @@ def test_リンク失敗は素通しでログイン継続():
 
 def test_引用符入りメールはインジェクション対策で素通し():
     out = presignup_handler(_event(email='a"b@example.com'), None, client=FakeIdp())
+    assert out["response"] == {}
+
+
+def test_バックスラッシュ入りメールはインジェクション対策で素通し():
+    out = presignup_handler(_event(email="a\\b@example.com"), None, client=FakeIdp())
     assert out["response"] == {}

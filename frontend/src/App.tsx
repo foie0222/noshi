@@ -1384,7 +1384,7 @@ export function App() {
           </p>
           <div className="ad-disclosure">
             <Icon name="info" size={15} />
-            以下の商品リンクはアフィリエイト広告（楽天市場）です。
+            以下の商品リンクはアフィリエイト広告です。
           </div>
           {suggestions.map((s) => (
             <div className="card" key={s.item_code ?? s.title}>
@@ -1410,7 +1410,7 @@ export function App() {
                   rel="noopener sponsored"
                   onClick={() => api.clickSuggestion(s)}
                 >
-                  楽天市場で見る ↗
+                  商品を見る ↗
                 </a>
               )}
               <button type="button" className="btn ghost" onClick={() => chooseSuggestion(s)}>
@@ -1419,7 +1419,7 @@ export function App() {
             </div>
           ))}
           <p className="muted" style={{ fontSize: 12 }}>
-            価格は変動します。購入時は楽天市場の表示が優先されます。
+            価格は変動します。購入時はストア側の表示が優先されます。
             <br />
             Supported by Rakuten Developers
           </p>

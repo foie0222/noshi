@@ -185,6 +185,19 @@ body {
   border-color: var(--color-accent);
   background: transparent;
 }
+/* ---- ソーシャルログイン（各社ブランドガイドライン準拠の配色） ------------ */
+.btn.social-google {
+  background: #fff;
+  color: #3c4043;
+  border-color: var(--border-default);
+}
+.btn.social-line {
+  background: #06c755; /* LINE ブランドカラー（規定値） */
+  color: #fff;
+}
+.btn.social-line:active {
+  background: #05b34c;
+}
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;

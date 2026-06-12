@@ -211,6 +211,10 @@ export function classifyCallback(
   return { kind: "token", code };
 }
 
+// StrictMode の二重マウントやリロード後の再入で、使用済み code を再交換して
+// 誤った "error" にならないよう、実処理に入るのは1回だけに制限する。
+let callbackHandled = false;
+
 /** アプリ起動時に1回呼ぶ。URL の code/error を処理して結果を返す（スペック§5）。 */
 export async function handleAuthCallback(): Promise<CallbackResult> {
   const params = new URLSearchParams(location.search);
@@ -222,6 +226,8 @@ export async function handleAuthCallback(): Promise<CallbackResult> {
     retried: sessionStorage.getItem(RETRY_KEY) === "1",
   });
   if (cls.kind === "none") return "none";
+  if (callbackHandled) return "none"; // StrictMode の二重実行・再入を防ぐ
+  callbackHandled = true;
 
   const stripUrl = () => history.replaceState(null, "", location.pathname);
   const cleanup = () => {

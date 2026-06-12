@@ -4,6 +4,12 @@
 
 export type LegalDocKey = "privacy" | "terms" | "operator";
 
+/** 直URL（/privacy 等）を文書キーに解決する（#155）。対象外は null。 */
+export function legalDocFromPath(path: string): LegalDocKey | null {
+  const m = path.match(/^\/(privacy|terms|operator)$/);
+  return m ? (m[1] as LegalDocKey) : null;
+}
+
 export interface LegalSection {
   heading?: string;
   body: string[];

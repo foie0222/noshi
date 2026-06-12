@@ -14,7 +14,7 @@ import { MasterSelect } from "./components/MasterSelect";
 import { PartySelect } from "./components/PartySelect";
 import { PasswordInput } from "./components/PasswordInput";
 import { Select } from "./components/Select";
-import { LEGAL_DOCS, type LegalDocKey } from "./legal";
+import { LEGAL_DOCS, type LegalDocKey, legalDocFromPath } from "./legal";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -98,12 +98,16 @@ const TrustNote = () => (
 );
 
 export function App() {
+  // 直URL（/privacy 等）は未ログインでも法的文書を直接開く（#155）。
+  const initialLegal = legalDocFromPath(window.location.pathname);
   // リロード時はトークンの有無からホーム/ログインを復元する（毎回ログインに戻る問題の対策）。
   const [screen, setScreen] = useState<Screen>(() =>
-    pickInitialScreen(authEnabled(), isLoggedIn()),
+    initialLegal ? "legal" : pickInitialScreen(authEnabled(), isLoggedIn()),
   );
-  const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(null);
-  const [legalBack, setLegalBack] = useState<Screen>("mypage"); // 法的文書からの戻り先（ログイン前は login）
+  const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(initialLegal);
+  const [legalBack, setLegalBack] = useState<Screen>(() =>
+    pickInitialScreen(authEnabled(), isLoggedIn()),
+  ); // 法的文書からの戻り先（ログイン前は login）
   const [agreedTerms, setAgreedTerms] = useState<boolean>(false); // 規約・ポリシーへの同意（#152）
   const [toast, setToast] = useState<string>("");
   const [home, setHome] = useState<HomeResponse | null>(null);
@@ -292,8 +296,15 @@ export function App() {
   // 起動時: ログイン必須環境で未ログインなら login 画面に固定。
   // biome-ignore lint/correctness/useExhaustiveDependencies: 画面遷移時のみ判定する意図
   useEffect(() => {
-    if (authEnabled() && !isLoggedIn() && screen !== "login") go("login");
+    // 法的文書（規約・ポリシー）は未ログインでも閲覧可（#155）。
+    if (authEnabled() && !isLoggedIn() && screen !== "login" && screen !== "legal") go("login");
   }, [screen]);
+
+  // 法的文書を開いている間は URL を同期し、閉じたら / に戻す（直リンク共有用、#155）。
+  useEffect(() => {
+    const path = screen === "legal" && legalDoc ? `/${legalDoc}` : "/";
+    if (window.location.pathname !== path) window.history.replaceState(null, "", path);
+  }, [screen, legalDoc]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: 画面遷移時のみ再取得する意図
   useEffect(() => {

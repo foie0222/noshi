@@ -1297,3 +1297,36 @@ a.btn {
 .ad-disclosure svg {
   flex: none;
 }
+
+/* サインアップ時の規約同意（#152）。リンクはインラインのテキストリンク。 */
+.agree-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-2);
+}
+.agree-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  accent-color: var(--color-primary);
+  flex: none;
+  cursor: pointer;
+}
+.agree-text {
+  font-size: var(--fs-sm);
+  color: var(--text-body);
+  line-height: 1.7;
+}
+.text-link {
+  display: inline;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

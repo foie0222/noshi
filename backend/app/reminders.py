@@ -117,6 +117,7 @@ _BORDER_FAINT = "#E7DFCC"
 _SERIF = "'Shippori Mincho B1','Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif"
 _SANS = "'Zen Kaku Gothic New','Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif"
 _CONTACT = "contact@noshi.me"
+_APP_URL = "https://noshi.me/"
 
 
 def _due_phrase(days_left: int) -> str:
@@ -170,11 +171,20 @@ def render_reminder_email(reminders: list[DueReminder], today: datetime.date) ->
               <p style="margin:12px 0 0 0;text-align:center;font-family:{_SANS};font-size:15px;line-height:1.9;color:{_SUMI_SUB};">折を見て、お返しのご準備はいかがでしょう。</p>
               {rows}
 
+              <!-- CTA: アプリを開く（お返しの目安額・品の候補へ） -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="padding:24px 0 6px 0;">
+                    <a href="{_APP_URL}" style="display:inline-block;background:{_SHU};color:#ffffff;font-family:{_SANS};font-size:15px;font-weight:700;text-decoration:none;padding:13px 32px;border-radius:30px;">noshi を開いてお返しを選ぶ</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:8px 0 0 0;text-align:center;font-family:{_SANS};font-size:13px;line-height:1.8;color:{_SUMI_MUTED};">お返しの目安額や品の候補をご案内します。</p>
+
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr><td style="padding:24px 0 0 0;border-top:1px solid {_BORDER_FAINT};"></td></tr>
               </table>
               <p style="margin:20px 0 0 0;text-align:center;font-family:{_SANS};font-size:12px;line-height:1.8;color:{_SUMI_MUTED};">
-                noshi を開くと、お返しの目安額や品の候補をご案内します。<br>
                 通知の停止はアプリのマイページから。お問い合わせ：<a href="mailto:{_CONTACT}" style="color:{_SUMI_SUB};text-decoration:underline;">{_CONTACT}</a>
               </p>
 

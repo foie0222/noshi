@@ -41,18 +41,19 @@ def _due_event(svc, user, scope, *, party, due_offset, direction="received", sta
     return ev
 
 
-def test_期限3日前と当日のイベントだけを抽出する():
+def test_期限1週間前と当日のイベントだけを抽出する():
     repo = InMemoryRepository()
     svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
     scope = _seed(svc, repo)
-    _due_event(svc, "u1", scope, party="3日前さん", due_offset=3)
+    _due_event(svc, "u1", scope, party="1週間前さん", due_offset=7)
     _due_event(svc, "u1", scope, party="当日さん", due_offset=0)
+    _due_event(svc, "u1", scope, party="3日前さん", due_offset=3)  # 対象外（7でも0でもない）
     _due_event(svc, "u1", scope, party="まだ先さん", due_offset=10)
     _due_event(svc, "u1", scope, party="超過さん", due_offset=-2)
 
     dues = collect_household_due(repo, scope, TODAY)
     names = sorted(d.party_name for d in dues)
-    assert names == ["3日前さん", "当日さん"]
+    assert names == ["1週間前さん", "当日さん"]
 
 
 def test_完了済みと贈った側は対象外():
@@ -68,7 +69,7 @@ def test_対象メンバーへ1通送り重複送信しない():
     repo = InMemoryRepository()
     svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
     _seed(svc, repo, email="a@example.com")
-    _due_event(svc, "u1", repo.get_membership("u1").household_id, party="田中", due_offset=3)
+    _due_event(svc, "u1", repo.get_membership("u1").household_id, party="田中", due_offset=7)
 
     sent: list[dict] = []
     n = run_reminders(repo, TODAY, lambda to, subject, html: sent.append({"to": to}))

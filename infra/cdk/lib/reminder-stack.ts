@@ -17,7 +17,7 @@ interface ReminderStackProps extends StackProps {
  * ReminderStack — お返し期限のリマインド（#178）。
  *
  * 「お返しを忘れない」をユーザーの記憶力に頼らず実現する。日次の EventBridge ルールが
- * Lambda（backend/app/reminders.handler）を起動し、全世帯のお返し期限が3日前・当日の
+ * Lambda（backend/app/reminders.handler）を起動し、全世帯のお返し期限が1週間前・当日の
  * イベントを抽出して、世帯メンバーへ落ち着いたトーンのメールを SES で送る。
  *
  * 送信元は AuthStack と同じ no-reply@noshi.me（DKIM/SPF/DMARC 整備済み）。

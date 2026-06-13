@@ -21,6 +21,7 @@ from app.schemas import (
     DueIn,
     ImageUploadIn,
     JoinHouseholdIn,
+    NotificationPrefsIn,
     PartyIn,
     PurposeIn,
     RecordIn,
@@ -124,6 +125,19 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         # 自分の世帯（名前・招待コード・メンバー）。初回は自動作成される。
         svc.resolve_household(ident.user_id, email=ident.email)
         return {"household": svc.household_view(ident.user_id)}
+
+    @app.get("/api/notifications")
+    def get_notifications(ident: Identity = Depends(current_identity)) -> dict[str, Any]:
+        # お返し期限のメール通知 設定（既定オン、#178）。
+        svc.resolve_household(ident.user_id, email=ident.email)
+        return svc.notification_prefs(ident.user_id)
+
+    @app.put("/api/notifications")
+    def put_notifications(
+        body: NotificationPrefsIn, ident: Identity = Depends(current_identity)
+    ) -> dict[str, Any]:
+        svc.resolve_household(ident.user_id, email=ident.email)
+        return svc.set_notification_prefs(ident.user_id, body.email)
 
     @app.post("/api/household/join")
     def join_household(

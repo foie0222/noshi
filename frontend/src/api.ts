@@ -137,6 +137,13 @@ export const api = {
   giftTax: () => req<GiftTax>("/gift-tax"),
   annual: (year?: number) => req<AnnualSummary>(`/annual${year ? `?year=${year}` : ""}`),
   household: () => req<{ household: Household }>("/household"),
+  // お返し期限のメール通知 設定（#178）
+  notifications: () => req<{ email: boolean }>("/notifications"),
+  setNotifications: (email: boolean) =>
+    req<{ email: boolean }>("/notifications", {
+      method: "PUT",
+      body: JSON.stringify({ email }),
+    }),
   joinHousehold: (code: string) =>
     req<{ household: Household }>("/household/join", {
       method: "POST",

@@ -44,6 +44,10 @@ class Repository(Protocol):
     def get_membership(self, user_id: str) -> Membership | None: ...
     def list_members(self, household_id: str) -> list[Membership]: ...
     def delete_membership(self, user_id: str) -> bool: ...
+    # --- お返し期限リマインド（#178）。バッチが全世帯を走査し、送信済みを冪等に記録する ---
+    def list_all_households(self) -> list[Household]: ...
+    def reminder_marked(self, scope: str, event_id: str, day: str) -> bool: ...
+    def mark_reminder(self, scope: str, event_id: str, day: str) -> None: ...
     # --- 世帯独自の続柄マスタ（#1）---
     def add_household_relationship(self, household_id: str, name: str) -> None: ...
     def list_household_relationships(self, household_id: str) -> list[str]: ...
@@ -72,6 +76,7 @@ class InMemoryRepository:
         self._relationships: dict[str, list[str]] = {}  # household_id -> 続柄（追加順）
         self._purposes: dict[str, list[str]] = {}  # household_id -> 用途（追加順）
         self._parties: dict[str, dict[str, Party]] = {}  # household_id -> {party_id: Party}
+        self._reminders: set[tuple[str, str, str]] = set()  # (scope, event_id, day) 送信済み(#178)
 
     # --- records ---
     def put_record(self, rec: GiftRecord) -> GiftRecord:
@@ -155,6 +160,16 @@ class InMemoryRepository:
 
     def delete_membership(self, user_id: str) -> bool:
         return self._memberships.pop(user_id, None) is not None
+
+    # --- お返し期限リマインド（#178）---
+    def list_all_households(self) -> list[Household]:
+        return list(self._households.values())
+
+    def reminder_marked(self, scope: str, event_id: str, day: str) -> bool:
+        return (scope, event_id, day) in self._reminders
+
+    def mark_reminder(self, scope: str, event_id: str, day: str) -> None:
+        self._reminders.add((scope, event_id, day))
 
     # --- 世帯独自の続柄マスタ ---
     def add_household_relationship(self, household_id: str, name: str) -> None:
@@ -364,6 +379,36 @@ class DynamoRepository:
         self.table.delete_item(Key={"PK": f"USER#{user_id}", "SK": "MEMBERSHIP"})
         self.table.delete_item(Key={"PK": f"HOUSEHOLD#{m.household_id}", "SK": f"MEMBER#{user_id}"})
         return True
+
+    # --- お返し期限リマインド（#178）---
+    def list_all_households(self) -> list[Household]:
+        # 規模が小さいため Scan で全世帯を走査する（type=household で絞る）。
+        from boto3.dynamodb.conditions import Attr
+
+        items: list[dict[str, Any]] = []
+        kwargs: dict[str, Any] = {"FilterExpression": Attr("type").eq("household")}
+        while True:
+            resp = self.table.scan(**kwargs)
+            items.extend(resp.get("Items", []))
+            last = resp.get("LastEvaluatedKey")
+            if not last:
+                break
+            kwargs["ExclusiveStartKey"] = last
+        return [h for it in items if (h := self._hydrate(Household, it)) is not None]
+
+    def reminder_marked(self, scope: str, event_id: str, day: str) -> bool:
+        key = {"PK": self._pk(scope), "SK": f"REMINDER#{event_id}#{day}"}
+        return self.table.get_item(Key=key).get("Item") is not None
+
+    def mark_reminder(self, scope: str, event_id: str, day: str) -> None:
+        self.table.put_item(
+            Item={
+                "PK": self._pk(scope),
+                "SK": f"REMINDER#{event_id}#{day}",
+                "type": "reminder",
+                "day": day,
+            }
+        )
 
     # --- 世帯独自の続柄マスタ ---
     def add_household_relationship(self, household_id: str, name: str) -> None:

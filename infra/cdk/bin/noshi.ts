@@ -11,6 +11,7 @@ import { CertificateStack } from "../lib/certificate-stack";
 import { CatalogBatchStack } from "../lib/catalog-batch-stack";
 import { CostStack } from "../lib/cost-stack";
 import { MailStack } from "../lib/mail-stack";
+import { ReminderStack } from "../lib/reminder-stack";
 
 // noshi インフラ（infrastructure-design.md / deployment-architecture.md）。リージョン ap-northeast-1。
 const app = new App();
@@ -35,6 +36,9 @@ const auth = new AuthStack(app, "NoshiAuthStack", {
 });
 new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId, catalogTable: data.catalogTable });
 new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue });
+
+// お返し期限のリマインド（#178）。日次バッチ→SES でメール送信。
+new ReminderStack(app, "NoshiReminderStack", { env, table: data.table, domainName: DOMAIN });
 new CatalogBatchStack(app, "NoshiCatalogBatchStack", { env, catalogTable: data.catalogTable });
 
 // コスト予算アラート（#122）。通知先は context budgetEmail で上書き可。

@@ -857,7 +857,7 @@ export function App() {
               noshi をはじめる
             </button>
           ) : (
-            <div className="card" style={{ marginTop: 16 }}>
+            <div className="card" style={{ marginTop: 24 }}>
               {/* メール: signin/signup/forgot で表示 */}
               {(authMode === "signin" || authMode === "signup" || authMode === "forgot") && (
                 <div className="field" style={{ marginTop: 0 }}>
@@ -942,8 +942,8 @@ export function App() {
                         </svg>
                         Google で続ける
                       </button>
-                      {/* LINE はメール取得権限の審査中。死んだボタンを見せず、最下部の
-                          予告（login-coming-soon）に格下げ（#login-redesign）。承認後は
+                      {/* LINE はメール取得権限の審査中。死んだボタンも予告も見せず、
+                          一旦非表示にする（#login-redesign / #177）。承認後は
                           socialSignIn("LINE") のボタンをここに復活させる。 */}
                     </>
                   )}
@@ -1110,10 +1110,6 @@ export function App() {
                 <div>見られるのは、あなたとご家族だけ。</div>
               </div>
             </div>
-          )}
-          {/* LINE は審査中。前向きな予告として最下部に小さく（#login-redesign / #177） */}
-          {socialEnabled() && (
-            <p className="login-coming-soon">LINE ログインは近日対応予定です。</p>
           )}
         </>
       )}

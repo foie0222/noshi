@@ -42,8 +42,9 @@ export function Logo({
         flex: "none",
       }}
     >
-      {/* 明朝の「の」は字面が下寄りなので、視覚的中心に少し持ち上げる（デザインシステム準拠） */}
-      <span style={{ display: "block", transform: "translateY(-0.03em)" }}>の</span>
+      {/* Shippori Mincho の「の」は字形が送り幅より左・下に寄るため、インクボックスを
+          視覚的中心へ補正する。canvas measureText の実測: 横 +0.085em / 縦 -0.03em（#163） */}
+      <span style={{ display: "block", transform: "translate(0.085em, -0.03em)" }}>の</span>
     </span>
   );
 

@@ -153,6 +153,7 @@ export function App() {
   const [reviewTried, setReviewTried] = useState<boolean>(false); // 保存を試みたか(#50: 検証表示)
   const [editTried, setEditTried] = useState<boolean>(false);
   const [ledgerView, setLedgerView] = useState<LedgerView>(LEDGER_DEFAULT); // 台帳の検索/絞込/並替(#51)
+  const [ledgerBack, setLedgerBack] = useState<Screen | null>(null); // おつきあいから台帳へ来たときの戻り先(#180)
   const [uploading, setUploading] = useState<boolean>(false); // 画像アップロード中(#54)
 
   async function onPickImage(file: File | null) {
@@ -625,6 +626,26 @@ export function App() {
     } catch (e) {
       handleErr(e);
     }
+  }
+
+  // ---- ホームから「お返し済み」をワンタップで完了に（#179）----
+  // 詳細を開かず status=done に。カードは予定一覧からそっと外れる。急かさず労う一言を返す。
+  async function doMarkDone(eventId: string) {
+    try {
+      await api.setStatus(eventId, "done");
+      notify("お返し、おつかれさまでした");
+      await loadHome();
+    } catch (e) {
+      handleErr(e);
+    }
+  }
+
+  // ---- おつきあい → 相手の贈答履歴へドリルダウン（#180）----
+  // 新しい画面は作らず、既存の台帳ビューをその相手で絞り込んだ状態で開く。
+  function openPartyHistory(name: string) {
+    setLedgerView({ ...LEDGER_DEFAULT, query: name });
+    setLedgerBack("relations"); // 台帳のヘッダに戻る導線を出す
+    go("ledger");
   }
 
   // ---- 記録の修正（AI抽出の誤りを本人が訂正）----
@@ -1131,12 +1152,9 @@ export function App() {
                   <span
                     className="duebadge"
                     style={{
-                      color: overdue
-                        ? "var(--color-accent)"
-                        : soon
-                          ? "var(--color-warning)"
-                          : "var(--text-sub)",
-                      fontWeight: overdue || soon ? 700 : 400,
+                      // 朱(accent)は CTA 専用に。期限まわりは責めない山吹(warning)で穏やかに（#181）。
+                      color: overdue || soon ? "var(--color-warning)" : "var(--text-sub)",
+                      fontWeight: overdue ? 700 : soon ? 600 : 400,
                     }}
                   >
                     {daysLeftLabel(e.days_left)}
@@ -1158,6 +1176,19 @@ export function App() {
                     <Icon name="trash" size={16} />
                   </button>
                 </div>
+                {/* お返し済みワンタップ（#179）。削除と離し、静かなチェック1つに留める。 */}
+                <button
+                  type="button"
+                  className="card-done"
+                  aria-label={`${e.party_name} へのお返しを済みにする`}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    doMarkDone(e.id);
+                  }}
+                >
+                  <Icon name="check" size={16} strokeWidth={2.4} />
+                  お返し済みにする
+                </button>
               </div>
             );
           })}
@@ -1393,7 +1424,8 @@ export function App() {
           const shown = filterSortRecords(ledger.records, ledgerView);
           return (
             <>
-              <Bar title="贈答の台帳" />
+              {/* おつきあいからのドリルダウン時のみ、戻る導線を出す（#180） */}
+              <Bar title="贈答の台帳" back={ledgerBack ?? undefined} />
               <div className="ledger-controls">
                 <div className="select-wrap" style={{ position: "relative" }}>
                   <input
@@ -1898,10 +1930,25 @@ export function App() {
             const label =
               r.status === "owe" ? "もらい多め" : r.status === "ahead" ? "お贈り多め" : "均衡";
             return (
-              <div className="card" key={r.party_name}>
+              // タップでその相手の履歴（台帳の絞り込み）へ（#180）。
+              // biome-ignore lint/a11y/useSemanticElements: バッジ等を内包するカードのため button にできない。role+キーボードで代替。
+              <div
+                className="card tap"
+                key={r.party_name}
+                role="button"
+                tabIndex={0}
+                onClick={() => openPartyHistory(r.party_name)}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter" || ev.key === " ") {
+                    ev.preventDefault();
+                    openPartyHistory(r.party_name);
+                  }
+                }}
+              >
                 <div className="between">
                   <b className="val">{withHonor(r.party_name)}</b>
-                  <span className={`balbadge ${r.status}`}>
+                  {/* 気になる関係だけ穏やかに強調。それ以外は静かなバッジに（#181） */}
+                  <span className={`balbadge ${r.attention ? "attention" : r.status}`}>
                     {r.attention ? "気になる関係" : label}
                   </span>
                 </div>
@@ -2219,7 +2266,12 @@ export function App() {
             type="button"
             className={screen === "ledger" ? "on" : ""}
             aria-label="台帳"
-            onClick={() => go("ledger")}
+            onClick={() => {
+              // タブからは常に絞り込みなしの全件・戻る導線なしで開く（#180）
+              setLedgerView(LEDGER_DEFAULT);
+              setLedgerBack(null);
+              go("ledger");
+            }}
           >
             <Icon name="ledger" size={23} strokeWidth={screen === "ledger" ? 2.4 : 2} />
             台帳

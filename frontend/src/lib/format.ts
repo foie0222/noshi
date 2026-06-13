@@ -22,11 +22,13 @@ export function statusLabel(status: string): string {
   return STATUS_LABELS[status] ?? status;
 }
 
+// お返し期限の残日数ラベル。急かさず、次の一手をそっと促すトーンに統一（#181）。
+// 「期限超過」のような責める言い回しは避け、過ぎていても穏やかに背中を押す。
 export function daysLeftLabel(days: number | null): string {
   if (days === null || days === undefined) return "";
   if (days > 0) return `のこり${days}日`;
-  if (days === 0) return "きょうが期限";
-  return "期限超過";
+  if (days === 0) return "きょうが目安";
+  return "そろそろお返しを";
 }
 
 export function yen(n: number): string {

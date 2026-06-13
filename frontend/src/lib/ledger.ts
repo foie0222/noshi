@@ -19,10 +19,11 @@ export function filterSortRecords(records: GiftRecord[], v: LedgerView): GiftRec
   let out = records.filter((r) => {
     if (v.direction !== "all" && r.direction !== v.direction) return false;
     if (!q) return true;
+    // item 等を欠く古い/部分的なレコードでも壊れないよう、空文字でフォールバックする（#180）。
     return (
-      r.party_name.toLowerCase().includes(q) ||
-      r.purpose.toLowerCase().includes(q) ||
-      r.item.toLowerCase().includes(q)
+      (r.party_name ?? "").toLowerCase().includes(q) ||
+      (r.purpose ?? "").toLowerCase().includes(q) ||
+      (r.item ?? "").toLowerCase().includes(q)
     );
   });
   out = [...out].sort((a, b) => {

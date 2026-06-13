@@ -58,6 +58,14 @@ describe("台帳の検索・絞り込み・並べ替え（#51）", () => {
     expect(filterSortRecords(withItem, { ...LEDGER_DEFAULT, query: "メガネ" })).toHaveLength(1);
   });
 
+  it("item等が未設定（古い/部分的なデータ）でも検索でクラッシュしないことを検証する", () => {
+    // API から item を欠いたレコードが来てもドリルダウン検索が壊れないこと（#180）。
+    // 名前・用途が一致しないクエリだと item の評価まで到達するため、ここで undefined を踏む。
+    const partial = { id: "x", party_name: "前田", purpose: "お中元" } as unknown as GiftRecord;
+    expect(() => filterSortRecords([partial], { ...LEDGER_DEFAULT, query: "高橋" })).not.toThrow();
+    expect(filterSortRecords([partial], { ...LEDGER_DEFAULT, query: "高橋" })).toHaveLength(0);
+  });
+
   it("方向で絞り込めることを検証する", () => {
     expect(filterSortRecords(data, { ...LEDGER_DEFAULT, direction: "given" })).toHaveLength(1);
     expect(filterSortRecords(data, { ...LEDGER_DEFAULT, direction: "received" })).toHaveLength(2);

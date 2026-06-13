@@ -44,7 +44,9 @@ jobs:
       - name: add iOS platform
         # ios/ はコミットしていないため CI 上で都度生成する（初回検証フェーズ）。
         run: npx cap add ios
-      - name: sync (copy web + pod install)
+      - name: sync (copy web + resolve SPM)
+        # Capacitor 8 は CocoaPods ではなく Swift Package Manager で依存解決する
+        # （生成物は ios/App/App.xcodeproj/project.xcworkspace。Pods/・App.xcworkspace は無い）。
         run: npx cap sync ios
       - name: locate xcworkspace
         id: ws

@@ -21,11 +21,11 @@ describe("残日数の表示", () => {
   it("残日数が正なら「のこり◯日」と表示することを検証する", () => {
     expect(daysLeftLabel(5)).toBe("のこり5日");
   });
-  it("残日数が0なら「きょうが期限」と表示することを検証する", () => {
-    expect(daysLeftLabel(0)).toBe("きょうが期限");
+  it("残日数が0なら「きょうが目安」と表示することを検証する", () => {
+    expect(daysLeftLabel(0)).toBe("きょうが目安");
   });
-  it("残日数が負なら「期限超過」と表示することを検証する", () => {
-    expect(daysLeftLabel(-2)).toBe("期限超過");
+  it("残日数が負でも責めず「そろそろお返しを」と表示することを検証する", () => {
+    expect(daysLeftLabel(-2)).toBe("そろそろお返しを");
   });
   it("期限なし(null)は空文字を返すことを検証する", () => {
     expect(daysLeftLabel(null)).toBe("");

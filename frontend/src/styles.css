@@ -798,9 +798,11 @@ body {
   padding: 3px 11px;
   white-space: nowrap;
 }
+/* 「もらい多め」は警告ではなく状態。朱の一律バッジで急かさず、穏やかな砂色で静かに示す（#181）。 */
 .balbadge.owe {
-  background: var(--color-accent-tint);
-  color: var(--color-accent);
+  background: var(--washi-100);
+  color: var(--text-sub);
+  border: var(--bw-hairline) solid var(--border-faint);
 }
 .balbadge.ahead {
   background: var(--color-success-tint);
@@ -809,6 +811,12 @@ body {
 .balbadge.balanced {
   background: var(--color-primary-tint);
   color: var(--color-primary);
+}
+/* 気になる関係だけ、責めない山吹(warning)でそっと強調（#181）。owe より後に置き上書き。 */
+.balbadge.attention {
+  background: var(--color-warning-tint);
+  color: var(--color-warning);
+  border: none;
 }
 
 .visually-hidden {
@@ -1014,6 +1022,31 @@ body {
 .card-del:hover {
   color: var(--color-accent);
   background: var(--color-accent-tint);
+}
+
+/* お返し済みワンタップ（#179）。削除と離した、静かな全幅アクション。
+   緑(success)で「片付く気持ちよさ」をそっと示し、朱は使わない。 */
+.card-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 40px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border: none;
+  border-top: var(--bw-hairline) solid var(--border-faint);
+  background: none;
+  color: var(--color-success);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+.card-done:hover {
+  background: var(--color-success-tint);
+  border-radius: var(--radius-sm);
 }
 
 /* 贈答の詳細カードの情報階層（#38） */

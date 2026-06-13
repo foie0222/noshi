@@ -634,6 +634,8 @@ body {
   font-size: var(--fs-sm);
   color: var(--text-sub);
   line-height: var(--lh-snug);
+  /* 折り返すときは行長を揃える（「す。」だけの孤立行を防ぐ）。非対応ブラウザでは無視される */
+  text-wrap: balance;
 }
 .trustnote .ic {
   color: var(--color-primary);

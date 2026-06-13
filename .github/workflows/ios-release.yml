@@ -1,0 +1,110 @@
+name: iOS Release (TestFlight)
+
+# 署名つきアーカイブを作って TestFlight に配信する（#196）。
+# 署名は App Store Connect API キー(.p8)による「自動署名」で行う（証明書/プロビジョニングの
+# 手動管理・fastlane match は不要）。物理 Mac 不要・GitHub Actions の macOS runner で完結。
+#
+# 前提（揃うまで成功しない。揃うまでは手動トリガー時のみ実行され、PR は汚さない）:
+#   1. #193 がマージ済み（frontend に Capacitor 一式があること）
+#   2. App ID `me.noshi.app` を登録し、App Store Connect にアプリレコード作成済み（#210）
+#   3. 下記 Secrets を設定済み（docs/ios/testflight-setup.md 参照）
+#        ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8, APPLE_TEAM_ID
+#
+# 実行契機: 手動（workflow_dispatch）または ios-v* タグの push。
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "ios-v*"
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: archive & upload to TestFlight
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: install deps & build web
+        run: |
+          npm ci
+          npm run build
+
+      - name: add iOS platform & sync (SPM)
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: write ASC API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          mkdir -p "$HOME/private_keys"
+          printf '%s' "$ASC_API_KEY_P8" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      - name: set build number (CI run number)
+        run: |
+          cd ios/App
+          # TestFlight はビルド番号の重複を許さないため CI 連番を使う。
+          xcrun agvtool new-version -all "${{ github.run_number }}"
+
+      - name: archive (auto-sign via ASC API key)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcodeproj/project.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            archive
+
+      - name: export ipa
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist ci/exportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)
+          echo "uploading: $IPA"
+          xcrun altool --upload-app -f "$IPA" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: cleanup secrets
+        if: always()
+        run: rm -f "$HOME/private_keys/AuthKey_"*.p8

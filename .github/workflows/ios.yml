@@ -1,0 +1,59 @@
+name: iOS
+
+# Capacitor で内包した iOS アプリが macOS runner でビルドできることを検証する（#193）。
+# 物理 Mac を持たずに GitHub Actions の macOS runner を「クラウドの Mac」として使う前提。
+# 初回は署名なし（シミュレータ SDK ビルド）で「コンパイルが通る」ことだけを確認する。
+# 署名つきアーカイブ／TestFlight への配信は証明書・ASC API キーを Secrets に入れてから（#196）。
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ios (capacitor / xcodebuild)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: install deps
+        run: npm ci
+      - name: build web (dist)
+        run: npm run build
+      - name: add iOS platform
+        # ios/ はコミットしていないため CI 上で都度生成する（初回検証フェーズ）。
+        run: npx cap add ios
+      - name: sync (copy web + pod install)
+        run: npx cap sync ios
+      - name: xcodebuild (simulator, unsigned)
+        # シミュレータ SDK 向けビルドは署名不要。コンパイルが通ることだけを確認する。
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

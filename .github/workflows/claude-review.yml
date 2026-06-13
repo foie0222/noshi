@@ -1,0 +1,42 @@
+name: Claude Code Review
+
+# PR 作成時に Claude が差分をレビューし、指摘事項をインラインコメントで残す。
+# 認証は Max サブスクの OAuth トークン（`claude setup-token` で生成 → secret CLAUDE_CODE_OAUTH_TOKEN）。
+# トークン消費は Max 枠でカバーされ、API/Bedrock の追加課金は発生しない。
+# ただし Max の 5h/週次レート上限を対話利用と共有する点に注意。
+on:
+  pull_request:
+    types: [opened]
+    branches: [main]
+
+# レビューコメントの投稿に pull-requests: write が必要。
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+# 同一PRで多重起動しないよう直列化。
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Claude review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Max サブスクの OAuth トークン（API キー/Bedrock の代わり）。
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # コメント投稿は workflow の GITHUB_TOKEN（pull-requests: write）で行う。
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 公式 code-review プラグインを入れて、PR の差分レビュー＋指摘をインラインコメント。
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          claude_args: "--max-turns 30"

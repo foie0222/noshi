@@ -6,6 +6,7 @@ import * as ses from "aws-cdk-lib/aws-ses";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { backendLambdaCode } from "./lambda-code";
+import { VERIFICATION_EMAIL_SUBJECT, verificationEmailBody } from "./email-templates";
 
 export interface AuthStackProps extends StackProps {
   /** 認証メールの送信ドメイン（例: noshi.me）。 */
@@ -66,6 +67,13 @@ export class AuthStack extends Stack {
         fromName: "noshi",
         sesVerifiedDomain: props.domainName,
       }),
+      // 確認コードメールをデザインシステム準拠の HTML に（#182）。CODE スタイルの
+      // このテンプレートは、サインアップ確認とパスワード再設定の両方で使われる。
+      userVerification: {
+        emailStyle: cognito.VerificationEmailStyle.CODE,
+        emailSubject: VERIFICATION_EMAIL_SUBJECT,
+        emailBody: verificationEmailBody(), // 本文に {####}（確認コード）を含む
+      },
       passwordPolicy: {
         minLength: 8,
         requireLowercase: true,

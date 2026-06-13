@@ -100,7 +100,7 @@ body {
   width: 6px;
   height: 6px;
   margin: var(--space-4) auto;
-  background: var(--color-accent);
+  background: var(--text-muted);
   transform: rotate(45deg);
   border-radius: 1px;
   opacity: 0.9;

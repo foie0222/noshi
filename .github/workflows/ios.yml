@@ -46,14 +46,25 @@ jobs:
         run: npx cap add ios
       - name: sync (copy web + pod install)
         run: npx cap sync ios
+      - name: locate xcworkspace
+        id: ws
+        # Capacitor のバージョンで生成パスが変わりうるため動的に探索する。
+        run: |
+          echo "--- ios tree ---"
+          find ios -maxdepth 4 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) | sort
+          WS=$(find ios -maxdepth 4 -name '*.xcworkspace' | head -1)
+          if [ -z "$WS" ]; then
+            echo "::error::xcworkspace が見つからない"; ls -R ios | head -80; exit 1
+          fi
+          echo "workspace=$WS" >> "$GITHUB_OUTPUT"
+          echo "found workspace: $WS"
       - name: xcodebuild (simulator, unsigned)
         # シミュレータ SDK 向けビルドは署名不要。コンパイルが通ることだけを確認する。
         run: |
           xcodebuild \
-            -workspace ios/App/App.xcworkspace \
+            -workspace "${{ steps.ws.outputs.workspace }}" \
             -scheme App \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build

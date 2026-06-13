@@ -9,14 +9,18 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "biome check src",
-    "format": "biome check --write src"
+    "format": "biome check --write src",
+    "ios:sync": "npm run build && cap sync ios"
   },
   "dependencies": {
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
+    "@capacitor/cli": "^8.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^19.2.17",

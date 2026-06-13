@@ -55,3 +55,11 @@ infra/cdk/cdk.out/
 infra/cdk/cdk.out*/
 infra/cdk/dist/
 infra/cdk/cdk-outputs*.json
+
+# Capacitor / iOS（#193）。ios/ は現フェーズでは CI で都度生成しコミットしない。
+# 将来 ios/ をコミットする場合も以下の生成物・依存は追跡しない。
+frontend/ios/
+frontend/ios/App/Pods/
+frontend/ios/App/App/public/
+frontend/ios/DerivedData/
+frontend/.capacitor/

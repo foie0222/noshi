@@ -844,7 +844,6 @@ export function App() {
               <br />
               長く美しく。
             </p>
-            <div className="login-knot" aria-hidden="true" />
             <p className="login-desc">贈りものの記録と、お返し選び</p>
           </div>
 

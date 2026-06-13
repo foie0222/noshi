@@ -24,6 +24,7 @@ jobs:
   review:
     name: Claude review
     runs-on: ubuntu-latest
+    timeout-minutes: 30 # [検証用] ハング時に早期失敗させる
     steps:
       - uses: actions/checkout@v6
         with:
@@ -39,4 +40,6 @@ jobs:
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
           prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
-          claude_args: "--max-turns 30"
+          claude_args: |
+            --max-turns 30
+            --debug

@@ -77,6 +77,67 @@ body {
   font-family: var(--font-display);
 }
 
+/* ---- ログイン画面ヘッダ（リデザイン #login-redesign 案C） -------------- */
+/* サービス名 → コンセプト（主役）→ 和の結び → 説明 の3層を一貫させる。 */
+.login-hero {
+  text-align: center;
+  padding-top: var(--space-9); /* 48px。ヒーローに呼吸を与える */
+}
+.login-hero .brand {
+  padding: 0; /* hero の余白に一本化（.brand 既定の上下paddingを無効化） */
+}
+.login-concept {
+  margin: var(--space-6) 0 0;
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h2); /* 21px。明朝を主役として効かせる */
+  color: var(--text-body);
+  line-height: 1.85;
+  letter-spacing: 0.08em;
+}
+/* 区切り線の代わりに、朱赤の極小菱形（水引の結びを暗示する和のあしらい） */
+.login-knot {
+  width: 6px;
+  height: 6px;
+  margin: var(--space-4) auto;
+  background: var(--color-accent);
+  transform: rotate(45deg);
+  border-radius: 1px;
+  opacity: 0.9;
+}
+.login-desc {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+/* ソーシャルとメールの境界（左右ヘアライン） */
+.login-or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.login-or::before,
+.login-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-default);
+}
+/* LINE 審査中の前向きな予告（死んだボタンを置かない） */
+.login-coming-soon {
+  margin: var(--space-6) 0 var(--space-9);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+
 /* ---- テキスト --------------------------------------------------------- */
 .muted {
   color: var(--text-sub);

@@ -833,13 +833,20 @@ export function App() {
       )}
       {screen === "login" && (
         <>
-          <div className="brand">
-            <Logo variant="full" size={40} />
+          <div className="login-hero">
+            <div className="brand">
+              <Logo variant="full" size={40} />
+            </div>
+            <div className="brand-en">N O S H I</div>
+            {/* コンセプト（OGP/meta と一致）を主役に。3層を一貫させる（#login-redesign 設計） */}
+            <p className="login-concept">
+              大切な人との縁を、
+              <br />
+              長く美しく。
+            </p>
+            <div className="login-knot" aria-hidden="true" />
+            <p className="login-desc">贈りものの記録と、お返し選び</p>
           </div>
-          <div className="brand-en">N O S H I</div>
-          <p className="muted" style={{ textAlign: "center" }}>
-            贈答を、ちゃんと続けられる。
-          </p>
 
           {!authEnabled() ? (
             <button
@@ -910,9 +917,7 @@ export function App() {
                   </button>
                   {socialEnabled() && (
                     <>
-                      <div className="muted" style={{ textAlign: "center", margin: "14px 0 6px" }}>
-                        または
-                      </div>
+                      <div className="login-or">または</div>
                       <button
                         type="button"
                         className="btn social-google"
@@ -938,17 +943,9 @@ export function App() {
                         </svg>
                         Google で続ける
                       </button>
-                      {/* LINE はメールアドレス取得権限の審査中のため一時的に無効化。
-                          承認されたら disabled を外して socialSignIn("LINE") を復活させる。 */}
-                      <button
-                        type="button"
-                        className="btn social-line"
-                        disabled
-                        aria-disabled="true"
-                        title="LINE ログインは現在準備中です"
-                      >
-                        LINE で続ける（準備中）
-                      </button>
+                      {/* LINE はメール取得権限の審査中。死んだボタンを見せず、最下部の
+                          予告（login-coming-soon）に格下げ（#login-redesign）。承認後は
+                          socialSignIn("LINE") のボタンをここに復活させる。 */}
                     </>
                   )}
                 </>
@@ -1114,6 +1111,10 @@ export function App() {
                 <div>見られるのは、あなたとご家族だけ。</div>
               </div>
             </div>
+          )}
+          {/* LINE は審査中。前向きな予告として最下部に小さく（#login-redesign / #177） */}
+          {socialEnabled() && (
+            <p className="login-coming-soon">LINE ログインは近日対応予定です。</p>
           )}
         </>
       )}

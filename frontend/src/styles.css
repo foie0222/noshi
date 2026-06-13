@@ -77,6 +77,50 @@ body {
   font-family: var(--font-display);
 }
 
+/* ---- ログイン画面ヘッダ（リデザイン #login-redesign 案C） -------------- */
+/* サービス名 → コンセプト（主役）→ 説明 の3層を一貫させる。 */
+.login-hero {
+  text-align: center;
+  padding-top: 30px; /* ヒーロー上部の余白（トークン外の微調整） */
+}
+.login-hero .brand {
+  padding: 0; /* hero の余白に一本化（.brand 既定の上下paddingを無効化） */
+}
+.login-concept {
+  margin: var(--space-6) 0 0;
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h2); /* 21px。明朝を主役として効かせる */
+  color: var(--text-body);
+  line-height: 1.85;
+  letter-spacing: 0.08em;
+}
+/* コンセプトと説明の間は、あしらいを置かず余白で分ける（和の余白美） */
+.login-desc {
+  margin: var(--space-4) 0 0; /* 16px。菱形を廃した分の間隔を余白で確保 */
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+/* ソーシャルとメールの境界（左右ヘアライン） */
+.login-or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.login-or::before,
+.login-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-default);
+}
+
 /* ---- テキスト --------------------------------------------------------- */
 .muted {
   color: var(--text-sub);

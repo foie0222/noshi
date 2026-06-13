@@ -81,7 +81,7 @@ body {
 /* サービス名 → コンセプト（主役）→ 和の結び → 説明 の3層を一貫させる。 */
 .login-hero {
   text-align: center;
-  padding-top: var(--space-9); /* 48px。ヒーローに呼吸を与える */
+  padding-top: var(--space-8); /* 40px。上部の余白を締める（冗長解消） */
 }
 .login-hero .brand {
   padding: 0; /* hero の余白に一本化（.brand 既定の上下paddingを無効化） */

@@ -49,6 +49,11 @@ class DueIn(BaseModel):
     due_at: str | None = None
 
 
+class NotificationPrefsIn(BaseModel):
+    # お返し期限のメール通知 受け取り設定（#178）。
+    email: bool
+
+
 class RelationshipIn(BaseModel):
     # 世帯独自の続柄の追加（#1）。
     name: str = Field(min_length=1, description="追加する続柄")

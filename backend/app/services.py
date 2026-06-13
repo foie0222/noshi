@@ -110,6 +110,22 @@ class NoshiService:
         """世帯への招待コード（家族に伝えて参加してもらう）。"""
         return self.resolve_household(user_id).invite_code
 
+    # --- お返し期限のメール通知 設定（#178）---
+    def notification_prefs(self, user_id: str) -> dict[str, Any]:
+        """メール通知の受け取り設定を返す（既定オン）。"""
+        self.resolve_household(user_id)  # メンバーシップを確実に用意する
+        m = self.repo.get_membership(user_id)
+        return {"email": m.notify_email if m is not None else True}
+
+    def set_notification_prefs(self, user_id: str, email_on: bool) -> dict[str, Any]:
+        """メール通知の受け取り可否を切り替える。"""
+        self.resolve_household(user_id)
+        m = self.repo.get_membership(user_id)
+        if m is not None:
+            m.notify_email = email_on
+            self.repo.put_membership(m)
+        return {"email": email_on}
+
     def household_view(self, user_id: str) -> dict[str, Any]:
         h = self.resolve_household(user_id)
         return {

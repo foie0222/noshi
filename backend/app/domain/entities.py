@@ -46,6 +46,7 @@ class Membership:
     household_id: str
     role: str = "member"  # owner / member
     email: str = ""  # confidential
+    notify_email: bool = True  # お返し期限のメール通知を受け取るか（既定オン、#178）
     joined_at: float = field(default_factory=_now)
 
 

@@ -138,6 +138,7 @@ export function App() {
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
   );
+  const [notifyEmail, setNotifyEmail] = useState<boolean>(true); // お返し期限のメール通知(#178)
   const [celebrate, setCelebrate] = useState<boolean>(false); // 水引の完了演出
   const [capturedImage, setCapturedImage] = useState<string>(""); // 撮影/選択した画像(dataURL)
   const [captureDirection, setCaptureDirection] = useState<Direction>("received"); // 撮影時の種類（もらった/あげた）
@@ -296,6 +297,19 @@ export function App() {
     localStorage.setItem("noshi-font", next ? "large" : "normal");
   }
 
+  // お返し期限のメール通知 オン/オフ（#178）。楽観更新し、失敗時は元に戻す。
+  async function toggleNotify() {
+    const next = !notifyEmail;
+    setNotifyEmail(next);
+    try {
+      await api.setNotifications(next);
+      notify(next ? "お返し時期にメールでお知らせします" : "メール通知をオフにしました");
+    } catch (e) {
+      setNotifyEmail(!next);
+      handleErr(e);
+    }
+  }
+
   async function loadHome() {
     setHome(await api.home());
   }
@@ -365,6 +379,13 @@ export function App() {
         .household()
         .then((r) => setHousehold(r.household))
         .catch(handleErr);
+      // メール通知の設定（ログイン環境のみ。メールアドレスが前提、#178）
+      if (authEnabled()) {
+        api
+          .notifications()
+          .then((r) => setNotifyEmail(r.email))
+          .catch(handleErr);
+      }
     }
     // 続柄・用途マスタは記録の確認/詳細で使う。未取得なら一度だけ読み込む（#1, #37）。
     if (screen === "review" || screen === "event") {
@@ -2114,6 +2135,31 @@ export function App() {
                 </div>
               );
             })()}
+
+          {/* お知らせ（メール通知）— ログイン環境のみ。メールアドレスが前提（#178） */}
+          {authEnabled() && (
+            <>
+              <div className="settings-label">お知らせ</div>
+              <div className="card">
+                <div className="between">
+                  <span>お返し時期をメールで知らせる</span>
+                  <button
+                    type="button"
+                    className={`toggle${notifyEmail ? " on" : ""}`}
+                    role="switch"
+                    aria-checked={notifyEmail}
+                    aria-label="お返し時期をメールで知らせる"
+                    onClick={toggleNotify}
+                  >
+                    <span className="knob" />
+                  </button>
+                </div>
+                <div className="muted note-top">
+                  お返しの目安が近づいたら、登録のメールにそっとお知らせします。
+                </div>
+              </div>
+            </>
+          )}
 
           {/* 表示 */}
           <div className="settings-label">表示</div>

@@ -896,12 +896,16 @@ export function App() {
                         </svg>
                         Google で続ける
                       </button>
+                      {/* LINE はメールアドレス取得権限の審査中のため一時的に無効化。
+                          承認されたら disabled を外して socialSignIn("LINE") を復活させる。 */}
                       <button
                         type="button"
                         className="btn social-line"
-                        onClick={() => void socialSignIn("LINE")}
+                        disabled
+                        aria-disabled="true"
+                        title="LINE ログインは現在準備中です"
                       >
-                        LINE で続ける
+                        LINE で続ける（準備中）
                       </button>
                     </>
                   )}

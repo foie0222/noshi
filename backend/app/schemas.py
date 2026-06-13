@@ -50,8 +50,16 @@ class DueIn(BaseModel):
 
 
 class NotificationPrefsIn(BaseModel):
-    # お返し期限のメール通知 受け取り設定（#178）。
+    # お返し期限の通知 受け取り設定（メール #178 / プッシュ #205）。
     email: bool
+    push: bool | None = None  # 省略時はプッシュ設定を据え置く
+
+
+class DeviceTokenIn(BaseModel):
+    # iOS プッシュ通知（APNs）のデバイストークン登録（#205）。
+    token: str
+    platform: str = "ios"
+    env: str = "prod"  # prod / sandbox
 
 
 class RelationshipIn(BaseModel):

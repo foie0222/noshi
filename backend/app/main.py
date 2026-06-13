@@ -18,6 +18,7 @@ from app.ports import GiftCatalogMock, GiftCatalogPort, OcrLlmMock, OcrLlmPort
 from app.repository import InMemoryRepository, Repository
 from app.schemas import (
     CaptureIn,
+    DeviceTokenIn,
     DueIn,
     ImageUploadIn,
     JoinHouseholdIn,
@@ -137,7 +138,23 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         body: NotificationPrefsIn, ident: Identity = Depends(current_identity)
     ) -> dict[str, Any]:
         svc.resolve_household(ident.user_id, email=ident.email)
-        return svc.set_notification_prefs(ident.user_id, body.email)
+        return svc.set_notification_prefs(ident.user_id, body.email, body.push)
+
+    @app.post("/api/devices")
+    def register_device(
+        body: DeviceTokenIn, ident: Identity = Depends(current_identity)
+    ) -> dict[str, Any]:
+        # iOS プッシュ通知の宛先デバイストークンを本人スコープで登録（#205）。
+        svc.register_device_token(ident.user_id, body.token, body.platform, body.env)
+        return {"ok": True}
+
+    @app.delete("/api/devices/{token}")
+    def unregister_device(
+        token: str, ident: Identity = Depends(current_identity)
+    ) -> dict[str, Any]:
+        # ログアウト/無効トークンでデバイストークンを削除（#205）。
+        svc.unregister_device_token(ident.user_id, token)
+        return {"ok": True}
 
     @app.post("/api/household/join")
     def join_household(

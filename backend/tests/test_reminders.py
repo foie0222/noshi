@@ -86,9 +86,11 @@ def test_通知設定は既定オンで切替できる():
     repo = InMemoryRepository()
     svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
     svc.resolve_household("u1", email="a@example.com")
-    assert svc.notification_prefs("u1") == {"email": True}  # 既定オン
-    assert svc.set_notification_prefs("u1", email_on=False) == {"email": False}
-    assert svc.notification_prefs("u1") == {"email": False}
+    # メール/プッシュとも既定オン（push は #205 で追加）。
+    assert svc.notification_prefs("u1") == {"email": True, "push": True}
+    # email のみ切替（push_on 省略時はプッシュ設定は据え置き）。
+    assert svc.set_notification_prefs("u1", email_on=False) == {"email": False, "push": True}
+    assert svc.notification_prefs("u1") == {"email": False, "push": True}
     assert repo.get_membership("u1").notify_email is False
 
 

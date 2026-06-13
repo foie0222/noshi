@@ -10,6 +10,7 @@ from typing import Any, Protocol, TypeVar
 
 from app.domain.entities import (
     AuditEntry,
+    DeviceToken,
     ExtractionJob,
     GiftEvent,
     GiftRecord,
@@ -44,6 +45,11 @@ class Repository(Protocol):
     def get_membership(self, user_id: str) -> Membership | None: ...
     def list_members(self, household_id: str) -> list[Membership]: ...
     def delete_membership(self, user_id: str) -> bool: ...
+    # --- iOS プッシュ通知の宛先デバイストークン（#205）。本人スコープで管理する ---
+    def put_device_token(self, t: DeviceToken) -> DeviceToken: ...
+    def list_device_tokens(self, user_id: str) -> list[DeviceToken]: ...
+    def delete_device_token(self, user_id: str, token: str) -> bool: ...
+    def delete_device_tokens(self, user_id: str) -> int: ...
     # --- お返し期限リマインド（#178）。バッチが全世帯を走査し、送信済みを冪等に記録する ---
     def list_all_households(self) -> list[Household]: ...
     def reminder_marked(self, scope: str, event_id: str, day: str) -> bool: ...
@@ -77,6 +83,9 @@ class InMemoryRepository:
         self._purposes: dict[str, list[str]] = {}  # household_id -> 用途（追加順）
         self._parties: dict[str, dict[str, Party]] = {}  # household_id -> {party_id: Party}
         self._reminders: set[tuple[str, str, str]] = set()  # (scope, event_id, day) 送信済み(#178)
+        self._device_tokens: dict[
+            str, dict[str, DeviceToken]
+        ] = {}  # user_id -> {token: DeviceToken}(#205)
 
     # --- records ---
     def put_record(self, rec: GiftRecord) -> GiftRecord:
@@ -160,6 +169,20 @@ class InMemoryRepository:
 
     def delete_membership(self, user_id: str) -> bool:
         return self._memberships.pop(user_id, None) is not None
+
+    # --- デバイストークン（#205）---
+    def put_device_token(self, t: DeviceToken) -> DeviceToken:
+        self._device_tokens.setdefault(t.user_id, {})[t.token] = t
+        return t
+
+    def list_device_tokens(self, user_id: str) -> list[DeviceToken]:
+        return list(self._device_tokens.get(user_id, {}).values())
+
+    def delete_device_token(self, user_id: str, token: str) -> bool:
+        return self._device_tokens.get(user_id, {}).pop(token, None) is not None
+
+    def delete_device_tokens(self, user_id: str) -> int:
+        return len(self._device_tokens.pop(user_id, {}))
 
     # --- お返し期限リマインド（#178）---
     def list_all_households(self) -> list[Household]:
@@ -379,6 +402,33 @@ class DynamoRepository:
         self.table.delete_item(Key={"PK": f"USER#{user_id}", "SK": "MEMBERSHIP"})
         self.table.delete_item(Key={"PK": f"HOUSEHOLD#{m.household_id}", "SK": f"MEMBER#{user_id}"})
         return True
+
+    # --- デバイストークン（#205）。USER#<uid> / DEVICE#<token> で本人スコープに保存 ---
+    def put_device_token(self, t: DeviceToken) -> DeviceToken:
+        self.table.put_item(Item=self._item(self._pk(t.user_id), f"DEVICE#{t.token}", "device", t))
+        return t
+
+    def list_device_tokens(self, user_id: str) -> list[DeviceToken]:
+        from boto3.dynamodb.conditions import Key
+
+        items = self.table.query(
+            KeyConditionExpression=Key("PK").eq(self._pk(user_id))
+            & Key("SK").begins_with("DEVICE#")
+        ).get("Items", [])
+        return [h for it in items if (h := self._hydrate(DeviceToken, it)) is not None]
+
+    def delete_device_token(self, user_id: str, token: str) -> bool:
+        key = {"PK": self._pk(user_id), "SK": f"DEVICE#{token}"}
+        if self.table.get_item(Key=key).get("Item") is None:
+            return False
+        self.table.delete_item(Key=key)
+        return True
+
+    def delete_device_tokens(self, user_id: str) -> int:
+        tokens = self.list_device_tokens(user_id)
+        for t in tokens:
+            self.table.delete_item(Key={"PK": self._pk(user_id), "SK": f"DEVICE#{t.token}"})
+        return len(tokens)
 
     # --- お返し期限リマインド（#178）---
     def list_all_households(self) -> list[Household]:

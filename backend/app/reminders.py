@@ -1,7 +1,7 @@
 """お返し期限のリマインド（#178）。
 
 「お返しを忘れない」を、ユーザーの記憶力に頼らず実現する。日次バッチ（EventBridge →
-Lambda）が全世帯を走査し、お返し期限が **3日前・当日** のイベントを抽出して、世帯の
+Lambda）が全世帯を走査し、お返し期限が **1週間前・当日** のイベントを抽出して、世帯の
 メンバーへ落ち着いたトーンのメール（SES）を1通送る。
 
 設計方針:
@@ -25,7 +25,8 @@ if TYPE_CHECKING:
     from .repository import Repository
 
 # お返し期限の何日前・当日に知らせるか。急かさないよう、超過は通知しない。
-REMIND_OFFSETS = (3, 0)
+# 1週間前と当日（準備に余裕を持てるタイミング、#187）。
+REMIND_OFFSETS = (7, 0)
 
 SUBJECT = "noshi｜お返しの時期が近づいています"
 
@@ -57,7 +58,7 @@ def _resolve_due(ev: GiftEvent, occurred_at: str, purpose: str) -> datetime.date
 
 
 def collect_household_due(repo: Repository, scope: str, today: datetime.date) -> list[DueReminder]:
-    """世帯スコープの未完了イベントから、期限が3日前・当日の「もらった」分を抽出する。"""
+    """世帯スコープの未完了イベントから、期限が1週間前・当日の「もらった」分を抽出する。"""
     out: list[DueReminder] = []
     for ev in repo.list_pending_events(scope):
         if ev.status == "done":

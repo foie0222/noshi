@@ -65,8 +65,8 @@ jobs:
             1. `git diff origin/main...HEAD`（失敗時は `git diff HEAD~1 HEAD`）で差分を取得。
             2. `cat REVIEW.md` `cat AGENTS.md` `cat CLAUDE.md` を読み、観点を把握。REVIEW.md を最優先で厳守。
             3. 指摘は **`mcp__github_inline_comment__create_inline_comment`（confirmed: true）** で、
-               該当する変更行に **1 指摘 1 インラインコメント**として投稿する。各本文の先頭に 🔴 [Important] / 🟡 [Nit]。
+               該当する変更行に **1 指摘 1 インラインコメント**として投稿する。各本文の先頭に重大度を `High:` / `Medium:` / `Low:` で付ける。
             4. 行を特定できない指摘は、最後のサマリ本文に「path:line 付き」でまとめる。
-            5. 最後に **一度だけ** `gh pr comment` で一行サマリを投稿する（例「重大2・軽微1」。指摘ゼロなら「ブロッカーなし」）。
+            5. 最後に **一度だけ** `gh pr comment` で一行サマリを投稿する（例「High 1 / Medium 2 / Low 1」。指摘ゼロなら「ブロッカーなし」）。
                サマリの二重投稿はしない。
             6. すべて日本語で書くこと。

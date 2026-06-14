@@ -25,13 +25,21 @@ concurrency:
 jobs:
   testflight:
     name: archive & upload to TestFlight
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 45
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
+      - name: select latest Xcode (App Store は iOS 26 SDK / Xcode 26+ を要求)
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "installed Xcodes:"; ls -d /Applications/Xcode_*.app 2>/dev/null
+          echo "selecting: $LATEST"
+          sudo xcode-select -s "$LATEST/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
       - uses: actions/setup-node@v6
         with:
           node-version: "22"

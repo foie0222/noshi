@@ -157,9 +157,10 @@ export class AuthStack extends Stack {
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-        // 本番 origin のみ（localhost を含めない＝コード横取りの足場を作らない。スペック§3）
-        callbackUrls: ["https://noshi.me/"],
-        logoutUrls: ["https://noshi.me/"],
+        // 本番 origin ＋ iOS ネイティブのカスタムスキーム（#204）。
+        // iOS は SFSafariViewController で開き me.noshi.app://callback に戻る（埋め込みWebView拒否の回避）。
+        callbackUrls: ["https://noshi.me/", "me.noshi.app://callback"],
+        logoutUrls: ["https://noshi.me/", "me.noshi.app://callback"],
       },
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,

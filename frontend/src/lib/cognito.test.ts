@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { Capacitor } from "@capacitor/core";
+import { describe, expect, it, vi } from "vitest";
 import {
   b64url,
   buildAuthorizeUrl,
   classifyCallback,
   cognitoErrorMessage,
+  oauthRedirectUri,
   pickInitialScreen,
   pkcePair,
+  registerNativeAuthCallback,
 } from "./cognito";
 
 describe("リロード時の初期画面", () => {
@@ -113,5 +116,31 @@ describe("classifyCallback（コールバック分岐の純関数）", () => {
   it("state不一致はerror（CSRF対策）", () => {
     const p = new URLSearchParams("code=abc&state=evil");
     expect(classifyCallback(p, stored).kind).toBe("error");
+  });
+});
+
+describe("oauthRedirectUri（authorizeとtoken交換で同一値）", () => {
+  it("Web では現在オリジン直下を返す", () => {
+    // jsdom（非ネイティブ）では location.origin ベース。
+    expect(oauthRedirectUri()).toBe(`${location.origin}/`);
+  });
+  it("iOS ネイティブではカスタムスキームを返す", () => {
+    const spy = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    expect(oauthRedirectUri()).toBe("me.noshi.app://callback");
+    spy.mockRestore();
+  });
+});
+
+describe("registerNativeAuthCallback", () => {
+  it("Web では何も購読せず no-op の解除関数を返す", () => {
+    const unsub = registerNativeAuthCallback(() => {});
+    expect(typeof unsub).toBe("function");
+    expect(() => unsub()).not.toThrow();
+  });
+  it("ネイティブでは appUrlOpen を購読し解除関数を返す", () => {
+    const nativeSpy = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    const unsub = registerNativeAuthCallback(() => {});
+    expect(typeof unsub).toBe("function");
+    nativeSpy.mockRestore();
   });
 });

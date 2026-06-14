@@ -56,6 +56,9 @@ jobs:
         run: npx cap sync ios
       - name: configure Info.plist (URLスキーム #204 / 輸出コンプラ #213)
         run: bash ../scripts/ios-configure-plist.sh ios/App/App/Info.plist
+      - name: generate app icon & splash (#206)
+        # frontend/assets/ の icon-only.png / splash*.png から iOS のアイコン・スプラッシュを生成。
+        run: npx capacitor-assets generate --ios
       - name: locate xcworkspace
         id: ws
         # Capacitor のバージョンで生成パスが変わりうるため動的に探索する。

@@ -13,6 +13,12 @@
   box-sizing: border-box;
 }
 
+/* ルートにも背景色を敷く。iOS のオーバースクロール（ラバーバンド）で body の外側＝html が
+   露出した際に WebView の黒い地が見えるのを防ぐ（#206）。 */
+html {
+  background: var(--bg-page);
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);

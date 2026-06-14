@@ -11,9 +11,10 @@ name: Claude Code Review
 # レビュー観点は repo 直下の REVIEW.md で定義。
 on:
   pull_request:
-    # synchronize も対象: 必須チェックは push のたびに再評価が要る。opened のみだと
-    # 修正 push 後に「Claude review」が HEAD に無く、必須ゲートが永久 BLOCK になる。
-    types: [opened, synchronize]
+    # PR 作成時のみレビュー（push での再レビューはしない＝Max 枠の節約）。
+    # ブロックは未解決スレッド（ruleset の required_review_thread_resolution）で担保するため、
+    # 「Claude review」は必須ステータスチェックには含めない（opened のみ＋必須は push で永久 BLOCK になる）。
+    types: [opened]
     branches: [main]
 
 permissions:

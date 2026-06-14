@@ -36,7 +36,7 @@
 | `ASC_KEY_ID` | API キーの Key ID（例: `ABCD1234EF`） |
 | `ASC_ISSUER_ID` | Issuer ID（UUID 形式） |
 | `ASC_API_KEY_P8` | `.p8` ファイルの**中身そのまま**（`-----BEGIN PRIVATE KEY-----` から `-----END PRIVATE KEY-----` まで全行） |
-| `APPLE_TEAM_ID` | チームID `63AST5A8VY` |
+| `APPLE_TEAM_ID` | チームID（Apple Developer ポータルの Membership ページに表示される10桁。値は本書に記載しない） |
 
 > `.p8` は改行を保ったまま貼り付ける。GitHub Secrets は複数行を保持できる。
 

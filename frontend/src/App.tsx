@@ -334,7 +334,8 @@ export function App() {
     };
     // Web: 起動時に URL の code/error を処理。iOS ネイティブ: カスタムスキーム復帰を購読（#204）。
     void handleAuthCallback().then(onResult);
-    registerNativeAuthCallback(onResult);
+    const unsubscribe = registerNativeAuthCallback(onResult);
+    return unsubscribe;
   }, []);
 
   // 起動時: ログイン必須環境で未ログインなら login 画面に固定。

@@ -13,8 +13,8 @@ const NATIVE_OAUTH_REDIRECT = "me.noshi.app://callback";
 function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
 }
-/** OAuth の redirect_uri。authorize と token 交換で必ず同一値を使う。 */
-function oauthRedirectUri(): string {
+/** OAuth の redirect_uri。authorize と token 交換で必ず同一値を使う（テスト対象）。 */
+export function oauthRedirectUri(): string {
   return isNativePlatform() ? NATIVE_OAUTH_REDIRECT : `${location.origin}/`;
 }
 
@@ -308,21 +308,23 @@ export async function handleAuthCallback(): Promise<CallbackResult> {
  * me.noshi.app://callback?code=... で復帰した際に code を交換し、結果を onResult に渡す。
  * Web では何もしない。
  */
-export function registerNativeAuthCallback(onResult: (r: CallbackResult) => void): void {
-  if (!isNativePlatform()) return;
-  void CapApp.addListener("appUrlOpen", async ({ url }) => {
-    let search = "";
+export function registerNativeAuthCallback(onResult: (r: CallbackResult) => void): () => void {
+  if (!isNativePlatform()) return () => {};
+  const handle = CapApp.addListener("appUrlOpen", async ({ url }) => {
+    let params: URLSearchParams;
     try {
-      search = new URL(url).search;
+      params = new URLSearchParams(new URL(url).search);
     } catch {
       return;
     }
-    if (!new URLSearchParams(search).has("code") && !new URLSearchParams(search).has("error")) {
-      return;
-    }
+    if (!params.has("code") && !params.has("error")) return;
     callbackHandled = false; // ネイティブの新規コールバックは毎回処理する
-    const r = await processCallback(new URLSearchParams(search));
+    const r = await processCallback(params);
     await Browser.close().catch(() => {});
     onResult(r);
   });
+  // 二重登録の保険として購読解除を返す（呼び出し側が useEffect の cleanup で使う）。
+  return () => {
+    void handle.then((h) => h.remove());
+  };
 }

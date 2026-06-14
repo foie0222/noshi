@@ -536,8 +536,8 @@ body {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: center;
-  /* 固定ナビを独立した GPU レイヤーに分離し、一覧スクロール中の再描画を止める（#206 スクロール最適化）。 */
-  transform: translateZ(0);
+  /* 固定ナビを独立した合成レイヤーに分離し、一覧スクロール中の再描画を止める（#206 スクロール最適化）。
+     現行 WKWebView では will-change だけで昇格するため translateZ(0) は使わない。 */
   will-change: transform;
 }
 .tabbar button {

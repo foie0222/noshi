@@ -1284,7 +1284,6 @@ export function App() {
           >
             {extracting ? "読み取り中…" : "この画像で読み取る"}
           </button>
-          <TrustNote />
           <div
             style={{
               marginTop: 20,
@@ -1295,9 +1294,10 @@ export function App() {
             <p className="muted">写真がないときは、手入力でも記録できます。</p>
             <button type="button" className="btn ghost" onClick={startManualGiven}>
               <Icon name="gift" size={18} />
-              あげた物を手入力で記録
+              手入力で記録
             </button>
           </div>
+          <TrustNote />
         </>
       )}
 
@@ -1321,7 +1321,7 @@ export function App() {
             : {};
           return (
             <>
-              <Bar title={draft.image ? "内容を確認" : "あげた物を記録"} back="capture" />
+              <Bar title={draft.image ? "内容を確認" : "手入力で記録"} back="capture" />
               {draft.image && <img className="review-image" src={draft.image} alt="撮影した画像" />}
               <p className="muted" style={{ marginTop: 6 }}>
                 {draft.image

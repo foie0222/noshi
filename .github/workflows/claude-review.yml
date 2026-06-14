@@ -80,7 +80,7 @@ jobs:
 
       # 2) review.json を正式な PR レビュー（インライン）として投稿。各指摘が解決可能スレッドになる。
       - name: レビューを投稿（インラインスレッド）
-        if: ${{ always() && github.event.action == 'opened' }}
+        if: always() && github.event.action == 'opened'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

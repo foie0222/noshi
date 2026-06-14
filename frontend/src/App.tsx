@@ -1595,7 +1595,7 @@ export function App() {
                   rel="noopener sponsored"
                   onClick={(e) => {
                     api.clickSuggestion(s);
-                    // iOS は SFSafariViewController で開く（埋め込みWebViewの遷移失敗・計測取りこぼし回避, #230）。
+                    // ネイティブは実ブラウザで開く（埋め込みWebViewの遷移失敗・計測取りこぼし回避, #230）。
                     if (openExternalUrl(s.external_ref)) e.preventDefault();
                   }}
                 >

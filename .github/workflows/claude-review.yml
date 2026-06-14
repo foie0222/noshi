@@ -4,19 +4,20 @@ name: Claude Code Review
 # （＝解決可能なスレッド）として投稿する。未解決スレッドがあるとマージできない運用
 # （ruleset の required_review_thread_resolution）と組み合わせ、指摘が残る限りマージを止める。
 # 誤検知はそのスレッドを Resolve すればマージ可。
+#
+# 投稿は Claude にやらせず（action のサンドボックスで投稿系ツールが拒否されるため）、
+# Claude は分析結果を review.json に書き出すだけにして、別ステップの gh で投稿する。
 # 認証は Max サブスクの OAuth トークン（secret CLAUDE_CODE_OAUTH_TOKEN）。追加課金なし。
 on:
   pull_request:
     types: [opened]
     branches: [main]
 
-# レビュー（インラインコメント）投稿に pull-requests: write が必要。
 permissions:
   contents: read
   pull-requests: write
   issues: write
 
-# 同一PRで多重起動しないよう直列化。
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -31,20 +32,49 @@ jobs:
         with:
           fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
 
+      # 1) Claude は分析のみ。結果を review.json に書き出す（投稿はしない）。
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # use_sticky_comment は付けない（既定 false）。総括1個に丸めず、
-          # 指摘ごとにインライン行コメント＝解決可能スレッドを残させるため。
-          claude_args: "--max-turns 40"
+          claude_args: |
+            --max-turns 30
+            --allowedTools Read,Grep,Glob,Write,Bash(git:*),Bash(cat:*)
+            --debug
           prompt: |
-            この PR の変更（差分）をレビューしてください。
+            この PR の変更をレビューし、結果を **リポジトリ直下の `review.json`** に書き出してください。
+            GitHub への投稿はしなくてよい（別ステップが review.json を投稿する）。
 
-            - リポジトリ直下の REVIEW.md を最優先のレビュー方針として厳守し、CLAUDE.md / AGENTS.md の規約も踏まえること。
-            - 応答・指摘はすべて日本語で書くこと。
-            - 指摘は、問題のある **変更行に対するインラインのレビューコメント**（行を指定したレビューコメント）として残すこと。
-              総括コメント1個にまとめず、1指摘1コメントで該当行に付ける（＝解決可能なスレッドにする）。
-            - 各指摘の先頭に重大度を付ける：🔴 [Important] / 🟡 [Nit]。
-            - レビュー全体の本文（summary）には一行サマリを書く（例「重大2・軽微1」）。
-              指摘が一つも無ければ本文に「ブロッカーなし」とだけ書く。
+            手順:
+            1. 差分を取得する: `git diff origin/main...HEAD`（失敗時は `git diff HEAD~1 HEAD`）。
+            2. `cat REVIEW.md` `cat AGENTS.md` `cat CLAUDE.md` を読み、レビュー観点を把握する。
+               REVIEW.md を最優先の方針として厳守する。
+            3. 追加・変更された行を中心にレビューし、指摘を JSON にまとめて Write ツールで
+               `review.json` に保存する。形式:
+               {
+                 "event": "COMMENT",
+                 "body": "一行サマリ（日本語。例『重大2・軽微1』。指摘ゼロなら『ブロッカーなし』）",
+                 "comments": [
+                   {"path": "変更ファイルの相対パス", "line": 新ファイル側の行番号, "side": "RIGHT",
+                    "body": "🔴 [Important] …（日本語の指摘）"}
+                 ]
+               }
+            4. `line` は必ず diff に現れる追加/変更行を指す。行を特定できない指摘は body に「path:line 付き」でまとめ、
+               comments には入れない。指摘が無ければ "comments": [] にする。
+            5. すべて日本語。各 comment 本文の先頭に 🔴 [Important] / 🟡 [Nit] を付ける。
+            6. 必ず最後に review.json を Write すること（これが唯一の成果物）。
+
+      # 2) review.json を正式な PR レビュー（インライン）として投稿。各指摘が解決可能スレッドになる。
+      - name: レビューを投稿（インラインスレッド）
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f review.json ]; then
+            echo "::error::review.json が生成されませんでした（レビュー失敗）。"
+            exit 1
+          fi
+          echo "----- review.json -----"; cat review.json; echo "-----------------------"
+          gh api -X POST \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
+            --input review.json

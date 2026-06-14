@@ -1,22 +1,11 @@
 name: Claude Code Review
 
-# レビューは PR 作成時（opened）のみ実行する。指摘は「正式な PR レビュー＋インライン行コメント」
-# （＝解決可能なスレッド）として残り、未解決のままだとマージ不可
-# （ruleset の required_review_thread_resolution）。誤検知はそのスレッドを Resolve すればマージ可。
-#
-# トリガに synchronize も含めるが、**push 時は再レビューせず即パス**する。狙い:
-#  - 「Claude review」を必須チェックにできる → opened のレビュー完了まで必須チェックが pending となり、
-#    レビュー前のすり抜けマージを防げる。
-#  - push 後も「Claude review」チェックが HEAD に存在（即パス）するので永久 BLOCK にならない。
-#  - 再レビューしないので Max 枠を食わず、Nit ループも起きない（実質「PR 作成時のみレビュー」）。
-#
-# 投稿は Claude にやらせない（action のサンドボックスで投稿系ツールが拒否されるため）。
-# Claude は分析結果を review.json に書き出すだけで、別ステップの gh が投稿する。
-# 認証は Max サブスクの OAuth トークン（secret CLAUDE_CODE_OAUTH_TOKEN）。追加課金なし。
-# レビュー観点は repo 直下の REVIEW.md で定義。
+# [検証用] MCP インラインツール方式: mcp__github_inline_comment__create_inline_comment で
+# 指摘を直接インライン投稿させる。これが「解決可能スレッド」になり required_review_thread_resolution
+# に効くかを確認する。
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened]
     branches: [main]
 
 permissions:
@@ -25,7 +14,6 @@ permissions:
   issues: write
 
 concurrency:
-  # opened のレビューを途中で殺さない（push は後ろに直列化される）。
   group: claude-review-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
@@ -33,66 +21,28 @@ jobs:
   review:
     name: Claude review
     runs-on: ubuntu-latest
-    timeout-minutes: 20 # 青天井のハングを防ぐ
+    timeout-minutes: 20
     steps:
-      # push（synchronize 等）では再レビューせず通過。PR 作成時のレビュー結果（スレッド）を維持する。
-      # この空通過により必須チェック「Claude review」が新 HEAD でも緑になり、永久 BLOCK を防ぐ。
-      - name: skip review on push (opened のみ本レビュー)
-        if: github.event.action != 'opened'
-        run: echo "push 後は再レビューしない。PR 作成時のレビュー結果（未解決スレッド）を維持。"
-
       - uses: actions/checkout@v6
-        if: github.event.action == 'opened'
         with:
-          fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
+          fetch-depth: 0
 
-      # 1) Claude は分析のみ。結果を review.json に書き出す（GitHub への投稿はしない）。
       - uses: anthropics/claude-code-action@v1
-        if: github.event.action == 'opened'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 分類を切って即投稿。インラインツール＋差分取得＋サマリ用の gh pr comment を許可。
+          classify_inline_comments: "false"
           claude_args: |
             --max-turns 30
-            --allowedTools Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(cat:*)
+            --allowedTools Read,Grep,Glob,Bash(git diff:*),Bash(cat:*),mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*)
           prompt: |
-            この PR の変更をレビューし、結果を **リポジトリ直下の `review.json`** に書き出してください。
-            GitHub への投稿はしなくてよい（別ステップが review.json を投稿する）。
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
 
-            手順:
-            1. 差分を取得する: `git diff origin/main...HEAD`（失敗時は `git diff HEAD~1 HEAD`）。
-            2. `cat REVIEW.md` `cat AGENTS.md` `cat CLAUDE.md` を読み、レビュー観点を把握する。
-               REVIEW.md を最優先の方針として厳守する。
-            3. 追加・変更された行を中心にレビューし、指摘を JSON にまとめて Write ツールで
-               `review.json` に保存する。形式:
-               {
-                 "event": "COMMENT",
-                 "body": "一行サマリ（日本語。例『重大2・軽微1』。指摘ゼロなら『ブロッカーなし』）",
-                 "comments": [
-                   {"path": "変更ファイルの相対パス", "line": 新ファイル側の行番号, "side": "RIGHT",
-                    "body": "🔴 [Important] …（日本語の指摘）"}
-                 ]
-               }
-            4. `line` は必ず diff に現れる追加/変更行を指す。行を特定できない指摘は body に「path:line 付き」でまとめ、
-               comments には入れない。指摘が無ければ "comments": [] にする。
-            5. すべて日本語。各 comment 本文の先頭に 🔴 [Important] / 🟡 [Nit] を付ける。
-            6. 必ず最後に review.json を Write すること（これが唯一の成果物）。
-
-      # 2) review.json を正式な PR レビュー（インライン）として投稿。各指摘が解決可能スレッドになる。
-      - name: レビューを投稿（インラインスレッド）
-        if: always() && github.event.action == 'opened'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ ! -f review.json ]; then
-            echo "::error::review.json が生成されませんでした（レビュー失敗）。"
-            exit 1
-          fi
-          echo "----- review.json -----"; cat review.json; echo "-----------------------"
-          if ! jq empty review.json 2>/dev/null; then
-            echo "::error::review.json が不正な JSON です。"
-            exit 1
-          fi
-          gh api -X POST \
-            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
-            --input review.json
+            この PR の変更をレビューしてください。
+            - `git diff origin/main...HEAD` で差分を取得。`cat REVIEW.md` `cat AGENTS.md` を読み観点を把握。
+              REVIEW.md を最優先で厳守。すべて日本語。
+            - 指摘は **`mcp__github_inline_comment__create_inline_comment`（confirmed: true）** で、
+              該当する変更行に**1指摘1インラインコメント**として投稿する。各先頭に 🔴 [Important] / 🟡 [Nit]。
+            - 最後に一行サマリ（例「重大2・軽微1」）を `gh pr comment` で投稿（指摘ゼロなら「ブロッカーなし」）。

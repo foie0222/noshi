@@ -1,15 +1,16 @@
 name: Claude Code Review
 
-# PR 作成時に Claude が差分をレビューし、指摘事項をインラインコメントで残す。
-# 認証は Max サブスクの OAuth トークン（`claude setup-token` で生成 → secret CLAUDE_CODE_OAUTH_TOKEN）。
-# トークン消費は Max 枠でカバーされ、API/Bedrock の追加課金は発生しない。
-# ただし Max の 5h/週次レート上限を対話利用と共有する点に注意。
+# PR 作成時に Claude が差分をレビューし、指摘を「正式な PR レビュー＋インライン行コメント」
+# （＝解決可能なスレッド）として投稿する。未解決スレッドがあるとマージできない運用
+# （ruleset の required_review_thread_resolution）と組み合わせ、指摘が残る限りマージを止める。
+# 誤検知はそのスレッドを Resolve すればマージ可。
+# 認証は Max サブスクの OAuth トークン（secret CLAUDE_CODE_OAUTH_TOKEN）。追加課金なし。
 on:
   pull_request:
     types: [opened]
     branches: [main]
 
-# レビューコメントの投稿に pull-requests: write が必要。
+# レビュー（インラインコメント）投稿に pull-requests: write が必要。
 permissions:
   contents: read
   pull-requests: write
@@ -24,6 +25,7 @@ jobs:
   review:
     name: Claude review
     runs-on: ubuntu-latest
+    timeout-minutes: 20 # 青天井のハングを防ぐ
     steps:
       - uses: actions/checkout@v6
         with:
@@ -31,12 +33,31 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          # Max サブスクの OAuth トークン（API キー/Bedrock の代わり）。
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # コメント投稿は workflow の GITHUB_TOKEN（pull-requests: write）で行う。
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # 公式 code-review プラグインを入れて、PR の差分レビュー＋指摘をインラインコメント。
-          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
-          plugins: "code-review@claude-code-plugins"
-          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
-          claude_args: "--max-turns 30"
+          claude_args: "--max-turns 40"
+          prompt: |
+            あなたは PR #${{ github.event.pull_request.number }}（リポジトリ ${{ github.repository }}）のコードレビュアーです。
+            応答・指摘はすべて日本語で書くこと。
+
+            ## 方針
+            リポジトリ直下の REVIEW.md を最優先のレビュー方針として厳守し、CLAUDE.md / AGENTS.md の規約も踏まえること。
+
+            ## 手順
+            1. `cat REVIEW.md` と `cat AGENTS.md` を読み、レビュー観点を把握する。
+            2. `gh pr diff ${{ github.event.pull_request.number }}` で差分を取得し、追加・変更された行を中心にレビューする。
+            3. 指摘は **GitHub の正式な PR レビュー（インライン行コメント）** として投稿する。各指摘が
+               「解決可能なスレッド」になるよう、必ず次の手順で投稿すること:
+               - comments 配列を JSON ファイルに書く。各要素は
+                 {"path": 変更ファイルの相対パス, "line": 新ファイル側の行番号, "side": "RIGHT", "body": 指摘本文}。
+               - `gh api -X POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --input <file.json>`
+                 を実行する。JSON は {"event": "COMMENT", "body": 一行サマリ, "comments": [...]} の形にする。
+            4. `line` は必ず **その PR の diff に現れる行**（追加/変更行）を指すこと。diff に無い行はインライン不可なので、
+               その指摘だけはレビュー body に「path:line 付き」で箇条書きにする。
+            5. 各指摘本文の先頭に重大度を付ける（🔴 [Important] / 🟡 [Nit]）。body 冒頭に一行サマリ（例「重大2・軽微1」）。
+            6. 指摘が一つも無ければ、{"event": "COMMENT", "body": "ブロッカーなし", "comments": []} のレビューを1件だけ投稿する。
+            7. **トップレベルの issue コメントは作らない**。必ず上記「レビュー＋インラインコメント」で出すこと。
+
+            ## 注意
+            - インライン投稿が API エラー（422 等）になった指摘は、レビュー body に「path:line 付き」で回す。
+            - 同じ指摘を二重に投稿しない。秘密情報やトークンはログ・コメントに出さない。

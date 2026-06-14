@@ -38,24 +38,25 @@ def _token() -> str:
     )
 
 
-def _request(method: str, url: str) -> dict | None:
-    req = urllib.request.Request(
-        url, method=method, headers={"Authorization": f"Bearer {_token()}"}
-    )
+def _request(method: str, url: str, token: str) -> dict | None:
+    req = urllib.request.Request(url, method=method, headers={"Authorization": f"Bearer {token}"})
     with urllib.request.urlopen(req, timeout=30) as resp:
         body = resp.read()
         return json.loads(body) if body else None
 
 
 def main() -> None:
-    data = _request("GET", f"{API}?limit=200")["data"]
+    # トークンは 600s 有効。1回の実行（数秒）では使い回して十分なので一度だけ生成する。
+    token = _token()
+    resp = _request("GET", f"{API}?limit=200", token)
+    data = (resp or {"data": []})["data"]  # 空ボディでも落とさない
     stale = [c for c in data if c["attributes"].get("displayName") == REVOKE_DISPLAY_NAME]
     print(f"certificates total={len(data)} stale('{REVOKE_DISPLAY_NAME}')={len(stale)}")
     revoked = 0
     for cert in stale:
         cid = cert["id"]
         try:
-            _request("DELETE", f"{API}/{cid}")
+            _request("DELETE", f"{API}/{cid}", token)
             revoked += 1
             print(f"  revoked {cid}")
         except urllib.error.HTTPError as e:  # 失効失敗は致命ではない（ビルドは続行）

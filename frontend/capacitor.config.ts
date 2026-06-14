@@ -19,8 +19,11 @@ const config: CapacitorConfig = {
     CapacitorHttp: { enabled: true },
   },
   ios: {
-    // 本番は dist 同梱で動かす。dev のホットリロードは server.url を一時的に使う想定（本番では設定しない）。
-    contentInset: "always",
+    // WebView をフル表示にし、セーフエリアは CSS（viewport-fit=cover + env()）で扱う。
+    // "always" だとステータスバー分を WebView が内側に押し込み、その帯が黒地で見えるため "never" に（#206）。
+    contentInset: "never",
+    // ステータスバー帯など、ページ背景の外側に見える WebView 地を生成り色にする（黒地防止）。
+    backgroundColor: "#F3EEE2",
   },
 };
 

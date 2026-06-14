@@ -23,6 +23,14 @@ fi
 "$PB" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST" 2>/dev/null || true
 "$PB" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string ${SCHEME}" "$PLIST" 2>/dev/null || true
 
+# ステータスバーは暗色文字（生成り背景で読めるように）。ViewController ベースの制御は無効化（#206）。
+"$PB" -c "Add :UIStatusBarStyle string UIStatusBarStyleDarkContent" "$PLIST" 2>/dev/null \
+  || "$PB" -c "Set :UIStatusBarStyle UIStatusBarStyleDarkContent" "$PLIST"
+"$PB" -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$PLIST" 2>/dev/null \
+  || "$PB" -c "Set :UIViewControllerBasedStatusBarAppearance false" "$PLIST"
+
 echo "--- result ---"
 "$PB" -c "Print :ITSAppUsesNonExemptEncryption" "$PLIST"
 "$PB" -c "Print :CFBundleURLTypes" "$PLIST"
+"$PB" -c "Print :UIStatusBarStyle" "$PLIST"
+"$PB" -c "Print :UIViewControllerBasedStatusBarAppearance" "$PLIST"

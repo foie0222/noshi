@@ -1,9 +1,14 @@
 name: Claude Code Review
 
-# PR 作成時に Claude が差分をレビューし、指摘を「正式な PR レビュー＋インライン行コメント」
-# （＝解決可能なスレッド）として投稿する。未解決スレッドがあるとマージできない運用
-# （ruleset の required_review_thread_resolution）と組み合わさり、指摘が残る限りマージを止める。
-# 誤検知はそのスレッドを Resolve すればマージ可。
+# レビューは PR 作成時（opened）のみ実行する。指摘は「正式な PR レビュー＋インライン行コメント」
+# （＝解決可能なスレッド）として残り、未解決のままだとマージ不可
+# （ruleset の required_review_thread_resolution）。誤検知はそのスレッドを Resolve すればマージ可。
+#
+# トリガに synchronize も含めるが、**push 時は再レビューせず即パス**する。狙い:
+#  - 「Claude review」を必須チェックにできる → opened のレビュー完了まで必須チェックが pending となり、
+#    レビュー前のすり抜けマージを防げる。
+#  - push 後も「Claude review」チェックが HEAD に存在（即パス）するので永久 BLOCK にならない。
+#  - 再レビューしないので Max 枠を食わず、Nit ループも起きない（実質「PR 作成時のみレビュー」）。
 #
 # 投稿は Claude にやらせない（action のサンドボックスで投稿系ツールが拒否されるため）。
 # Claude は分析結果を review.json に書き出すだけで、別ステップの gh が投稿する。
@@ -11,10 +16,7 @@ name: Claude Code Review
 # レビュー観点は repo 直下の REVIEW.md で定義。
 on:
   pull_request:
-    # PR 作成時のみレビュー（push での再レビューはしない＝Max 枠の節約）。
-    # ブロックは未解決スレッド（ruleset の required_review_thread_resolution）で担保するため、
-    # 「Claude review」は必須ステータスチェックには含めない（opened のみ＋必須は push で永久 BLOCK になる）。
-    types: [opened]
+    types: [opened, synchronize]
     branches: [main]
 
 permissions:
@@ -23,8 +25,9 @@ permissions:
   issues: write
 
 concurrency:
+  # opened のレビューを途中で殺さない（push は後ろに直列化される）。
   group: claude-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   review:
@@ -32,12 +35,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20 # 青天井のハングを防ぐ
     steps:
+      # push（synchronize 等）では再レビューせず通過。PR 作成時のレビュー結果（スレッド）を維持する。
+      # この空通過により必須チェック「Claude review」が新 HEAD でも緑になり、永久 BLOCK を防ぐ。
+      - name: skip review on push (opened のみ本レビュー)
+        if: github.event.action != 'opened'
+        run: echo "push 後は再レビューしない。PR 作成時のレビュー結果（未解決スレッド）を維持。"
+
       - uses: actions/checkout@v6
+        if: github.event.action == 'opened'
         with:
           fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
 
       # 1) Claude は分析のみ。結果を review.json に書き出す（GitHub への投稿はしない）。
       - uses: anthropics/claude-code-action@v1
+        if: github.event.action == 'opened'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -69,7 +80,7 @@ jobs:
 
       # 2) review.json を正式な PR レビュー（インライン）として投稿。各指摘が解決可能スレッドになる。
       - name: レビューを投稿（インラインスレッド）
-        if: always()
+        if: always() && github.event.action == 'opened'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

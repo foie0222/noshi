@@ -46,6 +46,16 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: revoke stale cloud-signing certs (証明書上限の回避 #206)
+        # クラウド署名が毎ビルド作る使い捨て開発証明書を失効し、Apple の証明書上限到達を防ぐ。
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          pip3 install --quiet --break-system-packages pyjwt cryptography
+          python3 ../scripts/revoke-stale-ios-certs.py
+
       - name: install deps & build web
         # 本番の API/Cognito 設定を注入（未注入だと認証無効・API先が空になる）。値は公開設定（GitHub Variables）。
         env:

@@ -40,7 +40,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_args: |
             --max-turns 30
-            --allowedTools Read,Grep,Glob,Write,Bash(git:*),Bash(cat:*)
+            --allowedTools Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(cat:*)
           prompt: |
             この PR の変更をレビューし、結果を **リポジトリ直下の `review.json`** に書き出してください。
             GitHub への投稿はしなくてよい（別ステップが review.json を投稿する）。
@@ -75,6 +75,10 @@ jobs:
             exit 1
           fi
           echo "----- review.json -----"; cat review.json; echo "-----------------------"
+          if ! jq empty review.json 2>/dev/null; then
+            echo "::error::review.json が不正な JSON です。"
+            exit 1
+          fi
           gh api -X POST \
             "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
             --input review.json

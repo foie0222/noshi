@@ -28,7 +28,11 @@ body {
   max-width: 430px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 0 var(--gutter-screen) calc(var(--nav-height) + 36px);
+  /* iOS セーフエリア対応（#206）。ノッチ/ホームインジケータに被らないよう上下左右の inset を加算。 */
+  padding-top: env(safe-area-inset-top);
+  padding-left: calc(var(--gutter-screen) + env(safe-area-inset-left));
+  padding-right: calc(var(--gutter-screen) + env(safe-area-inset-right));
+  padding-bottom: calc(var(--nav-height) + 36px + env(safe-area-inset-bottom));
 }
 
 /* ---- ヘッダー --------------------------------------------------------- */
@@ -512,7 +516,9 @@ body {
   right: 0;
   max-width: 430px;
   margin: 0 auto;
-  height: var(--nav-height);
+  /* セーフエリア分を下に足し、操作領域はホームインジケータの上に保つ（#206）。 */
+  height: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   background: var(--surface-card-raised);
   border-top: var(--bw-hairline) solid var(--border-faint);
   box-shadow: var(--shadow-nav);

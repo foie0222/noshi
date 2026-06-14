@@ -47,6 +47,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: install deps & build web
+        # 本番の API/Cognito 設定を注入（未注入だと認証無効・API先が空になる）。値は公開設定（GitHub Variables）。
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
+          VITE_AWS_REGION: ap-northeast-1
         run: |
           npm ci
           npm run build

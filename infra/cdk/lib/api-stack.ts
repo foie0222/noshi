@@ -75,7 +75,12 @@ export class ApiStack extends Stack {
       corsPreflight: {
         // 本番フロントのオリジンに限定（#72）。dev は vite プロキシ＝同一オリジンのため CORS 不要。
         // 旧 CloudFront ドメインは noshi.me 移行期の併用として当面許可する。
-        allowOrigins: ["https://noshi.me", "https://d1u0sgslky88ja.cloudfront.net"],
+        // iOS（Capacitor 内包）の WebView オリジンも許可（#194）。WKWebView は capacitor://localhost。
+        allowOrigins: [
+          "https://noshi.me",
+          "https://d1u0sgslky88ja.cloudfront.net",
+          "capacitor://localhost",
+        ],
         allowMethods: [apigw.CorsHttpMethod.ANY],
         allowHeaders: ["authorization", "content-type"],
       },

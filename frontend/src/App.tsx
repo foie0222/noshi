@@ -32,6 +32,7 @@ import {
   socialEnabled,
   socialSignIn,
 } from "./lib/cognito";
+import { openExternalUrl } from "./lib/external";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
 import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
@@ -1592,7 +1593,11 @@ export function App() {
                   href={s.external_ref}
                   target="_blank"
                   rel="noopener sponsored"
-                  onClick={() => api.clickSuggestion(s)}
+                  onClick={(e) => {
+                    api.clickSuggestion(s);
+                    // iOS は SFSafariViewController で開く（埋め込みWebViewの遷移失敗・計測取りこぼし回避, #230）。
+                    if (openExternalUrl(s.external_ref)) e.preventDefault();
+                  }}
                 >
                   商品を見る ↗
                 </a>

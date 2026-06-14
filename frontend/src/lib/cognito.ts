@@ -1,7 +1,22 @@
-// Amazon Cognito（User Pool）への最小ログイン。依存追加なし（素の fetch）。
-// USER_PASSWORD_AUTH を使い、IdToken を localStorage に保持して API に Bearer 送信する。
+// Amazon Cognito（User Pool）への最小ログイン。素の fetch で USER_PASSWORD_AUTH。
+// IdToken を localStorage に保持して API に Bearer 送信する。
+// ソーシャルは Web は Hosted UI へリダイレクト、iOS ネイティブは SFSafariViewController
+// （@capacitor/browser）で開き、カスタムスキームのコールバックを appUrlOpen で受ける（#204）。
 
+import { App as CapApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 import { decodeJwtPayload, isExpired } from "./jwt";
+
+// iOS ネイティブのソーシャル用カスタムスキーム（Info.plist の CFBundleURLTypes と一致）。
+const NATIVE_OAUTH_REDIRECT = "me.noshi.app://callback";
+function isNativePlatform(): boolean {
+  return Capacitor.isNativePlatform();
+}
+/** OAuth の redirect_uri。authorize と token 交換で必ず同一値を使う。 */
+function oauthRedirectUri(): string {
+  return isNativePlatform() ? NATIVE_OAUTH_REDIRECT : `${location.origin}/`;
+}
 
 const REGION = import.meta.env.VITE_AWS_REGION ?? "ap-northeast-1";
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? "";
@@ -165,21 +180,28 @@ export function buildAuthorizeUrl(p: {
   return `${p.domain}/oauth2/authorize?${q.toString()}`;
 }
 
-/** Google/LINE の認証画面へリダイレクトする（Hosted UI はスキップ）。 */
+/** Google/LINE の認証画面を開く。Web はリダイレクト、iOS ネイティブは SFSafariViewController。 */
 export async function socialSignIn(provider: SocialProvider): Promise<void> {
   const { verifier, challenge } = await pkcePair();
   const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
   localStorage.setItem(VERIFIER_KEY, verifier);
   localStorage.setItem(STATE_KEY, state);
   localStorage.setItem(PROVIDER_KEY, provider);
-  location.href = buildAuthorizeUrl({
+  const url = buildAuthorizeUrl({
     domain: DOMAIN,
     clientId: CLIENT_ID,
     provider,
-    redirectUri: `${location.origin}/`,
+    redirectUri: oauthRedirectUri(),
     state,
     challenge,
   });
+  if (isNativePlatform()) {
+    // 埋め込み WebView だと Google が拒否するため、ネイティブの安全ブラウザで開く。
+    // 戻りは me.noshi.app://callback → registerNativeAuthCallback が処理する。
+    await Browser.open({ url });
+  } else {
+    location.href = url;
+  }
 }
 
 export type CallbackResult = "ok" | "retry" | "error" | "none";
@@ -216,9 +238,8 @@ export function classifyCallback(
 // 誤った "error" にならないよう、実処理に入るのは1回だけに制限する。
 let callbackHandled = false;
 
-/** アプリ起動時に1回呼ぶ。URL の code/error を処理して結果を返す（スペック§5）。 */
-export async function handleAuthCallback(): Promise<CallbackResult> {
-  const params = new URLSearchParams(location.search);
+/** code/error を含む URL パラメータを処理して結果を返す（Web/native 共通・スペック§5）。 */
+async function processCallback(params: URLSearchParams): Promise<CallbackResult> {
   const v = localStorage.getItem(PROVIDER_KEY);
   const sp = v === "Google" || v === "LINE" ? v : null;
   const cls = classifyCallback(params, {
@@ -259,7 +280,7 @@ export async function handleAuthCallback(): Promise<CallbackResult> {
         grant_type: "authorization_code",
         client_id: CLIENT_ID,
         code: cls.code,
-        redirect_uri: `${location.origin}/`,
+        redirect_uri: oauthRedirectUri(),
         code_verifier: verifier, // PKCE: verifier 無しの交換経路は作らない（スペック§3）
       }),
     });
@@ -275,4 +296,33 @@ export async function handleAuthCallback(): Promise<CallbackResult> {
     cleanup();
     return "error";
   }
+}
+
+/** アプリ起動時に1回呼ぶ（Web）。現在 URL の code/error を処理する。 */
+export async function handleAuthCallback(): Promise<CallbackResult> {
+  return processCallback(new URLSearchParams(location.search));
+}
+
+/**
+ * iOS ネイティブのソーシャル コールバックを購読する（#204）。
+ * me.noshi.app://callback?code=... で復帰した際に code を交換し、結果を onResult に渡す。
+ * Web では何もしない。
+ */
+export function registerNativeAuthCallback(onResult: (r: CallbackResult) => void): void {
+  if (!isNativePlatform()) return;
+  void CapApp.addListener("appUrlOpen", async ({ url }) => {
+    let search = "";
+    try {
+      search = new URL(url).search;
+    } catch {
+      return;
+    }
+    if (!new URLSearchParams(search).has("code") && !new URLSearchParams(search).has("error")) {
+      return;
+    }
+    callbackHandled = false; // ネイティブの新規コールバックは毎回処理する
+    const r = await processCallback(new URLSearchParams(search));
+    await Browser.close().catch(() => {});
+    onResult(r);
+  });
 }

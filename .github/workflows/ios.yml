@@ -54,6 +54,8 @@ jobs:
         # Capacitor 8 は CocoaPods ではなく Swift Package Manager で依存解決する
         # （生成物は ios/App/App.xcodeproj/project.xcworkspace。Pods/・App.xcworkspace は無い）。
         run: npx cap sync ios
+      - name: configure Info.plist (URLスキーム #204 / 輸出コンプラ #213)
+        run: bash ../scripts/ios-configure-plist.sh ios/App/App/Info.plist
       - name: locate xcworkspace
         id: ws
         # Capacitor のバージョンで生成パスが変わりうるため動的に探索する。

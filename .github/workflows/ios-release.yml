@@ -62,6 +62,9 @@ jobs:
           npx cap add ios
           npx cap sync ios
 
+      - name: configure Info.plist (URLスキーム #204 / 輸出コンプラ #213)
+        run: bash ../scripts/ios-configure-plist.sh ios/App/App/Info.plist
+
       - name: write ASC API key
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}

@@ -25,6 +25,7 @@ import {
   handleAuthCallback,
   isLoggedIn,
   pickInitialScreen,
+  registerNativeAuthCallback,
   signIn,
   signOut,
   signUp,
@@ -321,9 +322,8 @@ export function App() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: 起動時1回だけ実行する意図
   useEffect(() => {
     if (!socialEnabled()) return;
-    void handleAuthCallback().then((r) => {
+    const onResult = (r: "ok" | "retry" | "error" | "none") => {
       if (r === "ok") {
-        // doSignIn 成功後と同じ遷移（実装時に doSignIn を参照して合わせる）
         go("home");
       } else if (r === "retry") {
         notify("アカウントを連携しました。続けてログインします…");
@@ -331,7 +331,10 @@ export function App() {
         setScreen("login");
         notify("ログインに失敗しました。もう一度お試しください。");
       }
-    });
+    };
+    // Web: 起動時に URL の code/error を処理。iOS ネイティブ: カスタムスキーム復帰を購読（#204）。
+    void handleAuthCallback().then(onResult);
+    registerNativeAuthCallback(onResult);
   }, []);
 
   // 起動時: ログイン必須環境で未ログインなら login 画面に固定。

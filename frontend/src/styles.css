@@ -155,6 +155,9 @@ body {
 .card.tap {
   cursor: pointer;
   transition: box-shadow var(--dur-base) var(--ease-soft), transform var(--dur-fast) var(--ease-soft);
+  /* 一覧タップカードは再描画を各カード内に隔離（スクロール最適化, #206）。
+     タップカードはドロップダウン等のはみ出し要素を持たないため paint 隔離しても安全。 */
+  contain: content;
 }
 .card.tap:active {
   transform: scale(0.99);
@@ -485,6 +488,8 @@ body {
   padding: var(--space-3) var(--space-1);
   border-bottom: var(--bw-hairline) solid var(--border-faint);
   cursor: pointer;
+  /* 台帳の行も再描画を隔離（スクロール最適化, #206）。 */
+  contain: content;
 }
 .dirpill {
   font-size: var(--fs-xs);
@@ -531,6 +536,9 @@ body {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: center;
+  /* 固定ナビを独立した合成レイヤーに分離し、一覧スクロール中の再描画を止める（#206 スクロール最適化）。
+     現行 WKWebView では will-change だけで昇格するため translateZ(0) は使わない。 */
+  will-change: transform;
 }
 .tabbar button {
   border: none;

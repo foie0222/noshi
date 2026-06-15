@@ -30,7 +30,9 @@ const STATE_KEY = "noshi_oauth_state";
 const PROVIDER_KEY = "noshi_oauth_provider";
 const RETRY_KEY = "noshi_oauth_retry";
 
-export type SocialProvider = "Google" | "LINE";
+// Cognito 側の IdP 名と同一文字列にする。Apple は Cognito の予約プロバイダ名
+// "SignInWithApple"（authorize の identity_provider に渡す値）。
+export type SocialProvider = "Google" | "LINE" | "SignInWithApple";
 
 export function authEnabled(): boolean {
   return CLIENT_ID.length > 0;
@@ -241,7 +243,7 @@ let callbackHandled = false;
 /** code/error を含む URL パラメータを処理して結果を返す（Web/native 共通・スペック§5）。 */
 async function processCallback(params: URLSearchParams): Promise<CallbackResult> {
   const v = localStorage.getItem(PROVIDER_KEY);
-  const sp = v === "Google" || v === "LINE" ? v : null;
+  const sp = v === "Google" || v === "LINE" || v === "SignInWithApple" ? v : null;
   const cls = classifyCallback(params, {
     state: localStorage.getItem(STATE_KEY),
     provider: sp,

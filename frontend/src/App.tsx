@@ -854,10 +854,26 @@ export function App() {
             </button>
           ) : (
             <div className="card" style={{ marginTop: 24 }}>
-              {/* 主導線: Google を最上部に置く（federation は初回=サインアップ／
-                  以降=ログインでモード非依存）。メール導線は「または」の下に続ける。 */}
+              {/* 主導線: ソーシャルを最上部に置く（federation は初回=サインアップ／
+                  以降=ログインでモード非依存）。メール導線は「または」の下に続ける。
+                  App Store ガイドライン 4.8 により、他社ソーシャルを出す iOS アプリは
+                  Sign in with Apple を同等以上の目立ち方で提供する必要があるため、
+                  Apple を Google の上（最上位）に置く（#204）。 */}
               {socialEnabled() && (authMode === "signin" || authMode === "signup") && (
                 <>
+                  <button
+                    type="button"
+                    className="btn social-apple"
+                    onClick={() => void socialSignIn("SignInWithApple")}
+                  >
+                    <svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M13.07 9.55c-.02-1.9 1.55-2.81 1.62-2.86-.88-1.29-2.26-1.47-2.75-1.49-1.17-.12-2.28.69-2.87.69-.59 0-1.5-.67-2.47-.65-1.27.02-2.44.74-3.09 1.87-1.32 2.29-.34 5.68.95 7.54.63.91 1.38 1.93 2.36 1.9.95-.04 1.31-.61 2.46-.61 1.14 0 1.47.61 2.47.59 1.02-.02 1.67-.93 2.29-1.84.72-1.05 1.02-2.07 1.04-2.13-.02-.01-2-.77-2.02-3.05zM11.2 3.86c.52-.64.88-1.51.78-2.39-.75.03-1.67.5-2.21 1.13-.48.56-.91 1.46-.79 2.32.84.06 1.69-.43 2.22-1.06z"
+                      />
+                    </svg>
+                    Apple でサインイン
+                  </button>
                   <button
                     type="button"
                     className="btn social-google"

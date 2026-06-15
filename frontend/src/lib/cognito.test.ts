@@ -128,6 +128,20 @@ describe("classifyCallback（コールバック分岐の純関数）", () => {
     expect(r.kind).toBe("token");
     expect(r.kind === "token" && r.code).toBe("abc");
   });
+  it("Apple のコールバックも provider 保持でリトライ判定される（#204）", () => {
+    // processCallback は保存 provider が Google/LINE/SignInWithApple のときだけ
+    // sp を非null にして classifyCallback に渡す。Apple もその対象であることを担保。
+    const p = new URLSearchParams("error=x&error_description=ALREADY_LINKED_RETRY");
+    const r = classifyCallback(p, { ...stored, provider: "SignInWithApple" });
+    expect(r.kind).toBe("retry");
+    expect(r.kind === "retry" && r.provider).toBe("SignInWithApple");
+  });
+  it("Apple の code コールバックは token 交換へ（#204）", () => {
+    const p = new URLSearchParams("code=appl&state=st");
+    const r = classifyCallback(p, { ...stored, provider: "SignInWithApple" });
+    expect(r.kind).toBe("token");
+    expect(r.kind === "token" && r.code).toBe("appl");
+  });
   it("state不一致はerror（CSRF対策）", () => {
     const p = new URLSearchParams("code=abc&state=evil");
     expect(classifyCallback(p, stored).kind).toBe("error");

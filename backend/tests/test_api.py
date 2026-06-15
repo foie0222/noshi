@@ -2,6 +2,9 @@
 
 import pytest
 from app.main import create_app
+from app.ports import GiftCatalogMock, OcrLlmMock
+from app.repository import InMemoryRepository
+from app.services import NoshiService
 from fastapi.testclient import TestClient
 
 
@@ -531,3 +534,26 @@ def test_相手APIで同名でも別人を作り集計が分離する():
     rels = c.get("/api/relationships", headers=_h()).json()["relationships"]
     assert len([r for r in rels if r["party_name"] == "田中"]) == 2
     assert len(c.get("/api/parties", headers=_h()).json()["parties"]) == 2
+
+
+def test_別名subのリクエストは代表の世帯に解決される():
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    c = TestClient(create_app(svc))
+    svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
+    svc.repo.put_account_link("aliasY", "primaryX", email="a@x.com")
+    r = c.get("/api/household", headers={"X-User-Id": "aliasY"})
+    assert r.status_code == 200
+    assert svc.repo.get_membership("aliasY") is None
+
+
+def test_別名subの通知設定変更が代表の設定に反映される():
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    c = TestClient(create_app(svc))
+    svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
+    svc.set_notification_prefs("primaryX", False)
+    svc.repo.put_account_link("aliasY", "primaryX", email="a@x.com")
+    r = c.put("/api/notifications", json={"email": True}, headers={"X-User-Id": "aliasY"})
+    assert r.status_code == 200
+    assert svc.repo.get_membership("aliasY") is None
+    primary_m = svc.repo.get_membership("primaryX")
+    assert primary_m is not None and primary_m.notify_email is True

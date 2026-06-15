@@ -48,3 +48,13 @@ def test_subが無いトークンは拒否される(monkeypatch):
     tok = _token({"email": "x@y.jp", "exp": int(time.time()) + 3600})
     with pytest.raises(AuthError):
         decode_identity(tok)
+
+
+@pytest.mark.parametrize("ev", [True, "true"])
+def test_decode_identity_は_email_verified_と_raw_user_id_を取り込む(monkeypatch, ev):
+    monkeypatch.setenv("NOSHI_JWT_SECRET", SECRET)
+    token = _token({"sub": "sub1", "email": "a@x.com", "email_verified": ev, "exp": 9999999999})
+    ident = decode_identity(token)
+    assert ident.user_id == "sub1"
+    assert ident.raw_user_id == "sub1"  # 解決前は raw==user_id
+    assert ident.email_verified is True

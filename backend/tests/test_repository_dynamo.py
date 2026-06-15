@@ -128,3 +128,37 @@ def test_世帯独自の用途を保存し追加順で読める(table_name):
     repo.remove_household_purpose("H", "町内会")
     assert repo.list_household_purposes("H") == ["発表会祝い"]
     assert repo.list_household_purposes("OTHER") == []
+
+
+# --- アカウント統合（account unification）---
+def test_メール代表は先勝ちで一意に確保される(table_name):
+    """claim_email_primary が先勝ち（最初は True、二度目は False）であることを検証する（spec §4.2）。"""
+    repo = DynamoRepository(table_name=table_name)
+    assert repo.claim_email_primary("Foo@Example.com", "primary-1") is True
+    # 大文字小文字を正規化して同一メールとみなすため、二度目は確保できない
+    assert repo.claim_email_primary("foo@example.com", "primary-2") is False
+    assert repo.get_email_primary("FOO@EXAMPLE.COM") == "primary-1"
+
+
+def test_メール代表は上書きと削除ができる(table_name):
+    """set_email_primary が上書きし、delete_email_primary が削除することを検証する。"""
+    repo = DynamoRepository(table_name=table_name)
+    repo.claim_email_primary("a@example.com", "primary-1")
+    repo.set_email_primary("a@example.com", "primary-2")  # 無条件上書き
+    assert repo.get_email_primary("a@example.com") == "primary-2"
+    repo.delete_email_primary("a@example.com")
+    assert repo.get_email_primary("a@example.com") is None
+
+
+def test_アカウントリンクを保存し別名を逆引きできる(table_name):
+    """put_account_link が別名→代表の引きと代表→別名の逆引き一覧を成立させ、削除で両方消えることを検証する。"""
+    repo = DynamoRepository(table_name=table_name)
+    assert repo.get_account_link("alias-1") is None
+    repo.put_account_link("alias-1", "primary-1", provider="google", email="x@example.com")
+    repo.put_account_link("alias-2", "primary-1", provider="apple")
+    assert repo.get_account_link("alias-1") == "primary-1"
+    assert set(repo.list_aliases("primary-1")) == {"alias-1", "alias-2"}
+    repo.delete_account_link("alias-1")
+    assert repo.get_account_link("alias-1") is None
+    # 逆引きインデックスも後始末されている
+    assert set(repo.list_aliases("primary-1")) == {"alias-2"}

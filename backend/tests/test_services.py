@@ -543,3 +543,61 @@ def test_存在しない相手IDでの記録作成は検証エラー():
         svc.create_record(
             "u1", amount=10000, purpose="出産祝い", direction="received", party_id="nope"
         )
+
+
+def test_検証済みメールが一致する2人目は1人目の世帯に自動合流する():
+    svc = make_service()
+    h1 = svc.resolve_household("subGoogle", email="a@x.com", email_verified=True)
+    h2 = svc.resolve_household("subMail", email="a@x.com", email_verified=True)
+    assert h2.id == h1.id
+    assert svc.repo.get_account_link("subMail") == "subGoogle"
+
+
+def test_未検証メールは自動合流せず別世帯になる():
+    svc = make_service()
+    h1 = svc.resolve_household("subGoogle", email="a@x.com", email_verified=True)
+    h2 = svc.resolve_household(
+        "subApple", email="relay@privaterelay.appleid.com", email_verified=False
+    )
+    assert h2.id != h1.id
+    assert svc.repo.get_account_link("subApple") is None
+
+
+def test_既存membershipを持つsubは再エイリアスされない():
+    svc = make_service()
+    first = svc.resolve_household("subGoogle", email="a@x.com", email_verified=True)
+    again = svc.resolve_household("subGoogle", email="a@x.com", email_verified=True)
+    assert svc.repo.get_account_link("subGoogle") is None
+    assert again.id == first.id
+
+
+def test_既存世帯のsubは検証済みメールでEMAIL代表がbackfillされる():
+    svc = make_service()
+    svc.resolve_household(
+        "subGoogle", email="a@x.com", email_verified=False
+    )  # 先に未検証で世帯作成
+    assert svc.repo.get_email_primary("a@x.com") is None
+    svc.resolve_household("subGoogle", email="a@x.com", email_verified=True)  # 後から検証済み
+    assert svc.repo.get_email_primary("a@x.com") == "subGoogle"
+
+
+def test_合流先代表が世帯を失っていれば別名を張らず新世帯になる():
+    svc = make_service()
+    svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
+    svc.repo.delete_membership("primaryX")  # 代表が世帯を失った状態を再現
+    h = svc.resolve_household("subNew", email="a@x.com", email_verified=True)
+    assert svc.repo.get_account_link("subNew") is None
+    m = svc.repo.get_membership("subNew")
+    assert m is not None and m.household_id == h.id
+
+
+def test_合流先世帯が無い場合は新subがそのメールの新代表になる():
+    svc = make_service()
+    svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
+    svc.repo.delete_membership("primaryX")  # 代表が世帯を失う
+    svc.resolve_household("subNew", email="a@x.com", email_verified=True)
+    assert svc.repo.get_email_primary("a@x.com") == "subNew"  # 新subが代表を引き継ぐ
+    # さらに後続の別sub は subNew に合流する
+    h3 = svc.resolve_household("subThird", email="a@x.com", email_verified=True)
+    assert svc.repo.get_account_link("subThird") == "subNew"
+    assert h3.id == svc.resolve_household("subNew").id

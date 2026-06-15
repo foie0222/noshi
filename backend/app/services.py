@@ -92,7 +92,8 @@ class NoshiService:
                 if email and m.email != email:
                     m.email = email
                     self.repo.put_membership(m)
-                if email and email_verified and self.repo.get_email_primary(email) is None:
+                if email and email_verified:
+                    # claim は条件付き put（atomic）。既に別代表が確保済みなら False で no-op。
                     self.repo.claim_email_primary(email, user_id)
                 return h
 

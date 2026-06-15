@@ -588,9 +588,32 @@ class DynamoRepository:
 
     def delete_account_link(self, alias_sub: str) -> None:
         primary = self.get_account_link(alias_sub)
-        self.table.delete_item(Key={"PK": f"USER#{alias_sub}", "SK": "ACCOUNT_LINK"})
-        if primary:
-            self.table.delete_item(Key={"PK": f"PRIMARY#{primary}", "SK": f"ALIAS#{alias_sub}"})
+        if primary is None:
+            return
+        # 別名→代表（本体）と 代表→別名（逆引き）を 1 トランザクションで原子的に消す。
+        # 片方だけ消えてインデックスが不整合になるのを防ぐ（transact_write_items）。
+        self._client.transact_write_items(
+            TransactItems=[
+                {
+                    "Delete": {
+                        "TableName": self.table_name,
+                        "Key": {
+                            "PK": {"S": f"USER#{alias_sub}"},
+                            "SK": {"S": "ACCOUNT_LINK"},
+                        },
+                    }
+                },
+                {
+                    "Delete": {
+                        "TableName": self.table_name,
+                        "Key": {
+                            "PK": {"S": f"PRIMARY#{primary}"},
+                            "SK": {"S": f"ALIAS#{alias_sub}"},
+                        },
+                    }
+                },
+            ]
+        )
 
     def list_aliases(self, primary_sub: str) -> list[str]:
         from boto3.dynamodb.conditions import Key

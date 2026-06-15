@@ -32,6 +32,7 @@ import {
   socialEnabled,
   socialSignIn,
 } from "./lib/cognito";
+import { emptyManualDraft } from "./lib/draft";
 import { openExternalUrl } from "./lib/external";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
@@ -507,21 +508,10 @@ export function App() {
     go("capture");
   }
 
-  // 撮影なしの手入力（副導線、#39）。空の下書きを開く。種類は撮影フローと揃えて
-  // 「もらった」を初期選択にする（あげた/もらったどちらも確認画面で変更可）。
+  // 撮影なしの手入力（副導線、#39）。空の下書き（emptyManualDraft）を開く。
+  // 種類は撮影フローと揃えて「もらった」を初期選択（確認画面で変更可）。
   function startManualEntry() {
-    setDraft({
-      amount: "",
-      party_name: "",
-      relationship: "",
-      purpose: "",
-      occurred_at: "",
-      direction: "received",
-      field_review: {},
-      image: "",
-      party_id: "",
-      item: "",
-    });
+    setDraft(emptyManualDraft());
     setReviewTried(false);
     go("review");
   }

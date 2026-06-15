@@ -258,6 +258,15 @@ body {
 .btn.social-line:active {
   background: #05b34c;
 }
+/* Apple ブランドガイドライン: 黒背景・白ロゴ/文字（App Store 4.8 で提供必須）。 */
+.btn.social-apple {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+.btn.social-apple:active {
+  background: #1a1a1a;
+}
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;

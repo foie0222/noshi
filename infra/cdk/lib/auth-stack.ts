@@ -125,6 +125,22 @@ export class AuthStack extends Stack {
       attributeMapping: { email: cognito.ProviderAttribute.other("email") },
     });
 
+    // Apple（Sign in with Apple）。App Store 4.8 で他社ソーシャルを出すなら提供必須（#204）。
+    // Cognito 側の予約プロバイダ名は "SignInWithApple"。フロントの identity_provider と一致。
+    // clientId は Apple の Services ID（App ID とは別物）。teamId/keyId は Apple Developer の値。
+    // 秘密鍵(.p8)は applePrivateKey（PEM全文）。いずれも Secrets Manager "noshi/social-login"。
+    const appleIdp = new cognito.UserPoolIdentityProviderApple(this, "AppleIdp", {
+      userPool: this.userPool,
+      clientId: secretJson("appleServicesId").unsafeUnwrap(),
+      teamId: secretJson("appleTeamId").unsafeUnwrap(),
+      keyId: secretJson("appleKeyId").unsafeUnwrap(),
+      privateKeyValue: secretJson("applePrivateKey"),
+      // Apple は氏名/メールを初回のみ返す。Pre-signup の自動統合は email で突合する。
+      scopes: ["name", "email"],
+      // Apple は email を返す。private relay メールでも email にマップされる。
+      attributeMapping: { email: cognito.ProviderAttribute.APPLE_EMAIL },
+    });
+
     // 自動統合トリガ（backend/app/auth_triggers.py）。pool_id は event から取るため env 不要
     //（env で pool_id を渡すと UserPool⇔Lambda の循環参照になる）。
     const presignupFn = new lambda.Function(this, "PresignupTrigger", {
@@ -165,6 +181,7 @@ export class AuthStack extends Stack {
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,
         cognito.UserPoolClientIdentityProvider.GOOGLE,
+        cognito.UserPoolClientIdentityProvider.APPLE,
         cognito.UserPoolClientIdentityProvider.custom("LINE"),
       ],
       idTokenValidity: Duration.hours(1),
@@ -175,6 +192,7 @@ export class AuthStack extends Stack {
     // IdP の作成完了後にクライアントを作る（supportedIdentityProviders の参照整合）
     this.userPoolClient.node.addDependency(googleIdp);
     this.userPoolClient.node.addDependency(lineIdp);
+    this.userPoolClient.node.addDependency(appleIdp);
 
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
     new CfnOutput(this, "UserPoolClientId", { value: this.userPoolClient.userPoolClientId });

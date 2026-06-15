@@ -32,6 +32,7 @@ import {
   socialEnabled,
   socialSignIn,
 } from "./lib/cognito";
+import { emptyManualDraft } from "./lib/draft";
 import { openExternalUrl } from "./lib/external";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
@@ -507,20 +508,10 @@ export function App() {
     go("capture");
   }
 
-  // 「あげた」を起点にした手入力（副導線、#39）。撮影なしで空の下書きを開く。
-  function startManualGiven() {
-    setDraft({
-      amount: "",
-      party_name: "",
-      relationship: "",
-      purpose: "",
-      occurred_at: "",
-      direction: "given",
-      field_review: {},
-      image: "",
-      party_id: "",
-      item: "",
-    });
+  // 撮影なしの手入力（副導線、#39）。空の下書き（emptyManualDraft）を開く。
+  // 種類は撮影フローと揃えて「もらった」を初期選択（確認画面で変更可）。
+  function startManualEntry() {
+    setDraft(emptyManualDraft());
     setReviewTried(false);
     go("review");
   }
@@ -1223,7 +1214,7 @@ export function App() {
         <>
           <Bar title="撮影" back="home" />
           <p className="muted" style={{ marginTop: 6 }}>
-            ご祝儀袋・のし・送り状や、贈った品物を撮影、または画像を選んでください。
+            ご祝儀袋・のし・送り状や、やりとりした品物を撮影、または画像を選んでください。
           </p>
 
           <fieldset className="field fieldset-reset">
@@ -1293,7 +1284,7 @@ export function App() {
             }}
           >
             <p className="muted">写真がないときは、手入力でも記録できます。</p>
-            <button type="button" className="btn ghost" onClick={startManualGiven}>
+            <button type="button" className="btn ghost" onClick={startManualEntry}>
               <Icon name="gift" size={18} />
               手入力で記録
             </button>
@@ -1327,7 +1318,7 @@ export function App() {
               <p className="muted" style={{ marginTop: 6 }}>
                 {draft.image
                   ? reviewMessage(reviewCount, fields.length)
-                  : "贈った内容を入力して保存してください。"}
+                  : "内容を入力して保存してください。"}
               </p>
               <fieldset className="field fieldset-reset">
                 <legend className="field-label">種類</legend>

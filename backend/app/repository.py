@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Protocol, TypeVar
 
 from app.domain.entities import (
+    AccountLink,
     AuditEntry,
     ExtractionJob,
     GiftEvent,
@@ -61,6 +62,17 @@ class Repository(Protocol):
     def get_party(self, household_id: str, party_id: str) -> Party | None: ...
     def list_parties(self, household_id: str) -> list[Party]: ...
     def delete_party(self, household_id: str, party_id: str) -> bool: ...
+    # --- アカウント統合（account unification・別名/代表/メール代表） ---
+    def get_account_link(self, alias_sub: str) -> str | None: ...
+    def put_account_link(
+        self, alias_sub: str, primary_sub: str, provider: str = "", email: str = ""
+    ) -> None: ...
+    def delete_account_link(self, alias_sub: str) -> None: ...
+    def list_aliases(self, primary_sub: str) -> list[str]: ...
+    def get_email_primary(self, email: str) -> str | None: ...
+    def claim_email_primary(self, email: str, primary_sub: str) -> bool: ...
+    def set_email_primary(self, email: str, primary_sub: str) -> None: ...
+    def delete_email_primary(self, email: str) -> None: ...
 
 
 class InMemoryRepository:
@@ -77,6 +89,8 @@ class InMemoryRepository:
         self._purposes: dict[str, list[str]] = {}  # household_id -> 用途（追加順）
         self._parties: dict[str, dict[str, Party]] = {}  # household_id -> {party_id: Party}
         self._reminders: set[tuple[str, str, str]] = set()  # (scope, event_id, day) 送信済み(#178)
+        self._account_links: dict[str, AccountLink] = {}  # alias_sub -> AccountLink
+        self._email_primary: dict[str, str] = {}  # email(小文字) -> primary_sub
 
     # --- records ---
     def put_record(self, rec: GiftRecord) -> GiftRecord:
@@ -213,6 +227,46 @@ class InMemoryRepository:
     def delete_party(self, household_id: str, party_id: str) -> bool:
         return self._parties.get(household_id, {}).pop(party_id, None) is not None
 
+    # --- アカウント統合（account unification）---
+    def get_account_link(self, alias_sub: str) -> str | None:
+        link = self._account_links.get(alias_sub)
+        return link.primary_sub if link else None
+
+    def put_account_link(
+        self, alias_sub: str, primary_sub: str, provider: str = "", email: str = ""
+    ) -> None:
+        from datetime import UTC, datetime
+
+        self._account_links[alias_sub] = AccountLink(
+            alias_sub=alias_sub,
+            primary_sub=primary_sub,
+            provider=provider,
+            email=email,
+            linked_at=datetime.now(UTC).isoformat(),
+        )
+
+    def delete_account_link(self, alias_sub: str) -> None:
+        self._account_links.pop(alias_sub, None)
+
+    def list_aliases(self, primary_sub: str) -> list[str]:
+        return [a for a, lk in self._account_links.items() if lk.primary_sub == primary_sub]
+
+    def get_email_primary(self, email: str) -> str | None:
+        return self._email_primary.get(email.lower())
+
+    def claim_email_primary(self, email: str, primary_sub: str) -> bool:
+        key = email.lower()
+        if key in self._email_primary:
+            return False
+        self._email_primary[key] = primary_sub
+        return True
+
+    def set_email_primary(self, email: str, primary_sub: str) -> None:
+        self._email_primary[email.lower()] = primary_sub
+
+    def delete_email_primary(self, email: str) -> None:
+        self._email_primary.pop(email.lower(), None)
+
 
 class DynamoRepository:
     """DynamoDB 実装（boto3）。PK に userId を内包して本人スコープをキー設計で強制（A01）。
@@ -227,11 +281,11 @@ class DynamoRepository:
         import boto3  # 遅延 import
 
         self.table_name = table_name or os.environ.get("NOSHI_TABLE", "noshi")
-        self._ddb = boto3.resource(
-            "dynamodb",
-            endpoint_url=endpoint_url or os.environ.get("DYNAMODB_ENDPOINT"),
-        )
+        endpoint = endpoint_url or os.environ.get("DYNAMODB_ENDPOINT")
+        self._ddb = boto3.resource("dynamodb", endpoint_url=endpoint)
         self.table = self._ddb.Table(self.table_name)
+        # 低レベルクライアント（transact_write_items は typed attribute values を要求）。
+        self._client = boto3.client("dynamodb", endpoint_url=endpoint)
 
     @staticmethod
     def _pk(user_id: str) -> str:
@@ -487,6 +541,102 @@ class DynamoRepository:
             return False
         self.table.delete_item(Key={"PK": f"HOUSEHOLD#{household_id}", "SK": f"PARTY#{party_id}"})
         return True
+
+    # --- アカウント統合（account unification・別名/代表/メール代表）---
+    def get_account_link(self, alias_sub: str) -> str | None:
+        r = self.table.get_item(Key={"PK": f"USER#{alias_sub}", "SK": "ACCOUNT_LINK"}).get("Item")
+        return r.get("primary_sub") if r else None
+
+    def put_account_link(
+        self, alias_sub: str, primary_sub: str, provider: str = "", email: str = ""
+    ) -> None:
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+        # 別名→代表（本体）と 代表→別名（逆引き）を 1 トランザクションで原子的に書く。
+        # 片方だけ成功してインデックスが不整合になるのを防ぐ（transact_write_items）。
+        # 空文字の属性（provider/email 未指定）は DynamoDB の S 型に入れられないため省く。
+        link_item: dict[str, Any] = {
+            "PK": {"S": f"USER#{alias_sub}"},
+            "SK": {"S": "ACCOUNT_LINK"},
+            "type": {"S": "account_link"},
+            "alias_sub": {"S": alias_sub},
+            "primary_sub": {"S": primary_sub},
+            "linked_at": {"S": now},
+        }
+        if provider:
+            link_item["provider"] = {"S": provider}
+        if email:
+            link_item["email"] = {"S": email}
+        self._client.transact_write_items(
+            TransactItems=[
+                {"Put": {"TableName": self.table_name, "Item": link_item}},
+                {
+                    "Put": {
+                        "TableName": self.table_name,
+                        "Item": {
+                            "PK": {"S": f"PRIMARY#{primary_sub}"},
+                            "SK": {"S": f"ALIAS#{alias_sub}"},
+                            "type": {"S": "account_alias"},
+                            "alias_sub": {"S": alias_sub},
+                            "primary_sub": {"S": primary_sub},
+                        },
+                    }
+                },
+            ]
+        )
+
+    def delete_account_link(self, alias_sub: str) -> None:
+        primary = self.get_account_link(alias_sub)
+        self.table.delete_item(Key={"PK": f"USER#{alias_sub}", "SK": "ACCOUNT_LINK"})
+        if primary:
+            self.table.delete_item(Key={"PK": f"PRIMARY#{primary}", "SK": f"ALIAS#{alias_sub}"})
+
+    def list_aliases(self, primary_sub: str) -> list[str]:
+        from boto3.dynamodb.conditions import Key
+
+        r = self.table.query(
+            KeyConditionExpression=Key("PK").eq(f"PRIMARY#{primary_sub}")
+            & Key("SK").begins_with("ALIAS#")
+        )
+        return [it["alias_sub"] for it in r.get("Items", [])]
+
+    def get_email_primary(self, email: str) -> str | None:
+        r = self.table.get_item(Key={"PK": f"EMAIL#{email.lower()}", "SK": "PRIMARY"}).get("Item")
+        return r.get("primary_sub") if r else None
+
+    def claim_email_primary(self, email: str, primary_sub: str) -> bool:
+        # 先勝ち（first-writer-wins）: 条件付き put で既存があれば確保失敗（False）。
+        from botocore.exceptions import ClientError
+
+        try:
+            self.table.put_item(
+                Item={
+                    "PK": f"EMAIL#{email.lower()}",
+                    "SK": "PRIMARY",
+                    "type": "email_primary",
+                    "primary_sub": primary_sub,
+                },
+                ConditionExpression="attribute_not_exists(PK)",
+            )
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
+    def set_email_primary(self, email: str, primary_sub: str) -> None:
+        self.table.put_item(
+            Item={
+                "PK": f"EMAIL#{email.lower()}",
+                "SK": "PRIMARY",
+                "type": "email_primary",
+                "primary_sub": primary_sub,
+            }
+        )
+
+    def delete_email_primary(self, email: str) -> None:
+        self.table.delete_item(Key={"PK": f"EMAIL#{email.lower()}", "SK": "PRIMARY"})
 
 
 def _to_dynamo(value: Any) -> Any:

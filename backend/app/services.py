@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
+from app.account import canonical_sub
 from app.domain import rules
 from app.domain.entities import (
     AuditEntry,
@@ -73,19 +74,48 @@ class NoshiService:
         self.repo.append_audit(AuditEntry(actor_id=actor_id, action=action, target_ref=target_ref))
 
     # --- 家族共有: 世帯（記録・お返しは「本人」ではなく「世帯」に属する）---
-    def resolve_household(self, user_id: str, email: str = "") -> Household:
-        """ユーザーの世帯を返す。初回は世帯を自動作成し本人を owner にする（A01）。"""
+    def resolve_household(
+        self, user_id: str, email: str = "", email_verified: bool = False
+    ) -> Household:
+        """ユーザーの世帯を返す。エイリアス解決→membership→自動リンク→新規作成の順（A01）。"""
+        # 1. 別名なら代表 sub に正規化（1ホップ）。
+        user_id = canonical_sub(self.repo, user_id)
+
+        # 2. 既存 membership があればその世帯（＋email 自己修復・EMAIL# backfill）。
+        #    email 自己修復（#167）: _scope() 経由の初回アクセスで世帯が作られると
+        #    email="" のまま保存され、メンバー一覧で「ご家族のメンバー」としか表示
+        #    できない。email が判明している呼び出しで補完・追従する。
         m = self.repo.get_membership(user_id)
         if m is not None:
             h = self.repo.get_household(m.household_id)
             if h is not None:
-                # email を自己修復する（#167）: _scope() 経由の初回アクセスで世帯が
-                # 作られると email="" のまま保存され、メンバー一覧で「ご家族のメンバー」
-                # としか表示できない。email が判明している呼び出しで補完・追従する。
                 if email and m.email != email:
                     m.email = email
                     self.repo.put_membership(m)
+                if email and email_verified and self.repo.get_email_primary(email) is None:
+                    self.repo.claim_email_primary(email, user_id)
                 return h
+
+        # 3. 初回 sub。検証済みメールなら EMAIL# 条件付き put で代表確保 or 既存合流。
+        if email and email_verified:
+            claimed = self.repo.claim_email_primary(email, user_id)
+            if not claimed:
+                primary = self.repo.get_email_primary(email)
+                if primary and primary != user_id:
+                    pm = self.repo.get_membership(primary)
+                    ph = self.repo.get_household(pm.household_id) if pm is not None else None
+                    if ph is not None:
+                        # 合流先世帯が存在するときだけ別名を張って合流する。
+                        self.repo.put_account_link(user_id, primary, email=email)
+                        self._audit(user_id, "auto_link", primary)  # A09
+                        return ph
+                    # 合流先世帯が無い（代表削除済み等）→ fail-closed。
+                    # EMAIL# が defunct な代表を指したままだと、同じメールの次の新 sub も
+                    # 合流できず収束しない。このユーザーを新しい代表に張り替えてから step4 へ
+                    # 進み、以後のログインがここに収束するようにする（自己修復）。
+                    self.repo.set_email_primary(email, user_id)
+
+        # 4. 新規世帯を作成し本人を owner にする。
         h = Household()
         self.repo.put_household(h)
         self.repo.put_membership(

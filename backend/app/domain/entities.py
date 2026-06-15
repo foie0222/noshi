@@ -124,3 +124,14 @@ class AuditEntry:
     target_ref: str  # 識別子のみ（restricted 平文禁止）
     at: float = field(default_factory=_now)
     id: str = field(default_factory=_id)
+
+
+@dataclass
+class AccountLink:
+    """別名 sub → 代表 sub のエイリアス（同一人物の別ログイン）。"""
+
+    alias_sub: str
+    primary_sub: str
+    provider: str = ""
+    email: str = ""
+    linked_at: str = ""

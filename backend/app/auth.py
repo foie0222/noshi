@@ -21,8 +21,10 @@ class AuthError(Exception):
 
 @dataclass(frozen=True)
 class Identity:
-    user_id: str  # Cognito の sub（不変のユーザー識別子）
+    user_id: str  # 代表 sub（境界で正規化後）。未正規化時は raw と同値。
     email: str = ""
+    email_verified: bool = False
+    raw_user_id: str = ""  # 物理的にログインした生 sub（監査・診断用）
 
 
 # JWKS クライアントは使い回す（毎回フェッチしない）。
@@ -79,7 +81,14 @@ def decode_identity(token: str) -> Identity:
     sub = claims.get("sub")
     if not sub:
         raise AuthError("missing sub")
-    return Identity(user_id=sub, email=claims.get("email", "") or "")
+    ev = claims.get("email_verified")
+    email_verified = ev is True or ev == "true"
+    return Identity(
+        user_id=sub,
+        email=claims.get("email", "") or "",
+        email_verified=email_verified,
+        raw_user_id=sub,
+    )
 
 
 def auth_configured() -> bool:

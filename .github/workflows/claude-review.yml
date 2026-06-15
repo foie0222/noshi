@@ -40,13 +40,13 @@ jobs:
         if: github.event.action != 'opened'
         run: echo "push 後は再レビューしない。PR 作成時のレビュー結果（未解決スレッド）を維持。"
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         if: github.event.action == 'opened'
         with:
           fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
 
       # 公式 MCP インラインツールで、指摘を該当行に直接投稿（＝解決可能スレッド）。
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-action@d5726de019ec4498aa667642bc3a80fca83aa102 # v1.0.148
         if: github.event.action == 'opened'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

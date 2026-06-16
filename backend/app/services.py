@@ -226,7 +226,8 @@ class NoshiService:
         世帯データ purge / owner 引き継ぎ → account_link/EMAIL# 掃除 → membership 削除。
         Cognito ユーザー削除と Apple revoke は呼び出し側（main）で行う。
         戻り値: 削除対象の全 sub（代表＋別名。Cognito 削除に使う）。"""
-        subs = self.account_subs(user_id)
+        aliases = self.repo.list_aliases(user_id)
+        subs = [user_id, *aliases]
         m = self.repo.get_membership(user_id)
         hid = m.household_id if m else ""
         if m:
@@ -251,7 +252,7 @@ class NoshiService:
                 self.repo.delete_email_primary(m.email)
             self.repo.delete_membership(user_id)
         # 別名リンク（＋逆引き）を掃除。
-        for alias in self.repo.list_aliases(user_id):
+        for alias in aliases:
             self.repo.delete_account_link(alias)
         self._audit(user_id, "delete_account", hid)  # A09
         return subs

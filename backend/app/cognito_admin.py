@@ -46,7 +46,7 @@ def any_apple_sub(pool_id: str, subs: list[str]) -> bool:
     except Exception:  # noqa: BLE001 判定不能時は False（削除画面を開けるように）
         import logging
 
-        logging.getLogger(__name__).exception("any_apple_sub failed; treating as non-apple")
+        logging.getLogger(__name__).warning("any_apple_sub lookup failed; treating as non-apple")
         return False
 
 
@@ -58,4 +58,4 @@ def delete_users_by_subs(pool_id: str, subs: list[str]) -> None:
         except Exception:  # noqa: BLE001 1件失敗で全体を止めない（データは削除済み）
             import logging
 
-            logging.getLogger(__name__).exception("cognito delete failed for sub")
+            logging.getLogger(__name__).warning("cognito delete failed for one sub (continuing)")

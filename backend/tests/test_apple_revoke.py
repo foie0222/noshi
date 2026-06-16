@@ -61,3 +61,36 @@ def test_revoke_apple_for_code_は例外を握りつぶしFalse():
         http_post=boom,
     )
     assert ok is False
+
+
+def test_revoke_apple_for_code_は成功時True_でrevokeを呼ぶ():
+    calls = []
+
+    def fake_post(url, data):
+        calls.append(url)
+        return {"refresh_token": "rt"} if url.endswith("/auth/token") else {}
+
+    ok = apple_revoke.revoke_apple_for_code(
+        "code",
+        secret_loader=lambda: {"appleTeamId": "T", "appleKeyId": "K", "applePrivateKey": _p8()},
+        http_post=fake_post,
+    )
+    assert ok is True
+    assert any(u.endswith("/auth/revoke") for u in calls)
+
+
+def test_refresh_token無しでもaccess_tokenで_revokeする():
+    calls = []
+
+    def fake_post(url, data):
+        calls.append((url, data))
+        return {"access_token": "at"} if url.endswith("/auth/token") else {}
+
+    ok = apple_revoke.revoke_apple_for_code(
+        "code",
+        secret_loader=lambda: {"appleTeamId": "T", "appleKeyId": "K", "applePrivateKey": _p8()},
+        http_post=fake_post,
+    )
+    assert ok is True
+    revoke_call = [d for u, d in calls if u.endswith("/auth/revoke")][0]
+    assert revoke_call["token"] == "at"

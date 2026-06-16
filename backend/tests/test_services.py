@@ -20,6 +20,43 @@ def test_記録を作成すると台帳と受領イベントができる():
     assert ev.record_id == rec.id and ev.status == "received"
 
 
+def test_おつきあいと台帳に相手の続き柄が補正される():
+    """続き柄は人の現在の属性。おつきあい集計と台帳レコードに反映されることを検証する。"""
+    svc = make_service()
+    party = svc.add_party("u1", "叔母 佳子", "親族")
+    svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", direction="received", party_id=party["id"]
+    )
+    rels = svc.relationships("u1")
+    assert any(r["party_name"] == "叔母 佳子" and r["relationship"] == "親族" for r in rels)
+    recs = svc.ledger_records("u1")
+    assert recs and all(r["relationship"] == "親族" for r in recs)
+
+
+def test_party_idなしの古いレコードも相手名で続き柄が補正される():
+    """party_id 導入前の古いレコード（party_id 空）も、相手名で続き柄を補正できることを検証する。"""
+    from app.domain.entities import GiftRecord
+
+    svc = make_service()
+    svc.add_party("u1", "叔母 佳子", "親族")
+    scope = svc._scope("u1")
+    # party_id を持たない旧データ相当のレコードを直接投入する。
+    svc.repo.put_record(
+        GiftRecord(
+            user_id=scope,
+            party_name="叔母 佳子",
+            amount=10000,
+            purpose="出産祝い",
+            direction="received",
+            occurred_at="2026-05-01",
+        )
+    )
+    rels = svc.relationships("u1")
+    assert any(r["party_name"] == "叔母 佳子" and r["relationship"] == "親族" for r in rels)
+    recs = svc.ledger_records("u1")
+    assert any(r["relationship"] == "親族" for r in recs)
+
+
 def test_品物を記録して詳細で取得できる():
     """もらった物の品名（例: メガネ/現金）を保存し、記録詳細で取得できることを検証する。"""
     svc = make_service()

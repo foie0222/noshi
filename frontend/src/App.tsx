@@ -255,15 +255,13 @@ export function App() {
       let appleCode: string | undefined;
       const info = await api.getDeleteInfo().catch(() => ({ apple_linked: false }));
       if (info.apple_linked && Capacitor.isNativePlatform()) {
-        // Apple 連携アカウントは削除時に Apple 再認証→code を取得し revoke に使う（#198）。
-        const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
-        const res = await SignInWithApple.authorize({
-          clientId: "me.noshi.app",
-          redirectURI: "me.noshi.app://callback",
-          scopes: "",
-        }).catch(() => null);
-        if (!res) return; // キャンセル時は削除中止
-        appleCode = res.response?.authorizationCode || undefined;
+        // Apple 連携アカウントは削除時に Apple 再認証→authorization code を取得し revoke に使う（#198）。
+        // useProperTokenExchange:true で result.authorizationCode（バックエンド交換用）が返る。
+        const { SocialLogin } = await import("@capgo/capacitor-social-login");
+        await SocialLogin.initialize({ apple: { useProperTokenExchange: true } });
+        const login = await SocialLogin.login({ provider: "apple", options: {} }).catch(() => null);
+        if (!login) return; // キャンセル時は削除中止
+        appleCode = login.result.authorizationCode || undefined;
       }
       await api.deleteAccount(appleCode);
       signOut();

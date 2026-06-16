@@ -75,6 +75,9 @@ jobs:
       - name: configure Info.plist (URLスキーム #204 / 輸出コンプラ #213)
         run: bash ../scripts/ios-configure-plist.sh ios/App/App/Info.plist
 
+      - name: configure entitlements (Sign in with Apple #198)
+        run: bash ../scripts/ios-configure-entitlements.sh ios/App/App/App.entitlements
+
       - name: generate app icon & splash (#206)
         # frontend/assets/ の icon-only.png / splash*.png から iOS のアイコン・スプラッシュを生成。
         run: npx capacitor-assets generate --ios
@@ -110,6 +113,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_ENTITLEMENTS="App/App.entitlements" \
             archive
 
       - name: export ipa

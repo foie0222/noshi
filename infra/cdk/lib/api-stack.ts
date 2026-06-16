@@ -65,9 +65,16 @@ export class ApiStack extends Stack {
                   `arn:aws:bedrock:*:${this.account}:inference-profile/*`],
     }));
     // アカウント削除（#118）: 本人の Cognito ユーザーを削除する。
+    // ListUsers は sub→Username 解決に使用（#198: Apple revoke フロー）。
     apiFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ["cognito-idp:AdminDeleteUser"],
+      actions: ["cognito-idp:AdminDeleteUser", "cognito-idp:ListUsers"],
       resources: [`arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${props.userPoolId}`],
+    }));
+    // Apple revoke（#198）: Apple JWT 署名用秘密鍵を Secrets Manager から取得する。
+    // ARN のサフィックスは SM が自動付与する 6 文字のランダム文字列のため -* でワイルドカード指定。
+    apiFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["secretsmanager:GetSecretValue"],
+      resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:noshi/social-login-*`],
     }));
 
     const api = new apigw.HttpApi(this, "NoshiHttpApi", {

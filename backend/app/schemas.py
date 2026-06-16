@@ -84,3 +84,7 @@ class SuggestionClickIn(BaseModel):
     position: int = Field(ge=1, le=10)  # 上限は adapter._MAX_ITEMS（=10）と合わせること
     # 配信時に返した続柄グループの echo（効果計測用・任意）
     rel_group: str = Field(default="", pattern=r"^(family|friend|work|other)?$")
+
+
+class DeleteAccountIn(BaseModel):
+    apple_authorization_code: str | None = None

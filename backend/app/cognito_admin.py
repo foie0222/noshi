@@ -40,8 +40,14 @@ def _client() -> Any:
 
 
 def any_apple_sub(pool_id: str, subs: list[str]) -> bool:
-    c = _client()
-    return any(is_apple_username(username_for_sub(c, pool_id, s)) for s in subs)
+    try:
+        c = _client()
+        return any(is_apple_username(username_for_sub(c, pool_id, s)) for s in subs)
+    except Exception:  # noqa: BLE001 判定不能時は False（削除画面を開けるように）
+        import logging
+
+        logging.getLogger(__name__).exception("any_apple_sub failed; treating as non-apple")
+        return False
 
 
 def delete_users_by_subs(pool_id: str, subs: list[str]) -> None:

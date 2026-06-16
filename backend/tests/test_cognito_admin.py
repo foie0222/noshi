@@ -32,3 +32,12 @@ def test_delete_user_は_Username_を解決して消す():
     assert cognito_admin.delete_user(c, "pool", "s1") is True
     assert c.deleted == ["SignInWithApple_xyz"]
     assert cognito_admin.delete_user(c, "pool", "missing") is False
+
+
+def test_any_apple_sub_は例外時Falseで吸収する(monkeypatch):
+    class Boom:
+        def list_users(self, **k):
+            raise RuntimeError("throttle")
+
+    monkeypatch.setattr(cognito_admin, "_client", lambda: Boom())
+    assert cognito_admin.any_apple_sub("pool", ["s1"]) is False

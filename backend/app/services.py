@@ -217,16 +217,21 @@ class NoshiService:
         self._audit(user_id, "remove_member", target_user_id)  # A09
         return self.household_view(user_id)
 
-    def delete_account(self, user_id: str) -> None:
-        """アカウントを削除する（#118）。本人の世帯メンバーシップを外し、家族が残れば
-        台帳は保持して owner を引き継ぐ。最後の利用者なら世帯データを完全消去する。
-        Cognito ユーザー本体の削除は呼び出し側（main）で行う。"""
+    def account_subs(self, user_id: str) -> list[str]:
+        """論理アカウントの全 sub（代表＋全別名）。user_id は境界正規化済み（代表）。"""
+        return [user_id, *self.repo.list_aliases(user_id)]
+
+    def delete_account(self, user_id: str) -> list[str]:
+        """論理アカウント（代表＋全別名）を削除する（#118/#198）。
+        世帯データ purge / owner 引き継ぎ → account_link/EMAIL# 掃除 → membership 削除。
+        Cognito ユーザー削除と Apple revoke は呼び出し側（main）で行う。
+        戻り値: 削除対象の全 sub（代表＋別名。Cognito 削除に使う）。"""
+        subs = self.account_subs(user_id)
         m = self.repo.get_membership(user_id)
         hid = m.household_id if m else ""
         if m:
             others = [x for x in self.repo.list_members(hid) if x.user_id != user_id]
             if others:
-                # 管理者が抜けて家族が残るなら最古参へ引き継ぐ（台帳は家族の資産として残す）。
                 if m.role == "owner":
                     heir = sorted(others, key=lambda x: x.joined_at)[0]
                     self.repo.put_membership(
@@ -240,9 +245,16 @@ class NoshiService:
                     )
                     self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
             else:
-                self._purge_household(hid)  # 最後の利用者: 世帯データを完全消去
+                self._purge_household(hid)
+            # 代表メールの EMAIL# を解放（代表を指す場合のみ）。Phase1 では別名は EMAIL# を持たない。
+            if m.email and self.repo.get_email_primary(m.email) == user_id:
+                self.repo.delete_email_primary(m.email)
             self.repo.delete_membership(user_id)
+        # 別名リンク（＋逆引き）を掃除。
+        for alias in self.repo.list_aliases(user_id):
+            self.repo.delete_account_link(alias)
         self._audit(user_id, "delete_account", hid)  # A09
+        return subs
 
     def _purge_household(self, hid: str) -> None:
         """世帯に属する全データ（記録・お返し・相手・マスタ・世帯本体）と画像を消す。"""

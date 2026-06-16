@@ -308,7 +308,7 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     @app.get("/api/ledger")
     def ledger(uid: str = Depends(current_user)) -> dict[str, Any]:
         return {
-            "records": [vars(r) for r in svc.list_records(uid)],
+            "records": svc.ledger_records(uid),
             "party_summary": svc.party_summary(uid),
         }
 

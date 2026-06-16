@@ -20,6 +20,19 @@ def test_記録を作成すると台帳と受領イベントができる():
     assert ev.record_id == rec.id and ev.status == "received"
 
 
+def test_おつきあいと台帳に相手の続き柄が補正される():
+    """続き柄は人の現在の属性。おつきあい集計と台帳レコードに反映されることを検証する。"""
+    svc = make_service()
+    party = svc.add_party("u1", "叔母 佳子", "親族")
+    svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", direction="received", party_id=party["id"]
+    )
+    rels = svc.relationships("u1")
+    assert any(r["party_name"] == "叔母 佳子" and r["relationship"] == "親族" for r in rels)
+    recs = svc.ledger_records("u1")
+    assert recs and all(r["relationship"] == "親族" for r in recs)
+
+
 def test_品物を記録して詳細で取得できる():
     """もらった物の品名（例: メガネ/現金）を保存し、記録詳細で取得できることを検証する。"""
     svc = make_service()

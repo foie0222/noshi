@@ -90,6 +90,7 @@ export interface Household {
 
 export interface Relationship {
   party_name: string;
+  relationship: string;
   received: number;
   given: number;
   diff: number;

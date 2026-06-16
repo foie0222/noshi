@@ -471,9 +471,41 @@ class NoshiService:
     def list_records(self, user_id: str) -> list[GiftRecord]:
         return self.repo.list_records(self._scope(user_id))
 
+    def _relationship_map(self, scope: str) -> tuple[dict[str, str], dict[str, str]]:
+        """party_id / 相手名 → 現在の続き柄。続き柄は人の属性なので最新値を引く。"""
+        by_id: dict[str, str] = {}
+        by_name: dict[str, str] = {}
+        for p in self.repo.list_parties(scope):
+            rel = (p.relationship or "").strip()
+            if rel:
+                by_id[p.id] = rel
+                by_name[p.name] = rel
+        return by_id, by_name
+
     def relationships(self, user_id: str) -> list[dict[str, Any]]:
-        """世帯の おつきあいバランス（差分・最終やりとり・偏り・気になる関係）を返す（N1）。"""
-        return rules.relationship_balance(self.repo.list_records(self._scope(user_id)))
+        """世帯の おつきあいバランス（差分・最終やりとり・偏り・気になる関係）を返す（N1）。
+
+        続き柄は人の現在の属性で補正する（おつきあいを続き柄でグルーピングするため）。
+        """
+        scope = self._scope(user_id)
+        rows = rules.relationship_balance(self.repo.list_records(scope))
+        by_id, by_name = self._relationship_map(scope)
+        for r in rows:
+            cur = by_id.get(r.get("party_id", "")) or by_name.get(r.get("party_name", ""))
+            if cur:
+                r["relationship"] = cur
+        return rows
+
+    def ledger_records(self, user_id: str) -> list[dict[str, Any]]:
+        """台帳のレコード一覧。各レコードに相手の現在の続き柄を添える（台帳の表示用）。"""
+        scope = self._scope(user_id)
+        by_id, by_name = self._relationship_map(scope)
+        out: list[dict[str, Any]] = []
+        for r in self.repo.list_records(scope):
+            d = dict(vars(r))
+            d["relationship"] = by_id.get(r.party_id, "") or by_name.get(r.party_name, "")
+            out.append(d)
+        return out
 
     def gift_tax(self, user_id: str, year: int | None = None) -> dict[str, Any]:
         """世帯の暦年「もらった」対象合計と110万円枠サマリを返す（P1-3）。"""

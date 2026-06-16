@@ -22,6 +22,7 @@ def test_相手別バランスを集計する():
     assert row["given"] == 10000
     assert row["diff"] == 25000
     assert row["last_at"] == "2026-03-01"
+    assert row["relationship"] == ""  # 続き柄はサービス層で現在値に補正する（既定は空）
 
 
 def test_もらい超過は気になる関係になる():

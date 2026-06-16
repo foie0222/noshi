@@ -191,7 +191,14 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ name, relationship }),
     }),
-  deleteAccount: () => req<{ ok: boolean }>("/account", { method: "DELETE" }),
+  getDeleteInfo: () => req<{ apple_linked: boolean }>("/account/delete-info"),
+  deleteAccount: (appleAuthorizationCode?: string) =>
+    req<{ ok: boolean }>("/account", {
+      method: "DELETE",
+      ...(appleAuthorizationCode
+        ? { body: JSON.stringify({ apple_authorization_code: appleAuthorizationCode }) }
+        : {}),
+    }),
 };
 
 /**

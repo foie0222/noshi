@@ -8,3 +8,13 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module "@capacitor-community/apple-sign-in" {
+  export const SignInWithApple: {
+    authorize(options: {
+      clientId: string;
+      redirectURI: string;
+      scopes: string;
+    }): Promise<{ response?: { authorizationCode?: string } }>;
+  };
+}

@@ -188,7 +188,12 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
 
         code = body.apple_authorization_code if body else None
         if code:
-            apple_revoke.revoke_apple_for_code(code)
+            if not apple_revoke.revoke_apple_for_code(code):
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "apple token revoke failed for user %s (削除は続行)", ident.user_id
+                )
         subs = svc.delete_account(ident.user_id)
         pool = os.environ.get("NOSHI_COGNITO_POOL_ID")
         if pool:

@@ -1456,7 +1456,8 @@ export function App() {
         (() => {
           const shown = filterSortRecords(ledger.records, ledgerView);
           // 年間サマリー（今年・符号なし）。レコードからその場で集計する。
-          const yr = String(new Date().getFullYear());
+          // 「今年」は JST 基準で判定（端末TZに依存させない。occurred_at は YYYY-MM-DD）。
+          const yr = String(new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear());
           const inYear = ledger.records.filter((r) => (r.occurred_at || "").startsWith(yr));
           const yrRecv = inYear
             .filter((r) => r.direction === "received")

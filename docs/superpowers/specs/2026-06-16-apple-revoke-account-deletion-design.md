@@ -45,7 +45,7 @@ noshi の現状の問題:
 
 ### 4.1 フロント（`frontend/`）
 - **`@capacitor-community/apple-sign-in` を追加**（iOS ネイティブ ASAuthorization 用）。
-- `apple_linked: boolean` を **`/api/household` レスポンスに追加**。フロントはこれで再認証要否を判断（既存のホーム読込で取得済みの値を使う）。
+- 再認証要否は **専用エンドポイント `GET /api/account/delete-info` → `{apple_linked: boolean}`** で取得（削除画面を開いた時のみ呼ぶ。Apple 判定は Cognito を引くため、頻繁な `/api/household` には載せない）。
 - 削除フロー（App.tsx の `deleteAccount` ハンドラ拡張）:
   - `apple_linked && Capacitor.isNativePlatform()` の時のみ、確認後に `SignInWithApple.authorize({ scopes:[], ... })` 相当を呼び `response.authorizationCode` を取得し、`api.deleteAccount({ appleAuthorizationCode })` で送る。
   - それ以外は従来どおり `api.deleteAccount()`（code なし）。
@@ -64,7 +64,7 @@ noshi の現状の問題:
 - `services.delete_account(user_id)` を拡張（user_id は境界正規化済み＝代表 sub）:
   1. 既存のデータ purge / owner 引き継ぎ（現行ロジック維持）。
   2. **`account_link` 掃除**: `list_aliases(代表)` で別名一覧 → 各 `delete_account_link(別名)`（逆引きも消える）。
-  3. **`EMAIL#` 掃除**: 代表 sub を指す `EMAIL#` を解放する。backend に「ある primary を指す EMAIL# を逆引き列挙する」手段は無いが、**対象メールは判明している**：代表 membership の `email` ＋ 各別名の `account_link.email`（Phase 1 で alias 作成時に保存済み）。これらメール集合の各々について `get_email_primary(email) == 代表` を確認し、一致するものだけ `delete_email_primary(email)` する（他人の EMAIL# を誤って消さない）。
+  3. **`EMAIL#` 掃除**: Phase 1 では別名 sub は自前の `EMAIL#` を持たない（auto-link 敗者は claim 失敗で EMAIL# を作らず、移行の別名も同様）。**論理アカウントの `EMAIL#` は代表のメール1件のみ**。代表 membership の `email` について `get_email_primary(email) == 代表` を確認し、一致時のみ `delete_email_primary(email)`（他人の EMAIL# を誤って消さない）。
   4. `delete_membership(代表)`（既存）。
   - 戻り値で**削除対象の全 sub（代表＋別名）と Apple 連携の有無**を呼び出し側（main）に返す（Cognito 削除に使う）。例: `DeletionResult(subs:list[str], apple_linked:bool)`。
 - `main.delete_account` ルート（拡張）:
@@ -72,7 +72,7 @@ noshi の現状の問題:
   2. code があれば `apple_revoke.revoke_apple_for_code(...)`（ベストエフォート・失敗しても続行）。
   3. `result = svc.delete_account(ident.user_id)`。
   4. `result.subs` の各 sub について、Cognito Username を `list_users(Filter='sub="<sub>"')` で引き、`admin_delete_user(Username)`。**JWT sub ≠ Cognito Username（federated は `Provider_id`）なので sub→Username 解決が必須**。見つからない/失敗は警告ログのみ（データは消えている）。
-- `apple_linked` の判定（`/api/household` 用）: `list_aliases(代表)` の `account_link.provider` に `SignInWithApple` が含まれる、または代表自身が Apple（provider 判定）か。シンプルに「別名 or 代表に SignInWithApple provider があるか」を返す `account_has_apple(user_id) -> bool` を services に追加。
+- `apple_linked` の判定は **Cognito を真実源**にする（移行済み別名は `account_link` に provider を持たないため）。新規 `backend/app/cognito_admin.py` に注入可能なヘルパー: `username_for_sub(client, pool_id, sub) -> str|None`（`list_users(Filter='sub="<sub>"')` で Cognito Username を引く）、`is_apple_sub(...) -> bool`（Username が `SignInWithApple` 始まり）、`delete_user_by_sub(client, pool_id, sub)`（Username 解決→`admin_delete_user`）。services は DynamoDB に専念し `account_subs(user_id) -> list[str]`（代表＋`list_aliases`）を提供。`GET /api/account/delete-info` は `account_subs` の各 sub を `is_apple_sub` で判定して `apple_linked` を返す。
 
 ### 4.4 インフラ（`infra/cdk`）
 - API Lambda の IAM に追加: `secretsmanager:GetSecretValue`（`noshi/social-login` の ARN）、`cognito-idp:ListUsers`（既存の AdminDeleteUser に加えて）。

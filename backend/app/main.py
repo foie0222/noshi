@@ -19,6 +19,7 @@ from app.ports import GiftCatalogMock, GiftCatalogPort, OcrLlmMock, OcrLlmPort
 from app.repository import InMemoryRepository, Repository
 from app.schemas import (
     CaptureIn,
+    DeleteAccountIn,
     DueIn,
     ImageUploadIn,
     JoinHouseholdIn,
@@ -162,17 +163,36 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         svc.leave_household(ident.user_id)
         return {"household": svc.household_view(ident.user_id)}
 
-    @app.delete("/api/account")
-    def delete_account(ident: Identity = Depends(current_identity)) -> dict[str, Any]:
-        # アカウント削除（#118）。世帯データを消し（最後の利用者なら）、Cognito ユーザー本体も削除する。
-        svc.delete_account(ident.user_id)
+    @app.get("/api/account/delete-info")
+    def account_delete_info(ident: Identity = Depends(current_identity)) -> dict[str, Any]:
+        # 削除画面で再認証要否を判断するための情報。Apple 連携があれば再認証(SiwA)が要る。
         import os
 
+        from app import cognito_admin
+
+        pool = os.environ.get("NOSHI_COGNITO_POOL_ID")
+        subs = svc.account_subs(ident.user_id)
+        apple_linked = cognito_admin.any_apple_sub(pool, subs) if pool else False
+        return {"apple_linked": apple_linked}
+
+    @app.delete("/api/account")
+    def delete_account(
+        ident: Identity = Depends(current_identity),
+        body: DeleteAccountIn | None = None,
+    ) -> dict[str, Any]:
+        # 論理アカウント削除（#118/#198）。Apple code があれば失効（ベストエフォート）→
+        # データ/別名/EMAIL# 削除 → 本人の全 Cognito ユーザー削除。
+        import os
+
+        from app import apple_revoke, cognito_admin
+
+        code = body.apple_authorization_code if body else None
+        if code:
+            apple_revoke.revoke_apple_for_code(code)
+        subs = svc.delete_account(ident.user_id)
         pool = os.environ.get("NOSHI_COGNITO_POOL_ID")
         if pool:
-            import boto3  # 遅延 import（テスト/ローカルでは Cognito 削除はスキップ）
-
-            boto3.client("cognito-idp").admin_delete_user(UserPoolId=pool, Username=ident.user_id)
+            cognito_admin.delete_users_by_subs(pool, subs)
         return {"ok": True}
 
     @app.delete("/api/household/members/{target_user_id}")

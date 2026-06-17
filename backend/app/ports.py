@@ -14,8 +14,11 @@ class OcrLlmPort(Protocol):
 
 
 class GiftCatalogPort(Protocol):
-    def suggest(self, budget: int, relationship: str, purpose: str) -> list[dict[str, Any]]: ...
+    def suggest(
+        self, budget: int, relationship: str, purpose: str, category: str | None = None
+    ) -> list[dict[str, Any]]: ...
     def log_click(self, item_code: str, bucket: str, position: int, rel_group: str) -> None: ...
+    def available_categories(self, budget: int, purpose: str) -> list[dict[str, str]]: ...
 
 
 class OcrLlmMock:
@@ -50,7 +53,13 @@ class GiftCatalogMock:
     def log_click(self, item_code: str, bucket: str, position: int, rel_group: str) -> None:
         """モックは何もしない（クリック計測は本番アダプタのみ）。"""
 
-    def suggest(self, budget: int, relationship: str, purpose: str) -> list[dict[str, Any]]:
+    def available_categories(self, budget: int, purpose: str) -> list[dict[str, str]]:
+        """モックは品目タブを持たない（画面は「おすすめ」だけで成立する）。"""
+        return []
+
+    def suggest(
+        self, budget: int, relationship: str, purpose: str, category: str | None = None
+    ) -> list[dict[str, Any]]:
         base = [
             ("上質な和茶の詰合せ", "茶葉アソート"),
             ("今治タオルギフト", "上質タオルセット"),

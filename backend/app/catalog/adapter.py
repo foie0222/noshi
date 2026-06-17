@@ -10,7 +10,15 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.catalog.buckets import band_neighbors, band_of, slug_of
+from app.catalog.buckets import (
+    ITEM_CATEGORIES,
+    ITEM_CATEGORY_LABELS,
+    band_neighbors,
+    band_of,
+    item_bucket_slug,
+    slug_of,
+    tone_slug,
+)
 from app.catalog.relationships import group_of
 
 _MASK_AFTER = timedelta(hours=23)
@@ -29,10 +37,15 @@ class DynamoCatalogAdapter:
         self.fallback = fallback
         self._now = now or (lambda: datetime.now(UTC))
 
-    def suggest(self, budget: int, relationship: str, purpose: str) -> list[dict[str, Any]]:
-        """提案を返す（既存 GiftCatalogPort 互換 + 拡張フィールド）。"""
+    def suggest(
+        self, budget: int, relationship: str, purpose: str, category: str | None = None
+    ) -> list[dict[str, Any]]:
+        """提案を返す（既存 GiftCatalogPort 互換 + 拡張フィールド）。
+
+        category 指定時は品目バケツ（tone#cat）を引く。無指定は従来の用途バケツ。
+        """
         now = self._now()
-        slug = slug_of(purpose)
+        slug = item_bucket_slug(tone_slug(purpose), category) if category else slug_of(purpose)
         band = band_of(budget)
         group = group_of(relationship)  # relationship は生の続柄文字列
         rows = _fit_sorted(self.store.read_bucket(slug, band, now), group)
@@ -58,6 +71,21 @@ class DynamoCatalogAdapter:
     def log_click(self, item_code: str, bucket: str, position: int, rel_group: str) -> None:
         """クリック計測（ストアに委譲）。rel_group は配信時に返した値の echo。"""
         self.store.put_click(item_code, bucket, position, rel_group, self._now())
+
+    def available_categories(self, budget: int, purpose: str) -> list[dict[str, str]]:
+        """その用途のトーン×予算で在庫のある品目を、タブ表示順・表示名つきで返す。"""
+        tone = tone_slug(purpose)
+        band = band_of(budget)
+        present = set(self.store.read_manifest(tone, band, self._now()))
+        order = [cat for cat, _label, _kw in ITEM_CATEGORIES.get(tone, [])]
+        out: list[dict[str, str]] = []
+        for cat in order:
+            if cat not in present:
+                continue
+            label = ITEM_CATEGORY_LABELS.get(f"{tone}#{cat}")
+            if label:  # 不明な品目（古いマニフェスト等）はスキップ
+                out.append({"slug": cat, "label": label})
+        return out
 
     def _to_suggestion(
         self, row: dict[str, Any], position: int, band: str, now: datetime, rel_group: str
@@ -95,9 +123,12 @@ def _fit_sorted(rows: list[dict[str, Any]], group: str) -> list[dict[str, Any]]:
 
 
 def _band_of_row(row: dict[str, Any], fallback: str) -> str:
-    """行自身の価格帯を bucket（"BUCKET#<slug>#<band>"）から導出。異常時はリクエスト帯。"""
+    """行自身の価格帯を bucket（用途="BUCKET#slug#band" / 品目="BUCKET#tone#cat#band"）から導出。
+
+    価格帯は常に末尾セグメント。導出不能時はリクエスト帯にフォールバック。
+    """
     parts = str(row.get("bucket", "")).split("#")
-    return parts[2] if len(parts) == 3 and parts[2] else fallback
+    return parts[-1] if len(parts) >= 3 and parts[-1] else fallback
 
 
 def _is_fresh(fetched_at: str, now: datetime) -> bool:

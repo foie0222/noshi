@@ -601,3 +601,27 @@ def test_delete_account_はrevokeと全sub削除を呼ぶ(monkeypatch):
     assert r.status_code == 200 and r.json()["ok"] is True
     assert calls["revoke"] == "code-xyz"
     assert set(calls["deleted"]) == {"primaryX", "aliasA"}
+
+
+def test_suggestionsはcategoriesも返す():
+    c = TestClient(create_app())
+    rec = c.post(
+        "/api/records",
+        headers=_h(),
+        json={
+            "amount": 30000,
+            "purpose": "出産祝い",
+            "party_name": "佐藤",
+            "direction": "received",
+        },
+    ).json()
+    eid = rec["event"]["id"]
+    r = c.get(
+        f"/api/events/{eid}/suggestions",
+        headers=_h(),
+        params={"budget": 5000, "relationship": "友人", "purpose": "出産祝い"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert "suggestions" in body
+    assert body["categories"] == []  # モック catalog は品目タブを持たない

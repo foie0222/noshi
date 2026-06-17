@@ -658,3 +658,26 @@ def test_account_subsは代表と別名を返す():
     svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
     svc.repo.put_account_link("aliasA", "primaryX")
     assert set(svc.account_subs("primaryX")) == {"primaryX", "aliasA"}
+
+
+def test_suggest_returnsはcategoryをcatalogへ素通しし_return_categoriesを返す():
+    class SpyCatalog(GiftCatalogMock):
+        def __init__(self):
+            self.last_category = "UNSET"
+
+        def suggest(self, budget, relationship, purpose, category=None):
+            self.last_category = category
+            return super().suggest(budget, relationship, purpose, category)
+
+        def available_categories(self, budget, purpose):
+            return [{"slug": "towel", "label": "タオル・寝具"}]
+
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), SpyCatalog())
+    _, ev = svc.create_record(
+        "u1", amount=30000, purpose="出産祝い", party_name="佐藤", direction="received"
+    )
+    svc.suggest_returns("u1", ev.id, 5000, "友人", "出産祝い", category="towel")
+    assert svc.catalog.last_category == "towel"  # services は self.catalog に保持
+    assert svc.return_categories("u1", ev.id, 5000, "出産祝い") == [
+        {"slug": "towel", "label": "タオル・寝具"}
+    ]

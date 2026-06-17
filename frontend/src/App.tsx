@@ -794,6 +794,7 @@ export function App() {
       cat ?? undefined,
     );
     setSuggestions(r.suggestions);
+    setSuggestCats(r.categories); // タブ一覧も最新に保つ（在庫変動への追従）
   }
   async function chooseSuggestion(s: Suggestion) {
     if (!event) return;

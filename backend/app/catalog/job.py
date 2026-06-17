@@ -15,7 +15,13 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 from app.catalog import scoring
-from app.catalog.buckets import CATEGORIES, PRICE_BANDS, RAKUTEN_GENRE_BY_CATEGORY
+from app.catalog.buckets import (
+    CATEGORIES,
+    ITEM_CATEGORY_KEYWORDS,
+    PRICE_BANDS,
+    RAKUTEN_GENRE_BY_CATEGORY,
+    RAKUTEN_GENRE_BY_ITEM_CATEGORY,
+)
 from app.catalog.curation import template_reason
 
 logger = logging.getLogger(__name__)
@@ -63,20 +69,23 @@ def run_job(
     categories: dict[str, str] | None = None,
     bands: list[tuple[int, int | None, str]] | None = None,
 ) -> dict[str, int]:
-    """全63バケツを処理する。categories/bands はCLIの1バケツ実行用（既定は全部）。"""
-    categories = categories or CATEGORIES
+    """全147バケツを処理する（用途63＋品目84）。categories/bands はCLIの1バケツ実行用（既定は全部）。"""
+    # 既定（Lambda 全実行）は用途バケツ＋品目バケツの両方。CLI は categories 明示で1バケツに絞る。
+    categories = categories or {**CATEGORIES, **ITEM_CATEGORY_KEYWORDS}
     bands = bands or PRICE_BANDS
+    genre_by_slug = {**RAKUTEN_GENRE_BY_CATEGORY, **RAKUTEN_GENRE_BY_ITEM_CATEGORY}
     job_run_id = f"{now.strftime('%Y%m%dT%H%M')}-{uuid.uuid4().hex[:6]}"
     season = _season_note(now)
     failed = 0
     llm_fallback = 0
     fit_degenerate = 0
+    manifest_acc: dict[tuple[str, str], list[str]] = {}
 
-    # ランキングはカテゴリ単位で1回だけ取得（9コール）
+    # ランキングはスラッグ単位で1回だけ取得（用途9＋品目12=21コール）
     ranks: dict[str, dict[str, int]] = {}
     genre_specific: dict[str, bool] = {}
     for slug in categories:
-        genre = RAKUTEN_GENRE_BY_CATEGORY.get(slug)
+        genre = genre_by_slug.get(slug)
         genre_specific[slug] = genre is not None
         try:
             ranks[slug] = rakuten.ranking(genre)
@@ -103,9 +112,17 @@ def run_job(
                 if top and all("fit" in i for i in top) and _is_degenerate(top):
                     fit_degenerate += 1
                 store.replace_bucket(slug, band, top or [], job_run_id, now)
+                if "#" in slug:  # 品目バケツ: (tone, band) ごとに在庫ありの品目を記録
+                    tone, _, cat = slug.partition("#")
+                    manifest_acc.setdefault((tone, band), [])
+                    if top:
+                        manifest_acc[(tone, band)].append(cat)
             except Exception:  # noqa: BLE001
                 logger.exception("bucket failed: %s %s", slug, band)
                 failed += 1
+
+    for (tone, band), cats in manifest_acc.items():
+        store.write_manifest(tone, band, cats, now)
 
     _emf(
         {

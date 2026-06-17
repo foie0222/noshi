@@ -35,6 +35,9 @@ class FakeDdb:
     def query(self, **kw):
         return {"Items": self.query_items}
 
+    def get_item(self, **kw):
+        return getattr(self, "_get_item_result", {"Item": None})
+
 
 def _item(code="shop:1", score=0.9):
     return {
@@ -215,3 +218,35 @@ def test_クリックはrelGroupを保存し空なら書かない():
     assert ddb.puts[0]["Item"]["relGroup"]["S"] == "family"
     store.put_click("shop:1", "BUCKET#baby#5000-9999", 2, "", NOW)
     assert "relGroup" not in ddb.puts[1]["Item"]
+
+
+def test_マニフェストを書いて読める():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="t", client=ddb)
+    store.write_manifest("cele", "5000-9999", ["towel", "catalog"], NOW)
+
+    put = ddb.puts[-1]
+    assert put["Item"]["PK"]["S"] == "MANIFEST#cele#5000-9999"
+    assert put["Item"]["SK"]["S"] == "MANIFEST"
+    assert [e["S"] for e in put["Item"]["categories"]["L"]] == ["towel", "catalog"]
+
+    # 読み出し（put した Item を get_item が返すよう仕込む）
+    ddb._get_item_result = {"Item": put["Item"]}
+    assert store.read_manifest("cele", "5000-9999", NOW) == ["towel", "catalog"]
+
+
+def test_期限切れマニフェストは空を返す():
+    from datetime import timedelta
+
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="t", client=ddb)
+    store.write_manifest("cele", "5000-9999", ["towel"], NOW)
+    ddb._get_item_result = {"Item": ddb.puts[-1]["Item"]}
+    # 書き込み48h後より先の now で読むと期限切れ
+    assert store.read_manifest("cele", "5000-9999", NOW + timedelta(hours=49)) == []
+
+
+def test_マニフェスト未登録は空を返す():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="t", client=ddb)
+    assert store.read_manifest("mourn", "5000-9999", NOW) == []

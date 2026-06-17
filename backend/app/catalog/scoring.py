@@ -44,7 +44,8 @@ def passes_gate(item: dict[str, Any], slug: str) -> bool:
     if not str(item.get("affiliate_url", "")).startswith(_AFFILIATE_PREFIX):
         return False
     title = item.get("title", "")
-    ng = _NG_KODEN if slug == "koden" else _NG_CELEBRATION
+    is_mourning = slug == "koden" or slug.startswith("mourn#")
+    ng = _NG_KODEN if is_mourning else _NG_CELEBRATION
     if any(w in title for w in ng) or any(w in title for w in _NG_COMMON):
         return False
     return True

@@ -1866,3 +1866,17 @@ a.btn {
   margin-left: var(--space-2);
   flex: none;
 }
+
+/* ---- 品目カテゴリタブ（お返し品の提案画面） ----------------------------- */
+/* .chip を再利用し、横スクロール行としての差分のみを上書きする。 */
+.sugtabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-1) 0 var(--space-3);
+  -webkit-overflow-scrolling: touch;
+}
+.sugtab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

@@ -10,7 +10,7 @@ import re
 from typing import Any, cast
 
 from app.adapters import _extract_json  # JSON 取り出しは OCR と共用
-from app.catalog.buckets import CATEGORIES
+from app.catalog.buckets import CATEGORIES, ITEM_CATEGORY_LABELS
 from app.catalog.relationships import GROUPS
 
 _SYSTEM = (
@@ -57,7 +57,12 @@ def build_user_prompt(
     slug: str, band: str, candidates: list[dict[str, Any]], season_note: str
 ) -> str:
     """キュレーション用ユーザープロンプト。候補は JSON データとして埋め込む。"""
-    keyword = CATEGORIES.get(slug, slug)
+    if "#" in slug:
+        tone, _, _cat = slug.partition("#")
+        tone_label = "弔事（香典返し）" if tone == "mourn" else "慶事（お祝い返し）"
+        head = f"{tone_label}・品目「{ITEM_CATEGORY_LABELS.get(slug, slug)}」"
+    else:
+        head = f"用途「{CATEGORIES.get(slug, slug)}」"
     cands = [
         {
             "itemCode": c["item_code"],
@@ -70,7 +75,7 @@ def build_user_prompt(
         for c in candidates
     ]
     return (
-        f"用途「{keyword}」・価格帯 {band} 円のお返し品として適切な商品を、"
+        f"{head}・価格帯 {band} 円のお返し品として適切な商品を、"
         f"次の候補から最大10個選んでください。{season_note}\n"
         "贈答マナー（用途との不一致・縁起の悪い品・カジュアルすぎる品の除外）と"
         "品質（評価・レビュー数）、セール状況を考慮して選定してください。\n"

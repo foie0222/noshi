@@ -59,6 +59,7 @@ import {
   type Party,
   type Range,
   type Relationship,
+  type SuggestCategory,
   type Suggestion,
 } from "./types";
 
@@ -151,6 +152,9 @@ export function App() {
   const [event, setEvent] = useState<EventView | null>(null); // 進行中のお返し対象
   const [range, setRange] = useState<Range | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestCats, setSuggestCats] = useState<SuggestCategory[]>([]);
+  const [activeCat, setActiveCat] = useState<string | null>(null); // null = おすすめ
+  const suggestCatReq = useRef(0);
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
   );
@@ -776,7 +780,24 @@ export function App() {
       range.purpose,
     );
     setSuggestions(r.suggestions);
+    setSuggestCats(r.categories);
+    setActiveCat(null);
     go("suggest");
+  }
+  async function selectSuggestCat(cat: string | null) {
+    if (!event || !range) return;
+    setActiveCat(cat);
+    const reqId = ++suggestCatReq.current;
+    const r = await api.suggestions(
+      event.id,
+      range.recommended,
+      event.relationship || "",
+      range.purpose,
+      cat ?? undefined,
+    );
+    if (suggestCatReq.current !== reqId) return; // 新しい切替が来ていれば古い応答は破棄
+    setSuggestions(r.suggestions);
+    setSuggestCats(r.categories); // タブ一覧も最新に保つ（在庫変動への追従）
   }
   async function chooseSuggestion(s: Suggestion) {
     if (!event) return;
@@ -1655,6 +1676,31 @@ export function App() {
             <Icon name="info" size={15} />
             以下の商品リンクはアフィリエイト広告です。
           </div>
+          {suggestCats.length > 0 && (
+            <div className="sugtabs" role="tablist" aria-label="品目で絞り込み">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeCat === null}
+                className={`chip sugtab${activeCat === null ? " on" : ""}`}
+                onClick={() => selectSuggestCat(null)}
+              >
+                おすすめ
+              </button>
+              {suggestCats.map((c) => (
+                <button
+                  key={c.slug}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCat === c.slug}
+                  className={`chip sugtab${activeCat === c.slug ? " on" : ""}`}
+                  onClick={() => selectSuggestCat(c.slug)}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
           {suggestions.map((s) => (
             <div className="card" key={s.item_code ?? s.title}>
               <div className="sug-head">

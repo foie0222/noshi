@@ -386,9 +386,10 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
         budget: int,
         relationship: str = "",
         purpose: str = "",
+        category: str = "",
         uid: str = Depends(current_user),
     ) -> dict[str, Any]:
-        return {"suggestions": svc.suggest_returns(uid, event_id, budget, relationship, purpose)}
+        return svc.returns_payload(uid, event_id, budget, relationship, purpose, category or None)
 
     @app.post("/api/events/{event_id}/suggestion")
     def select_suggestion(

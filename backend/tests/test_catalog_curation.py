@@ -180,3 +180,16 @@ def test_検証はfit自体が無くてもscoreで埋める():
             fallback_by_code={"shop:0": "fb"},
         )
         assert out[0]["fit"] == {"family": 75, "friend": 75, "work": 75, "other": 75}, bad_fit
+
+
+def test_品目バケツのプロンプトはトーンと品目を伝える():
+    from app.catalog.curation import build_user_prompt
+
+    p = build_user_prompt("cele#towel", "5000-9999", _cands(), season_note="")
+    assert "慶事" in p
+    assert "タオル・寝具" in p
+    assert "用途「" not in p  # 品目バケツでは用途表記にしない
+
+    m = build_user_prompt("mourn#food", "5000-9999", _cands(), season_note="")
+    assert "弔事" in m
+    assert "食品" in m

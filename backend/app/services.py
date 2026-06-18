@@ -609,10 +609,32 @@ class NoshiService:
         return rules.half_return(amount, purpose)
 
     def suggest_returns(
-        self, user_id: str, event_id: str, budget: int, relationship: str, purpose: str
+        self,
+        user_id: str,
+        event_id: str,
+        budget: int,
+        relationship: str,
+        purpose: str,
+        category: str | None = None,
     ) -> list[dict[str, Any]]:
         self._require_event(user_id, self._scope(user_id), event_id)
-        return self.catalog.suggest(budget, relationship, purpose)
+        return self.catalog.suggest(budget, relationship, purpose, category)
+
+    def returns_payload(
+        self,
+        user_id: str,
+        event_id: str,
+        budget: int,
+        relationship: str,
+        purpose: str,
+        category: str | None = None,
+    ) -> dict[str, Any]:
+        """提案画面の一括取得。イベント所有を1回だけ確認し、提案と品目タブを返す。"""
+        self._require_event(user_id, self._scope(user_id), event_id)
+        return {
+            "suggestions": self.catalog.suggest(budget, relationship, purpose, category),
+            "categories": self.catalog.available_categories(budget, purpose),
+        }
 
     def select_suggestion(
         self, user_id: str, event_id: str, suggestion: dict[str, Any]

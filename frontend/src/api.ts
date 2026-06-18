@@ -15,6 +15,7 @@ import type {
   Party,
   Relationship,
   RelationshipMaster,
+  SuggestCategory,
   Suggestion,
 } from "./types";
 
@@ -103,9 +104,17 @@ export const api = {
     }),
   halfReturn: (amount: number, purpose: string) =>
     req<HalfReturn>(`/returns/half-return?amount=${amount}&purpose=${encodeURIComponent(purpose)}`),
-  suggestions: (eventId: string, budget: number, relationship: string, purpose: string) =>
-    req<{ suggestions: Suggestion[] }>(
-      `/events/${eventId}/suggestions?budget=${budget}&relationship=${encodeURIComponent(relationship)}&purpose=${encodeURIComponent(purpose)}`,
+  suggestions: (
+    eventId: string,
+    budget: number,
+    relationship: string,
+    purpose: string,
+    category?: string,
+  ) =>
+    req<{ suggestions: Suggestion[]; categories: SuggestCategory[] }>(
+      `/events/${eventId}/suggestions?budget=${budget}&relationship=${encodeURIComponent(relationship)}&purpose=${encodeURIComponent(purpose)}${
+        category ? `&category=${encodeURIComponent(category)}` : ""
+      }`,
     ),
   selectSuggestion: (eventId: string, s: Suggestion) =>
     req<{ suggestion: Suggestion }>(`/events/${eventId}/suggestion`, {

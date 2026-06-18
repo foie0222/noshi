@@ -127,6 +127,11 @@ export interface Suggestion {
   rel_group?: string; // 配信時の続柄グループ（クリック計測で echo する）
 }
 
+export interface SuggestCategory {
+  slug: string;
+  label: string;
+}
+
 export interface CaptureCandidates {
   amount: number | string;
   party_name: string;

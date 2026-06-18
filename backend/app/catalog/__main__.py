@@ -18,7 +18,7 @@ import sys
 from datetime import UTC, datetime
 from typing import Any
 
-from app.catalog.buckets import CATEGORIES, PRICE_BANDS
+from app.catalog.buckets import CATEGORIES, ITEM_CATEGORY_KEYWORDS, PRICE_BANDS
 from app.catalog.curation import BedrockCurator
 from app.catalog.job import run_job
 from app.catalog.rakuten import RakutenClient
@@ -60,10 +60,11 @@ def main() -> int:
     bands = None
     if args.bucket:  # 1バケツに絞る（run_job の引数で渡す）
         slug, _, band = args.bucket.partition(":")
-        if slug not in CATEGORIES:
+        all_keywords = {**CATEGORIES, **ITEM_CATEGORY_KEYWORDS}
+        if slug not in all_keywords:
             print(f"未知のslug: {slug}", file=sys.stderr)
             return 1
-        categories = {slug: CATEGORIES[slug]}
+        categories = {slug: all_keywords[slug]}
         bands = [b for b in PRICE_BANDS if b[2] == band]
         if not bands:
             print(f"未知の価格帯: {band}", file=sys.stderr)

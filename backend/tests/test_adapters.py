@@ -81,3 +81,14 @@ def test_抽出はマークダウン括りのJSONも解釈する():
     reply = "```json\n" + json.dumps({"amount": 10000, "party_name": "田中"}) + "\n```"
     out = BedrockOcrLlm(client=FakeBedrock(reply)).extract([TINY])
     assert out["candidates"]["amount"] == 10000
+
+
+def test_GiftCatalogMockは品目引数と空カテゴリに対応する():
+    from app.ports import GiftCatalogMock
+
+    m = GiftCatalogMock()
+    # category を渡しても落ちない（フォールバックは従来の固定候補）
+    out = m.suggest(5000, "友人", "出産祝い", category="towel")
+    assert len(out) == 3
+    # モックは品目タブを持たない
+    assert m.available_categories(5000, "出産祝い") == []

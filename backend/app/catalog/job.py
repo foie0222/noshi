@@ -29,6 +29,21 @@ logger = logging.getLogger(__name__)
 _LLM_TIME_RESERVE = timedelta(minutes=3)  # 残り3分でLLM打ち切り（スペック§7）
 
 
+def _job_selection(sel: str) -> tuple[dict[str, str] | None, str]:
+    """EventBridge の set 値 → (run_job に渡す categories, ロックID)。
+
+    'purpose'=用途バケツのみ / 'item'=品目バケツのみ / その他=両方（手動全実行）。
+    用途と品目を別ジョブにし、別ロックで相互ブロックを避ける（15分制約のマージン確保）。
+    'all' は基底ロック JOBLOCK を使う（分割ロックとは別）。スケジュールは purpose/item の
+    2ジョブのみで、手動全実行('all')をスケジュールジョブと同時に走らせる運用はしない。
+    """
+    if sel == "purpose":
+        return CATEGORIES, "JOBLOCK#purpose"
+    if sel == "item":
+        return ITEM_CATEGORY_KEYWORDS, "JOBLOCK#item"
+    return None, "JOBLOCK"
+
+
 def _season_note(now: datetime) -> str:
     """季節文脈（お中元・お歳暮の時期をプロンプトに伝える）。"""
     m = now.astimezone(timezone(timedelta(hours=9))).month
@@ -204,9 +219,11 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     from app.catalog.rakuten import RakutenClient
     from app.catalog.store import CatalogStore
 
+    sel = (event or {}).get("set", "all")
+    categories, lock_id = _job_selection(sel)
     now = datetime.now(UTC)
     store = CatalogStore()
-    if not store.acquire_job_lock(now):
+    if not store.acquire_job_lock(now, lock_id=lock_id):
         # 二重実行ガード（スペック§7）。先行ジョブのロックが生きている間はスキップ
         logger.warning("job lock is held by another run; skipping")
         return {"buckets_failed": 0, "llm_fallback": 0, "skipped": 1}
@@ -218,7 +235,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
         affiliate_id=_ssm(ssm, "/noshi/rakuten/affiliate-id"),
         access_key=_ssm(ssm, "/noshi/rakuten/access-key"),
     )
-    return run_job(rakuten, BedrockCurator(), store, now=now, deadline=deadline)
+    return run_job(
+        rakuten, BedrockCurator(), store, now=now, deadline=deadline, categories=categories
+    )
 
 
 def _ssm(client: Any, name: str) -> str:

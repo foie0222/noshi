@@ -93,11 +93,14 @@ class CatalogStore:
             )
         self._client.transact_write_items(TransactItems=ops)
 
-    def acquire_job_lock(self, now: datetime, ttl_minutes: int = 60) -> bool:
+    def acquire_job_lock(
+        self, now: datetime, ttl_minutes: int = 60, lock_id: str = "JOBLOCK"
+    ) -> bool:
         """ジョブの二重実行ガード（条件付き書き込み）。
 
         reserved concurrency が使えない環境でも、ロックが生きている間は
         2本目のジョブを開始させない。取得できなければ False。
+        lock_id を変えることで用途セット・品目セットを別々にロックできる。
         """
         from datetime import timedelta as _td
 
@@ -105,8 +108,8 @@ class CatalogStore:
             self._client.put_item(
                 TableName=self.table_name,
                 Item={
-                    "PK": {"S": "JOBLOCK"},
-                    "SK": {"S": "JOBLOCK"},
+                    "PK": {"S": lock_id},
+                    "SK": {"S": lock_id},
                     "expiresAt": {"N": str(int((now + _td(minutes=ttl_minutes)).timestamp()))},
                 },
                 ConditionExpression="attribute_not_exists(PK) OR expiresAt < :now",

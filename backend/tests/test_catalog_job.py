@@ -221,6 +221,33 @@ def test_差別化されたfitは退化に数えない():
     assert summary["fit_degenerate"] == 0
 
 
+def test_job_selectionの振り分け():
+    from app.catalog.buckets import CATEGORIES, ITEM_CATEGORY_KEYWORDS
+    from app.catalog.job import _job_selection
+
+    assert _job_selection("purpose") == (CATEGORIES, "JOBLOCK#purpose")
+    assert _job_selection("item") == (ITEM_CATEGORY_KEYWORDS, "JOBLOCK#item")
+    assert _job_selection("all") == (None, "JOBLOCK")
+
+
+def test_品目セットのみ実行すると84バケツとマニフェスト():
+    from app.catalog.buckets import ITEM_CATEGORY_KEYWORDS
+
+    store, cur = FakeStore(), FakeCurator()
+    run_job(FakeRakuten(), cur, store, now=NOW, deadline=None, categories=ITEM_CATEGORY_KEYWORDS)
+    assert len(store.replaced) == 84  # 12品目×7価格帯
+    assert store.manifests  # 品目セットはマニフェストを書く
+
+
+def test_用途セットのみ実行すると63バケツとマニフェストなし():
+    from app.catalog.buckets import CATEGORIES
+
+    store, cur = FakeStore(), FakeCurator()
+    run_job(FakeRakuten(), cur, store, now=NOW, deadline=None, categories=CATEGORIES)
+    assert len(store.replaced) == 63  # 9用途×7価格帯
+    assert store.manifests == {}  # 用途セットはマニフェストを書かない
+
+
 def test_品目バケツも処理してマニフェストを書く():
     store, cur = FakeStore(), FakeCurator()
     run_job(FakeRakuten(), cur, store, now=NOW, deadline=None)

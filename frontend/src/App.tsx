@@ -154,6 +154,7 @@ export function App() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestCats, setSuggestCats] = useState<SuggestCategory[]>([]);
   const [activeCat, setActiveCat] = useState<string | null>(null); // null = おすすめ
+  const suggestCatReq = useRef(0);
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
   );
@@ -786,6 +787,7 @@ export function App() {
   async function selectSuggestCat(cat: string | null) {
     if (!event || !range) return;
     setActiveCat(cat);
+    const reqId = ++suggestCatReq.current;
     const r = await api.suggestions(
       event.id,
       range.recommended,
@@ -793,6 +795,7 @@ export function App() {
       range.purpose,
       cat ?? undefined,
     );
+    if (suggestCatReq.current !== reqId) return; // 新しい切替が来ていれば古い応答は破棄
     setSuggestions(r.suggestions);
     setSuggestCats(r.categories); // タブ一覧も最新に保つ（在庫変動への追従）
   }

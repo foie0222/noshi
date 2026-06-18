@@ -144,6 +144,16 @@ def test_ジョブロックが先行ジョブに取られていればFalse():
     assert ddb.puts == []  # 書き込まれない
 
 
+def test_ジョブロックはlock_idごとに独立():
+    ddb = FakeDdb()
+    store = CatalogStore(table_name="t", client=ddb)
+    assert store.acquire_job_lock(NOW, lock_id="JOBLOCK#purpose") is True
+    assert store.acquire_job_lock(NOW, lock_id="JOBLOCK#item") is True
+    # 書き込まれた PK が lock_id を反映している
+    pks = {p["Item"]["PK"]["S"] for p in ddb.puts if p["Item"]["PK"]["S"].startswith("JOBLOCK")}
+    assert pks == {"JOBLOCK#purpose", "JOBLOCK#item"}
+
+
 def test_fitありの書き込みは4属性が乗る():
     ddb = FakeDdb()
     store = CatalogStore(table_name="catalog", client=ddb)

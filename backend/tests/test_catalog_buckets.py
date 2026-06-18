@@ -104,6 +104,9 @@ def test_品目タクソノミの派生テーブルがトーン別に揃う():
     assert ITEM_CATEGORY_KEYWORDS["cele#towel"] == "内祝い タオル ギフト"
     assert ITEM_CATEGORY_LABELS["mourn#daily"] == "洗剤・日用品"
     assert len(ITEM_CATEGORY_KEYWORDS) == 12
+    # 広げたキーワードが反映されている（スペック2026-06-18 検索ヒット改善）
+    assert ITEM_CATEGORY_KEYWORDS["cele#drink"] == "内祝い コーヒー ギフト"
+    assert ITEM_CATEGORY_KEYWORDS["mourn#food"] == "香典返し グルメ"
 
 
 def test_tone_slug_と_item_bucket_slug():

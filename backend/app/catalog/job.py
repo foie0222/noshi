@@ -34,6 +34,8 @@ def _job_selection(sel: str) -> tuple[dict[str, str] | None, str]:
 
     'purpose'=用途バケツのみ / 'item'=品目バケツのみ / その他=両方（手動全実行）。
     用途と品目を別ジョブにし、別ロックで相互ブロックを避ける（15分制約のマージン確保）。
+    'all' は基底ロック JOBLOCK を使う（分割ロックとは別）。スケジュールは purpose/item の
+    2ジョブのみで、手動全実行('all')をスケジュールジョブと同時に走らせる運用はしない。
     """
     if sel == "purpose":
         return CATEGORIES, "JOBLOCK#purpose"

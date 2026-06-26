@@ -75,3 +75,45 @@ def test_隣接帯は下側優先で返る():
 
 def test_バケツPKの形式():
     assert bucket_pk("baby", "5000-9999") == "BUCKET#baby#5000-9999"
+
+
+def test_品目タクソノミの派生テーブルがトーン別に揃う():
+    from app.catalog.buckets import (
+        ITEM_CATEGORIES,
+        ITEM_CATEGORY_KEYWORDS,
+        ITEM_CATEGORY_LABELS,
+    )
+
+    assert [c for c, _l, _k in ITEM_CATEGORIES["cele"]] == [
+        "sweets",
+        "gourmet",
+        "drink",
+        "towel",
+        "tableware",
+        "sake",
+        "catalog",
+    ]
+    assert [c for c, _l, _k in ITEM_CATEGORIES["mourn"]] == [
+        "drink",
+        "food",
+        "towel",
+        "daily",
+        "catalog",
+    ]
+    # 派生テーブルは "tone#cat" をキーにする
+    assert ITEM_CATEGORY_KEYWORDS["cele#towel"] == "内祝い タオル ギフト"
+    assert ITEM_CATEGORY_LABELS["mourn#daily"] == "洗剤・日用品"
+    assert len(ITEM_CATEGORY_KEYWORDS) == 12
+    # 広げたキーワードが反映されている（スペック2026-06-18 検索ヒット改善）
+    assert ITEM_CATEGORY_KEYWORDS["cele#drink"] == "内祝い コーヒー ギフト"
+    assert ITEM_CATEGORY_KEYWORDS["mourn#drink"] == "香典返し お茶 ギフト"
+    assert ITEM_CATEGORY_KEYWORDS["mourn#food"] == "香典返し グルメ"
+    assert ITEM_CATEGORY_KEYWORDS["mourn#daily"] == "香典返し 洗剤"
+
+
+def test_tone_slug_と_item_bucket_slug():
+    from app.catalog.buckets import item_bucket_slug, tone_slug
+
+    assert tone_slug("出産祝い") == "cele"
+    assert tone_slug("香典") == "mourn"
+    assert item_bucket_slug("cele", "towel") == "cele#towel"

@@ -1454,3 +1454,429 @@ a.btn {
   text-underline-offset: 2px;
   cursor: pointer;
 }
+
+/* =========================================================================
+   高密度リスト（List density）— おつきあい / 台帳 / お返しの予定
+   大きいカードをやめ、多件数でも概観できるコンパクト行に。モノグラムは使わない。
+   ========================================================================= */
+
+/* コンパクト行: 素テキスト・淡い区切り。 */
+.drow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 13px var(--space-1);
+  min-height: 56px;
+  border-bottom: var(--bw-hairline) solid var(--border-faint);
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.drow:active {
+  background: var(--washi-200);
+}
+.drow .grow {
+  flex: 1;
+  min-width: 0;
+}
+.drow .nm {
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-base);
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drow .sub {
+  margin-top: 3px;
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drow .rt {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+.amt-mono {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-base);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* バランスバッジ: もらい越し=緑 / おくり越し=紺 / 均衡=砂（符号は使わない）。 */
+.balbdg {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  border-radius: var(--radius-round);
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+.balbdg.recv {
+  background: var(--color-success-tint);
+  color: var(--color-success);
+}
+.balbdg.give {
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+}
+.balbdg.even {
+  background: var(--washi-200);
+  color: var(--text-sub);
+  border: var(--bw-hairline) solid var(--border-faint);
+}
+
+/* おつきあいの続き柄グループ見出し: 色標＋明朝の色付きタイトル＋件数＋グループ収支。 */
+.relhdr {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: var(--bg-page);
+  margin-top: var(--space-6);
+  padding: var(--space-2) 0 var(--space-3);
+  border-bottom: var(--bw-hairline) solid var(--border-default);
+}
+.relhdr .ttl {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: 19px;
+  letter-spacing: var(--ls-wide);
+}
+.relhdr .swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgba(35, 33, 28, 0.1);
+}
+.relhdr .cnt {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.relhdr .bal {
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  white-space: nowrap;
+  flex: none;
+}
+.relhdr .bal.bg-recv {
+  color: var(--color-success);
+}
+.relhdr .bal.bg-give {
+  color: var(--color-primary);
+}
+/* 続き柄カラー: 親族=朱 / 友人=緑 / 知人=山吹 / 仕事=紺 / 近所=墨。 */
+.relhdr.k-shu .ttl {
+  color: var(--color-accent);
+}
+.relhdr.k-shu .swatch {
+  background: var(--color-accent);
+}
+.relhdr.k-mid .ttl {
+  color: var(--color-success);
+}
+.relhdr.k-mid .swatch {
+  background: var(--color-success);
+}
+.relhdr.k-yama .ttl {
+  color: var(--color-warning);
+}
+.relhdr.k-yama .swatch {
+  background: var(--color-warning);
+}
+.relhdr.k-kon .ttl {
+  color: var(--color-primary);
+}
+.relhdr.k-kon .swatch {
+  background: var(--color-primary);
+}
+.relhdr.k-sand .ttl {
+  color: var(--text-sub);
+}
+.relhdr.k-sand .swatch {
+  background: var(--text-muted);
+}
+
+/* ----- ホーム（お返しの予定）の深み: ブランド挨拶＋ヒント＋緊急度グループ＋密な行 ----- */
+.home-greet {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  color: var(--text-body);
+  margin-top: var(--space-2);
+  line-height: 1.6;
+}
+.home-greet b {
+  font-weight: var(--fw-bold);
+}
+.hintcard {
+  margin: var(--space-4) 0 var(--space-2);
+  background: var(--surface-card-raised);
+  border: var(--bw-hairline) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-card);
+}
+.hintcard .hk {
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  color: var(--color-warning);
+  letter-spacing: var(--ls-wide);
+}
+.hintcard .ht {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  color: var(--text-body);
+  margin-top: 5px;
+  line-height: 1.6;
+}
+
+/* 緊急度グループ見出し（色ドット＋ラベル＋件数）。 */
+.usec {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-5);
+  padding: var(--space-2) var(--space-1);
+  background: var(--bg-page);
+}
+.usec .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-round);
+  flex: none;
+}
+.usec .ul {
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-base);
+}
+.usec .uc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.usec.now .dot {
+  background: var(--color-accent);
+}
+.usec.now .ul {
+  color: var(--color-accent);
+}
+.usec.mon .dot {
+  background: var(--color-warning);
+}
+.usec.mon .ul {
+  color: var(--color-warning);
+}
+.usec.fut .dot {
+  background: var(--border-default);
+}
+.usec.fut .ul {
+  color: var(--text-sub);
+}
+
+/* お返しの予定の密な行（PendingRow）: 左端の緊急度アクセントバー＋2行＋右シェブロン。 */
+.pend {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: var(--bw-hairline) solid var(--border-faint);
+  padding: 0;
+  cursor: pointer;
+}
+.pend:active {
+  background: var(--washi-200);
+}
+.pend .accent {
+  width: 3px;
+  border-radius: 3px;
+  margin: 10px 0;
+  flex: none;
+}
+.pend.now .accent {
+  background: var(--color-accent);
+}
+.pend.mon .accent {
+  background: var(--color-warning);
+}
+.pend.fut .accent {
+  background: var(--border-default);
+}
+.pend.over {
+  background: var(--color-accent-tint);
+}
+.pend.over .accent {
+  background: var(--color-accent-pressed);
+}
+.pend .pbody {
+  flex: 1;
+  min-width: 0;
+  padding: 11px var(--space-3);
+}
+.pend .l1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pend .pnm {
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-base);
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pend .due {
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+  flex: none;
+}
+.pend.now .due {
+  color: var(--color-accent);
+}
+.pend.mon .due {
+  color: var(--color-warning);
+}
+.pend.fut .due {
+  color: var(--text-sub);
+}
+.pend.over .due {
+  color: var(--color-accent-pressed);
+}
+.pend .due-tag {
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  color: var(--text-on-primary);
+  background: var(--color-accent);
+  padding: 1px 7px;
+  border-radius: var(--radius-round);
+  margin-right: 6px;
+}
+.pend .l2 {
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pend .chev {
+  align-self: center;
+  color: var(--text-muted);
+  flex: none;
+  padding-right: 2px;
+}
+
+/* ----- 台帳: 年間サマリー＋月グルーピング＋日付つきコンパクト行 ----- */
+.statsum {
+  display: flex;
+  margin: var(--space-2) 0 var(--space-3);
+  background: var(--surface-card-raised);
+  border: var(--bw-hairline) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.statsum .cell {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+  border-left: var(--bw-hairline) solid var(--border-faint);
+}
+.statsum .cell:first-child {
+  border-left: none;
+}
+.statsum .k {
+  font-size: 10.5px;
+  color: var(--text-sub);
+}
+.statsum .v {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 18px;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.statsum .v.in {
+  color: var(--color-success);
+}
+.statsum .v.out {
+  color: var(--color-primary);
+}
+/* 月グループ見出し（月＋月次小計）。 */
+.msec {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: var(--bg-page);
+  margin-top: var(--space-5);
+  padding: var(--space-2) var(--space-1);
+  border-bottom: var(--bw-hairline) solid var(--border-faint);
+}
+.msec .mt {
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-base);
+}
+.msec .ms {
+  font-size: 11px;
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+.drow .amtline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  justify-content: flex-end;
+}
+.drow .lrow-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.drow .card-del {
+  margin-left: var(--space-2);
+  flex: none;
+}
+
+/* ---- 品目カテゴリタブ（お返し品の提案画面） ----------------------------- */
+/* .chip を再利用し、横スクロール行としての差分のみを上書きする。 */
+.sugtabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-1) 0 var(--space-3);
+  -webkit-overflow-scrolling: touch;
+}
+.sugtab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

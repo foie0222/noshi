@@ -66,31 +66,35 @@ class FakeStore:
     def __init__(self):
         self.replaced = []
         self.items_by_bucket: dict = {}
+        self.manifests: dict = {}
 
     def replace_bucket(self, slug, band, items, job_run_id, now):
         self.replaced.append((slug, band, [i["item_code"] for i in items]))
         self.items_by_bucket[(slug, band)] = items
 
+    def write_manifest(self, tone, band, categories, now):
+        self.manifests[(tone, band)] = list(categories)
+
 
 def test_全バケツを処理して書き込む():
     store, cur = FakeStore(), FakeCurator()
     summary = run_job(FakeRakuten(), cur, store, now=NOW, deadline=None)
-    assert len(store.replaced) == 63  # 9カテゴリ×7価格帯
+    assert len(store.replaced) == 147  # 9用途×7価格帯 + 12品目×7価格帯
     assert summary["buckets_failed"] == 0
-    assert cur.calls == 63
+    assert cur.calls == 147
 
 
 def test_LLM失敗時は線形スコア順とテンプレ文で書き込む():
     store = FakeStore()
     summary = run_job(FakeRakuten(), FakeCurator(fail=True), store, now=NOW, deadline=None)
-    assert len(store.replaced) == 63  # 提案は止まらない
-    assert summary["llm_fallback"] == 63
+    assert len(store.replaced) == 147  # 提案は止まらない
+    assert summary["llm_fallback"] == 147
 
 
 def test_LLMが空を返したら線形フォールバック扱いになる():
     store = FakeStore()
     summary = run_job(FakeRakuten(), FakeCurator(empty=True), store, now=NOW, deadline=None)
-    assert summary["llm_fallback"] == 63
+    assert summary["llm_fallback"] == 147
     # 線形上位が書き込まれている（空バケツにならない）
     assert all(len(codes) > 0 for _, _, codes in store.replaced)
 
@@ -101,7 +105,7 @@ def test_時間バジェット超過後はLLMを呼ばない():
     # deadline を過去にする → 全バケツが線形のみ
     summary = run_job(FakeRakuten(), cur, store, now=NOW, deadline=NOW)
     assert cur.calls == 0
-    assert len(store.replaced) == 63
+    assert len(store.replaced) == 147
     # 時間切れはLLM失敗ではないので llm_fallback には数えない
     assert summary["llm_fallback"] == 0
 
@@ -116,7 +120,7 @@ def test_検索が例外のバケツはスキップして続行する():
     store = FakeStore()
     summary = run_job(Flaky(), FakeCurator(), store, now=NOW, deadline=None)
     assert summary["buckets_failed"] == 7  # koden の7価格帯のみ失敗
-    assert len(store.replaced) == 56
+    assert len(store.replaced) == 140
 
 
 def test_ランキング取得が例外でも全バケツを処理する():
@@ -128,7 +132,7 @@ def test_ランキング取得が例外でも全バケツを処理する():
     summary = run_job(NoRanking(), FakeCurator(), store, now=NOW, deadline=None)
     # ランキング失敗はトレンド寄与0として続行（バケツ失敗にしない）
     assert summary["buckets_failed"] == 0
-    assert len(store.replaced) == 63
+    assert len(store.replaced) == 147
 
 
 def test_1バケツ指定で絞り込める():
@@ -215,3 +219,58 @@ def test_差別化されたfitは退化に数えない():
         bands=[(5000, 9999, "5000-9999")],
     )
     assert summary["fit_degenerate"] == 0
+
+
+def test_job_selectionの振り分け():
+    from app.catalog.buckets import CATEGORIES, ITEM_CATEGORY_KEYWORDS
+    from app.catalog.job import _job_selection
+
+    assert _job_selection("purpose") == (CATEGORIES, "JOBLOCK#purpose")
+    assert _job_selection("item") == (ITEM_CATEGORY_KEYWORDS, "JOBLOCK#item")
+    assert _job_selection("all") == (None, "JOBLOCK")
+
+
+def test_品目セットのみ実行すると84バケツとマニフェスト():
+    from app.catalog.buckets import ITEM_CATEGORY_KEYWORDS
+
+    store, cur = FakeStore(), FakeCurator()
+    run_job(FakeRakuten(), cur, store, now=NOW, deadline=None, categories=ITEM_CATEGORY_KEYWORDS)
+    assert len(store.replaced) == 84  # 12品目×7価格帯
+    assert store.manifests  # 品目セットはマニフェストを書く
+
+
+def test_用途セットのみ実行すると63バケツとマニフェストなし():
+    from app.catalog.buckets import CATEGORIES
+
+    store, cur = FakeStore(), FakeCurator()
+    run_job(FakeRakuten(), cur, store, now=NOW, deadline=None, categories=CATEGORIES)
+    assert len(store.replaced) == 63  # 9用途×7価格帯
+    assert store.manifests == {}  # 用途セットはマニフェストを書かない
+
+
+def test_品目バケツも処理してマニフェストを書く():
+    store, cur = FakeStore(), FakeCurator()
+    run_job(FakeRakuten(), cur, store, now=NOW, deadline=None)
+
+    # 品目バケツが slug="tone#cat" 形式で書かれている
+    item_slugs = {slug for slug, _band, _codes in store.replaced if "#" in slug}
+    assert "cele#towel" in item_slugs
+    assert "mourn#food" in item_slugs
+
+    # (tone, band) ごとにマニフェストが書かれ、慶事は7品目・弔事は5品目（全件在庫ありのフェイク）
+    assert store.manifests[("cele", "5000-9999")] == [
+        "sweets",
+        "gourmet",
+        "drink",
+        "towel",
+        "tableware",
+        "sake",
+        "catalog",
+    ]
+    assert store.manifests[("mourn", "5000-9999")] == [
+        "drink",
+        "food",
+        "towel",
+        "daily",
+        "catalog",
+    ]

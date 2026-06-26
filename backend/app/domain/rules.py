@@ -215,6 +215,7 @@ def relationship_balance(
             {
                 "party_id": getattr(r, "party_id", ""),
                 "party_name": name,
+                "relationship": "",  # 続き柄は人の属性。サービス層で現在値に補正する。
                 "received": 0,
                 "given": 0,
                 "last_at": "",

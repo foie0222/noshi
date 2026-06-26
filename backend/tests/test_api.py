@@ -557,3 +557,71 @@ def test_別名subの通知設定変更が代表の設定に反映される():
     assert svc.repo.get_membership("aliasY") is None
     primary_m = svc.repo.get_membership("primaryX")
     assert primary_m is not None and primary_m.notify_email is True
+
+
+def test_delete_info_はapple連携有無を返す(monkeypatch):
+    import app.auth as auth
+    import app.cognito_admin as ca
+
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
+    svc.repo.put_account_link("aliasApple", "primaryX")
+    monkeypatch.setattr(ca, "any_apple_sub", lambda pool, subs: "aliasApple" in subs)
+    monkeypatch.setattr(auth, "auth_configured", lambda: False)  # X-User-Id スタブを維持
+    monkeypatch.setenv("NOSHI_COGNITO_POOL_ID", "pool-1")
+    c = TestClient(create_app(svc))
+    r = c.get("/api/account/delete-info", headers={"X-User-Id": "primaryX"})
+    assert r.status_code == 200 and r.json()["apple_linked"] is True
+
+
+def test_delete_account_はrevokeと全sub削除を呼ぶ(monkeypatch):
+    import app.apple_revoke as ar
+    import app.auth as auth
+    import app.cognito_admin as ca
+
+    calls = {"revoke": None, "deleted": None}
+    monkeypatch.setattr(
+        ar, "revoke_apple_for_code", lambda code: calls.__setitem__("revoke", code) or True
+    )
+    monkeypatch.setattr(
+        ca, "delete_users_by_subs", lambda pool, subs: calls.__setitem__("deleted", list(subs))
+    )
+    monkeypatch.setattr(auth, "auth_configured", lambda: False)  # X-User-Id スタブを維持
+    monkeypatch.setenv("NOSHI_COGNITO_POOL_ID", "pool-1")
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
+    svc.repo.put_account_link("aliasA", "primaryX")
+    c = TestClient(create_app(svc))
+    r = c.request(
+        "DELETE",
+        "/api/account",
+        json={"apple_authorization_code": "code-xyz"},
+        headers={"X-User-Id": "primaryX"},
+    )
+    assert r.status_code == 200 and r.json()["ok"] is True
+    assert calls["revoke"] == "code-xyz"
+    assert set(calls["deleted"]) == {"primaryX", "aliasA"}
+
+
+def test_suggestionsはcategoriesも返す():
+    c = TestClient(create_app())
+    rec = c.post(
+        "/api/records",
+        headers=_h(),
+        json={
+            "amount": 30000,
+            "purpose": "出産祝い",
+            "party_name": "佐藤",
+            "direction": "received",
+        },
+    ).json()
+    eid = rec["event"]["id"]
+    r = c.get(
+        f"/api/events/{eid}/suggestions",
+        headers=_h(),
+        params={"budget": 5000, "relationship": "友人", "purpose": "出産祝い"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert "suggestions" in body
+    assert body["categories"] == []  # モック catalog は品目タブを持たない

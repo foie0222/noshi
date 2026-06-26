@@ -222,16 +222,22 @@ class NoshiService:
         self._audit(user_id, "remove_member", target_user_id)  # A09
         return self.household_view(user_id)
 
-    def delete_account(self, user_id: str) -> None:
-        """アカウントを削除する（#118）。本人の世帯メンバーシップを外し、家族が残れば
-        台帳は保持して owner を引き継ぐ。最後の利用者なら世帯データを完全消去する。
-        Cognito ユーザー本体の削除は呼び出し側（main）で行う。"""
+    def account_subs(self, user_id: str) -> list[str]:
+        """論理アカウントの全 sub（代表＋全別名）。user_id は境界正規化済み（代表）。"""
+        return [user_id, *self.repo.list_aliases(user_id)]
+
+    def delete_account(self, user_id: str) -> list[str]:
+        """論理アカウント（代表＋全別名）を削除する（#118/#198）。
+        世帯データ purge / owner 引き継ぎ → account_link/EMAIL# 掃除 → membership 削除。
+        Cognito ユーザー削除と Apple revoke は呼び出し側（main）で行う。
+        戻り値: 削除対象の全 sub（代表＋別名。Cognito 削除に使う）。"""
+        aliases = self.repo.list_aliases(user_id)
+        subs = [user_id, *aliases]
         m = self.repo.get_membership(user_id)
         hid = m.household_id if m else ""
         if m:
             others = [x for x in self.repo.list_members(hid) if x.user_id != user_id]
             if others:
-                # 管理者が抜けて家族が残るなら最古参へ引き継ぐ（台帳は家族の資産として残す）。
                 if m.role == "owner":
                     heir = sorted(others, key=lambda x: x.joined_at)[0]
                     self.repo.put_membership(
@@ -245,9 +251,16 @@ class NoshiService:
                     )
                     self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
             else:
-                self._purge_household(hid)  # 最後の利用者: 世帯データを完全消去
+                self._purge_household(hid)
+            # 代表メールの EMAIL# を解放（代表を指す場合のみ）。Phase1 では別名は EMAIL# を持たない。
+            if m.email and self.repo.get_email_primary(m.email) == user_id:
+                self.repo.delete_email_primary(m.email)
             self.repo.delete_membership(user_id)
+        # 別名リンク（＋逆引き）を掃除。
+        for alias in aliases:
+            self.repo.delete_account_link(alias)
         self._audit(user_id, "delete_account", hid)  # A09
+        return subs
 
     def _purge_household(self, hid: str) -> None:
         """世帯に属する全データ（記録・お返し・相手・マスタ・世帯本体）と画像を消す。"""
@@ -521,9 +534,41 @@ class NoshiService:
     def list_records(self, user_id: str) -> list[GiftRecord]:
         return self.repo.list_records(self._scope(user_id))
 
+    def _relationship_map(self, scope: str) -> tuple[dict[str, str], dict[str, str]]:
+        """party_id / 相手名 → 現在の続き柄。続き柄は人の属性なので最新値を引く。"""
+        by_id: dict[str, str] = {}
+        by_name: dict[str, str] = {}
+        for p in self.repo.list_parties(scope):
+            rel = (p.relationship or "").strip()
+            if rel:
+                by_id[p.id] = rel
+                by_name[p.name] = rel
+        return by_id, by_name
+
     def relationships(self, user_id: str) -> list[dict[str, Any]]:
-        """世帯の おつきあいバランス（差分・最終やりとり・偏り・気になる関係）を返す（N1）。"""
-        return rules.relationship_balance(self.repo.list_records(self._scope(user_id)))
+        """世帯の おつきあいバランス（差分・最終やりとり・偏り・気になる関係）を返す（N1）。
+
+        続き柄は人の現在の属性で補正する（おつきあいを続き柄でグルーピングするため）。
+        """
+        scope = self._scope(user_id)
+        rows = rules.relationship_balance(self.repo.list_records(scope))
+        by_id, by_name = self._relationship_map(scope)
+        for r in rows:
+            cur = by_id.get(r.get("party_id", "")) or by_name.get(r.get("party_name", ""))
+            if cur:
+                r["relationship"] = cur
+        return rows
+
+    def ledger_records(self, user_id: str) -> list[dict[str, Any]]:
+        """台帳のレコード一覧。各レコードに相手の現在の続き柄を添える（台帳の表示用）。"""
+        scope = self._scope(user_id)
+        by_id, by_name = self._relationship_map(scope)
+        out: list[dict[str, Any]] = []
+        for r in self.repo.list_records(scope):
+            d = dict(vars(r))
+            d["relationship"] = by_id.get(r.party_id, "") or by_name.get(r.party_name, "")
+            out.append(d)
+        return out
 
     def gift_tax(self, user_id: str, year: int | None = None) -> dict[str, Any]:
         """世帯の暦年「もらった」対象合計と110万円枠サマリを返す（P1-3）。"""
@@ -614,10 +659,32 @@ class NoshiService:
         return rules.half_return(amount, purpose)
 
     def suggest_returns(
-        self, user_id: str, event_id: str, budget: int, relationship: str, purpose: str
+        self,
+        user_id: str,
+        event_id: str,
+        budget: int,
+        relationship: str,
+        purpose: str,
+        category: str | None = None,
     ) -> list[dict[str, Any]]:
         self._require_event(user_id, self._scope(user_id), event_id)
-        return self.catalog.suggest(budget, relationship, purpose)
+        return self.catalog.suggest(budget, relationship, purpose, category)
+
+    def returns_payload(
+        self,
+        user_id: str,
+        event_id: str,
+        budget: int,
+        relationship: str,
+        purpose: str,
+        category: str | None = None,
+    ) -> dict[str, Any]:
+        """提案画面の一括取得。イベント所有を1回だけ確認し、提案と品目タブを返す。"""
+        self._require_event(user_id, self._scope(user_id), event_id)
+        return {
+            "suggestions": self.catalog.suggest(budget, relationship, purpose, category),
+            "categories": self.catalog.available_categories(budget, purpose),
+        }
 
     def select_suggestion(
         self, user_id: str, event_id: str, suggestion: dict[str, Any]

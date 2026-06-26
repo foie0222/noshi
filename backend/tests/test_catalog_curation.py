@@ -209,3 +209,16 @@ def test_default_curatorはプロバイダで実装を選ぶ(monkeypatch):
     assert isinstance(default_curator(), BedrockCurator)
     monkeypatch.delenv("NOSHI_LLM_PROVIDER", raising=False)
     assert isinstance(default_curator(), BedrockCurator)  # 既定は Bedrock
+
+
+def test_品目バケツのプロンプトはトーンと品目を伝える():
+    from app.catalog.curation import build_user_prompt
+
+    p = build_user_prompt("cele#towel", "5000-9999", _cands(), season_note="")
+    assert "慶事" in p
+    assert "タオル・寝具" in p
+    assert "用途「" not in p  # 品目バケツでは用途表記にしない
+
+    m = build_user_prompt("mourn#food", "5000-9999", _cands(), season_note="")
+    assert "弔事" in m
+    assert "食品" in m

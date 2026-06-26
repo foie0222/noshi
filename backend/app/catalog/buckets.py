@@ -94,3 +94,46 @@ def band_neighbors(band: str) -> list[str]:
 def bucket_pk(slug: str, band: str) -> str:
     """バケツの DynamoDB PK を返す。"""
     return f"BUCKET#{slug}#{band}"
+
+
+# --- 品目カテゴリ（スペック 2026-06-17）。slug は f"{tone}#{cat}"、tone は cele/mourn ---
+# tone -> [(cat_slug, 表示名, 楽天検索キーワード), ...]（リスト順がタブ表示順）
+ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
+    "cele": [
+        ("sweets", "スイーツ・お菓子", "内祝い 洋菓子 焼き菓子"),
+        ("gourmet", "グルメ・食品", "内祝い グルメ 食品"),
+        ("drink", "飲料", "内祝い コーヒー ギフト"),
+        ("towel", "タオル・寝具", "内祝い タオル ギフト"),
+        ("tableware", "食器・キッチン", "内祝い 食器 ギフト"),
+        ("sake", "お酒", "内祝い 酒 ギフト"),
+        ("catalog", "カタログギフト", "内祝い カタログギフト"),
+    ],
+    "mourn": [
+        ("drink", "飲料", "香典返し お茶 ギフト"),
+        ("food", "食品", "香典返し グルメ"),
+        ("towel", "タオル・寝具", "香典返し タオル"),
+        ("daily", "洗剤・日用品", "香典返し 洗剤"),
+        ("catalog", "カタログギフト", "香典返し カタログギフト"),
+    ],
+}
+
+# 配信・バッチ用の派生テーブル（slug = "tone#cat"）
+ITEM_CATEGORY_KEYWORDS: dict[str, str] = {
+    f"{tone}#{cat}": kw for tone, rows in ITEM_CATEGORIES.items() for cat, _label, kw in rows
+}
+ITEM_CATEGORY_LABELS: dict[str, str] = {
+    f"{tone}#{cat}": label for tone, rows in ITEM_CATEGORIES.items() for cat, label, _kw in rows
+}
+# 品目バケツの楽天ランキングAPIジャンルID。当面は総合ランキング（None=トレンド寄与半減）。
+# 実機でカテゴリ上位の最頻ジャンルを採取でき次第、個別IDに差し替える。
+RAKUTEN_GENRE_BY_ITEM_CATEGORY: dict[str, str | None] = dict.fromkeys(ITEM_CATEGORY_KEYWORDS, None)
+
+
+def tone_slug(purpose: str) -> str:
+    """用途 → 品目バケツのトーン接頭辞（cele=慶事 / mourn=弔事）。"""
+    return "mourn" if tone_of(purpose) == "mourning" else "cele"
+
+
+def item_bucket_slug(tone: str, cat: str) -> str:
+    """品目バケツの slug（store/adapter の slug 引数として使う）。"""
+    return f"{tone}#{cat}"

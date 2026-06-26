@@ -90,6 +90,7 @@ export interface Household {
 
 export interface Relationship {
   party_name: string;
+  relationship: string;
   received: number;
   given: number;
   diff: number;
@@ -124,6 +125,11 @@ export interface Suggestion {
   bucket?: string;
   position?: number;
   rel_group?: string; // 配信時の続柄グループ（クリック計測で echo する）
+}
+
+export interface SuggestCategory {
+  slug: string;
+  label: string;
 }
 
 export interface CaptureCandidates {

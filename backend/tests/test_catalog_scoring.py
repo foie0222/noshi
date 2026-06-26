@@ -114,3 +114,19 @@ def test_saleNoteはポイント倍率と期限から生成():
     )
     assert sale_note(_item(point_rate=5, point_end="")) == "ポイント5倍"
     assert sale_note(_item(point_rate=1)) == ""
+
+
+def test_弔事品目スラッグでは弔事NGワードで弾く():
+    from app.catalog.scoring import passes_gate
+
+    base = {
+        "review_count": 100,
+        "rating": 4.5,
+        "availability": 1,
+        "affiliate_url": "https://hb.afl.rakuten.co.jp/x",
+    }
+    # mourn# 系は koden と同じく祝い向け語を弾く
+    assert passes_gate({**base, "title": "出産御祝ギフト"}, "mourn#food") is False
+    # 慶事品目では祝い向け語は通り、弔事向け語を弾く
+    assert passes_gate({**base, "title": "上質タオルセット"}, "cele#towel") is True
+    assert passes_gate({**base, "title": "香典返し 緑茶"}, "cele#towel") is False

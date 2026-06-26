@@ -93,11 +93,14 @@ class CatalogStore:
             )
         self._client.transact_write_items(TransactItems=ops)
 
-    def acquire_job_lock(self, now: datetime, ttl_minutes: int = 60) -> bool:
+    def acquire_job_lock(
+        self, now: datetime, ttl_minutes: int = 60, lock_id: str = "JOBLOCK"
+    ) -> bool:
         """ジョブの二重実行ガード（条件付き書き込み）。
 
         reserved concurrency が使えない環境でも、ロックが生きている間は
         2本目のジョブを開始させない。取得できなければ False。
+        lock_id を変えることで用途セット・品目セットを別々にロックできる。
         """
         from datetime import timedelta as _td
 
@@ -105,8 +108,8 @@ class CatalogStore:
             self._client.put_item(
                 TableName=self.table_name,
                 Item={
-                    "PK": {"S": "JOBLOCK"},
-                    "SK": {"S": "JOBLOCK"},
+                    "PK": {"S": lock_id},
+                    "SK": {"S": lock_id},
                     "expiresAt": {"N": str(int((now + _td(minutes=ttl_minutes)).timestamp()))},
                 },
                 ConditionExpression="attribute_not_exists(PK) OR expiresAt < :now",
@@ -132,6 +135,33 @@ class CatalogStore:
             },
         )
         return [self._from_ddb(item) for item in r.get("Items", [])]
+
+    # --- 品目マニフェスト ---
+
+    def write_manifest(self, tone: str, band: str, categories: list[str], now: datetime) -> None:
+        """(tone, band) で在庫のある品目スラッグを総入れ替えで記録する。空でも上書きする。"""
+        self._client.put_item(
+            TableName=self.table_name,
+            Item={
+                "PK": {"S": f"MANIFEST#{tone}#{band}"},
+                "SK": {"S": "MANIFEST"},
+                "categories": {"L": [{"S": c} for c in categories]},
+                "expiresAt": {"N": str(int((now + _ITEM_TTL).timestamp()))},
+            },
+        )
+
+    def read_manifest(self, tone: str, band: str, now: datetime) -> list[str]:
+        """(tone, band) の在庫ある品目スラッグを順序つきで返す。未登録/期限切れは空。"""
+        r = self._client.get_item(
+            TableName=self.table_name,
+            Key={"PK": {"S": f"MANIFEST#{tone}#{band}"}, "SK": {"S": "MANIFEST"}},
+        )
+        item = r.get("Item")
+        if not item:
+            return []
+        if int(item.get("expiresAt", {}).get("N", "0")) <= int(now.timestamp()):
+            return []
+        return [e.get("S", "") for e in item.get("categories", {}).get("L", [])]
 
     # --- クリック計測 ---
 

@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -40,7 +41,6 @@ import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
-import { seasonNudge, seasonOf } from "./lib/season";
 import { priceLine } from "./lib/suggestion";
 import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
@@ -53,6 +53,7 @@ import {
   type EditDraft,
   type EventView,
   errMsg,
+  type GiftRecord,
   type GiftTax,
   type HomeResponse,
   type Household,
@@ -60,6 +61,7 @@ import {
   type Party,
   type Range,
   type Relationship,
+  type SuggestCategory,
   type Suggestion,
 } from "./types";
 
@@ -86,6 +88,18 @@ const ITEM_SUGGESTIONS = [
   "お菓子",
   "花",
 ];
+
+// ホームの「お返しのヒント」。季節・贈る系ではなく、お返しをそっと促す文言。
+// ページ表示ごとに1つをランダム表示（モジュール評価＝読み込みごとに一度だけ選ぶ）。
+const RETURN_HINTS = [
+  "いただいた気持ちに、そっとお返しを。無理のない範囲で。",
+  "お返しは、気持ちが伝わるうちに。今週の分から、ゆっくり。",
+  "半返しが目安です。迷ったら、いただいた品の半分くらいで。",
+  "急がず、でも忘れずに。期限の近い順に並べてあります。",
+  "今日はひとつだけでも。一件ずつで大丈夫です。",
+  "お返しを贈ると、おつきあいがまた一巡します。",
+];
+const HOME_HINT = RETURN_HINTS[Math.floor(Math.random() * RETURN_HINTS.length)];
 
 // 台帳の並べ替え選択肢（デザインシステム準拠の自前 Select で表示）。
 const LEDGER_SORT_OPTIONS: { value: LedgerSort; label: string }[] = [
@@ -140,6 +154,9 @@ export function App() {
   const [event, setEvent] = useState<EventView | null>(null); // 進行中のお返し対象
   const [range, setRange] = useState<Range | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestCats, setSuggestCats] = useState<SuggestCategory[]>([]);
+  const [activeCat, setActiveCat] = useState<string | null>(null); // null = おすすめ
+  const suggestCatReq = useRef(0);
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
   );
@@ -253,7 +270,18 @@ export function App() {
     )
       return;
     try {
-      await api.deleteAccount();
+      let appleCode: string | undefined;
+      const info = await api.getDeleteInfo().catch(() => ({ apple_linked: false }));
+      if (info.apple_linked && Capacitor.isNativePlatform()) {
+        // Apple 連携アカウントは削除時に Apple 再認証→authorization code を取得し revoke に使う（#198）。
+        // useProperTokenExchange:true で result.authorizationCode（バックエンド交換用）が返る。
+        const { SocialLogin } = await import("@capgo/capacitor-social-login");
+        await SocialLogin.initialize({ apple: { useProperTokenExchange: true } });
+        const login = await SocialLogin.login({ provider: "apple", options: {} }).catch(() => null);
+        if (!login) return; // キャンセル時は削除中止
+        appleCode = login.result.authorizationCode || undefined;
+      }
+      await api.deleteAccount(appleCode);
       signOut();
       go("login");
       notify("アカウントを削除しました");
@@ -294,8 +322,6 @@ export function App() {
       setAuthBusy(false);
     }
   }
-  const nudge = seasonNudge(seasonOf(new Date().getMonth() + 1));
-
   function toggleFont() {
     const next = !fontLarge;
     setFontLarge(next);
@@ -665,18 +691,6 @@ export function App() {
     }
   }
 
-  // ---- ホームから「お返し済み」をワンタップで完了に（#179）----
-  // 詳細を開かず status=done に。カードは予定一覧からそっと外れる。急かさず労う一言を返す。
-  async function doMarkDone(eventId: string) {
-    try {
-      await api.setStatus(eventId, "done");
-      notify("お返し、おつかれさまでした");
-      await loadHome();
-    } catch (e) {
-      handleErr(e);
-    }
-  }
-
   // ---- おつきあい → 相手の贈答履歴へドリルダウン（#180）----
   // 新しい画面は作らず、既存の台帳ビューをその相手で絞り込んだ状態で開く。
   function openPartyHistory(name: string) {
@@ -786,7 +800,24 @@ export function App() {
       range.purpose,
     );
     setSuggestions(r.suggestions);
+    setSuggestCats(r.categories);
+    setActiveCat(null);
     go("suggest");
+  }
+  async function selectSuggestCat(cat: string | null) {
+    if (!event || !range) return;
+    setActiveCat(cat);
+    const reqId = ++suggestCatReq.current;
+    const r = await api.suggestions(
+      event.id,
+      range.recommended,
+      event.relationship || "",
+      range.purpose,
+      cat ?? undefined,
+    );
+    if (suggestCatReq.current !== reqId) return; // 新しい切替が来ていれば古い応答は破棄
+    setSuggestions(r.suggestions);
+    setSuggestCats(r.categories); // タブ一覧も最新に保つ（在庫変動への追従）
   }
   async function chooseSuggestion(s: Suggestion) {
     if (!event) return;
@@ -1151,12 +1182,6 @@ export function App() {
       {screen === "home" && home && (
         <>
           <Bar title="noshi" logo />
-          {nudge && (
-            <div className="nudge">
-              <Icon name="gift" size={18} />
-              {nudge}
-            </div>
-          )}
           {home.pending.length === 0 && home.recent.length === 0 ? (
             <div className="onboard">
               <div className="onboard-emoji" aria-hidden="true">
@@ -1171,78 +1196,88 @@ export function App() {
             </div>
           ) : (
             <>
-              <div className="h">お返しの予定</div>
-              <p className="muted">期限の近い順。タップしてお返しへ。</p>
-              {home.pending.length === 0 && (
-                <p className="muted" style={{ marginTop: 16 }}>
-                  いま必要なお返しはありません。
-                </p>
-              )}
+              <p className="home-greet">
+                こんにちは。
+                {home.pending.length > 0 ? (
+                  <>
+                    お返しの予定が <b>{home.pending.length}件</b> あります。
+                    <br />
+                    期限の近い順にご案内します。
+                  </>
+                ) : (
+                  "いま必要なお返しはありません。"
+                )}
+              </p>
+              <div className="hintcard">
+                <div className="hk">お返しのヒント</div>
+                <div className="ht">{HOME_HINT}</div>
+              </div>
+              {(() => {
+                // 緊急度でグルーピング（今週まで=朱 / 今月=山吹 / それ以降=無彩）。
+                // 期限の近い順（超過が先頭）に並べる。
+                const order = (d: number | null) => (d === null ? 1e9 : d);
+                const sorted = [...home.pending].sort(
+                  (a, b) => order(a.days_left) - order(b.days_left),
+                );
+                const bucketOf = (d: number | null): "now" | "mon" | "fut" =>
+                  d === null ? "fut" : d <= 7 ? "now" : d <= 31 ? "mon" : "fut";
+                const buckets = [
+                  { key: "now", label: "今週まで" },
+                  { key: "mon", label: "今月" },
+                  { key: "fut", label: "それ以降" },
+                ] as const;
+                return buckets.map(({ key, label }) => {
+                  const rows = sorted.filter((e) => bucketOf(e.days_left) === key);
+                  if (rows.length === 0) return null;
+                  return (
+                    <div key={key}>
+                      <div className={`usec ${key}`}>
+                        <span className="dot" aria-hidden="true" />
+                        <span className="ul">{label}</span>
+                        <span className="uc">{rows.length}件</span>
+                      </div>
+                      {rows.map((e) => {
+                        // 期限超過（days_left<0）は「今週まで」先頭に、朱で明確に区別する。
+                        const overdue = e.days_left !== null && e.days_left < 0;
+                        return (
+                          <button
+                            type="button"
+                            className={`pend ${key}${overdue ? " over" : ""}`}
+                            key={e.id}
+                            onClick={() => openEvent(e.id)}
+                          >
+                            <span className="accent" aria-hidden="true" />
+                            <span className="pbody">
+                              <span className="l1">
+                                <span className="pnm">{withHonor(e.party_name)}</span>
+                                <span className="due">
+                                  {overdue ? (
+                                    <>
+                                      <span className="due-tag">期限超過</span>
+                                      {Math.abs(e.days_left as number)}日
+                                    </>
+                                  ) : (
+                                    daysLeftLabel(e.days_left)
+                                  )}
+                                </span>
+                              </span>
+                              <span className="l2">
+                                {e.purpose}・もらった {yen(e.amount)}
+                                {e.relationship ? `・${e.relationship}` : ""}
+                              </span>
+                            </span>
+                            <span className="chev" aria-hidden="true">
+                              <Icon name="chevronRight" size={18} />
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                });
+              })()}
             </>
           )}
-          {home.pending.map((e) => {
-            const overdue = e.days_left !== null && e.days_left < 0;
-            const soon = e.days_left !== null && e.days_left <= 3;
-            return (
-              // biome-ignore lint/a11y/useSemanticElements: 削除ボタンを内包する開閉カードのため button にできない。role+キーボードで代替。
-              <div
-                className="card tap"
-                key={e.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => openEvent(e.id)}
-                onKeyDown={(ev) => {
-                  if (ev.key === "Enter" || ev.key === " ") {
-                    ev.preventDefault();
-                    openEvent(e.id);
-                  }
-                }}
-              >
-                <div className="between">
-                  <b>{withHonor(e.party_name)}</b>
-                  <span
-                    className="duebadge"
-                    style={{
-                      // 朱(accent)は CTA 専用に。期限まわりは責めない山吹(warning)で穏やかに（#181）。
-                      color: overdue || soon ? "var(--color-warning)" : "var(--text-sub)",
-                      fontWeight: overdue ? 700 : soon ? 600 : 400,
-                    }}
-                  >
-                    {daysLeftLabel(e.days_left)}
-                  </span>
-                </div>
-                <div className="between">
-                  <div className="muted">
-                    {e.purpose} ・ {yen(e.amount)} ・ {statusLabel(e.status)}
-                  </div>
-                  <button
-                    type="button"
-                    className="card-del"
-                    aria-label={`${e.party_name} の記録を削除`}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      doDeleteRecord(e.record_id, e.party_name);
-                    }}
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
-                </div>
-                {/* お返し済みワンタップ（#179）。削除と離し、静かなチェック1つに留める。 */}
-                <button
-                  type="button"
-                  className="card-done"
-                  aria-label={`${e.party_name} へのお返しを済みにする`}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    doMarkDone(e.id);
-                  }}
-                >
-                  <Icon name="check" size={16} strokeWidth={2.4} />
-                  お返し済みにする
-                </button>
-              </div>
-            );
-          })}
         </>
       )}
 
@@ -1473,10 +1508,43 @@ export function App() {
         ledger &&
         (() => {
           const shown = filterSortRecords(ledger.records, ledgerView);
+          // 年間サマリー（今年・符号なし）。レコードからその場で集計する。
+          // 「今年」は JST 基準で判定（端末TZに依存させない。occurred_at は YYYY-MM-DD）。
+          const yr = String(new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear());
+          const inYear = ledger.records.filter((r) => (r.occurred_at || "").startsWith(yr));
+          const yrRecv = inYear
+            .filter((r) => r.direction === "received")
+            .reduce((s, r) => s + r.amount, 0);
+          const yrGive = inYear
+            .filter((r) => r.direction === "given")
+            .reduce((s, r) => s + r.amount, 0);
+          const yrNet = yrRecv - yrGive;
+          // 表示中のレコードを月でグルーピング（初出順）。月見出しに月次小計。
+          const months = new Map<string, GiftRecord[]>();
+          for (const r of shown) {
+            const m = (r.occurred_at || "").slice(0, 7) || "—";
+            const arr = months.get(m);
+            if (arr) arr.push(r);
+            else months.set(m, [r]);
+          }
           return (
             <>
               {/* おつきあいからのドリルダウン時のみ、戻る導線を出す（#180） */}
               <Bar title="贈答の台帳" back={ledgerBack ?? undefined} />
+              <div className="statsum">
+                <div className="cell">
+                  <div className="k">今年もらった</div>
+                  <div className="v in">{yen(yrRecv)}</div>
+                </div>
+                <div className="cell">
+                  <div className="k">今年あげた</div>
+                  <div className="v out">{yen(yrGive)}</div>
+                </div>
+                <div className="cell">
+                  <div className="k">{yrNet >= 0 ? "もらい越し" : "おくり越し"}</div>
+                  <div className="v">{yen(Math.abs(yrNet))}</div>
+                </div>
+              </div>
               <div className="ledger-controls">
                 <div className="select-wrap" style={{ position: "relative" }}>
                   <input
@@ -1522,45 +1590,75 @@ export function App() {
                   {ledger.records.length === 0 ? "記録がありません" : "該当する記録がありません"}
                 </p>
               )}
-              {shown.map((r) => (
-                /* biome-ignore lint/a11y/useSemanticElements: 削除ボタンを内包する行のため button にできない。role+キーボードで代替。 */
-                <div
-                  className="listitem"
-                  key={r.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openEventForRecord(r.id)}
-                  onKeyDown={(ev) => {
-                    if (ev.key === "Enter" || ev.key === " ") {
-                      ev.preventDefault();
-                      openEventForRecord(r.id);
-                    }
-                  }}
-                >
-                  <span className={`dirpill dir-${r.direction}`}>
-                    {r.direction === "received" ? "もらった" : "あげた"}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <b>{r.party_name}</b>
-                    <div className="muted">
-                      {r.purpose}
-                      {r.item && ` ・ ${r.item}`}
+              {[...months.entries()].map(([m, recs]) => {
+                const mRecv = recs
+                  .filter((r) => r.direction === "received")
+                  .reduce((s, r) => s + r.amount, 0);
+                const mGive = recs
+                  .filter((r) => r.direction === "given")
+                  .reduce((s, r) => s + r.amount, 0);
+                const mlabel = m === "—" ? "日付なし" : `${+m.slice(0, 4)}年${+m.slice(5, 7)}月`;
+                return (
+                  <div key={m}>
+                    <div className="msec">
+                      <span className="mt">{mlabel}</span>
+                      <span className="ms">
+                        もらった {yen(mRecv)} / あげた {yen(mGive)}
+                      </span>
                     </div>
+                    {recs.map((r) => (
+                      // biome-ignore lint/a11y/useSemanticElements: 削除ボタンを内包する行のため button にできない。role+キーボードで代替。
+                      <div
+                        className="drow"
+                        key={r.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openEventForRecord(r.id)}
+                        onKeyDown={(ev) => {
+                          if (ev.key === "Enter" || ev.key === " ") {
+                            ev.preventDefault();
+                            openEventForRecord(r.id);
+                          }
+                        }}
+                      >
+                        <div className="grow">
+                          <div className="nm">{r.party_name}</div>
+                          <div className="sub">
+                            {r.purpose}
+                            {r.relationship && `・${r.relationship}`}
+                            {r.item && `・${r.item}`}
+                          </div>
+                        </div>
+                        <div className="rt">
+                          <div className="amtline">
+                            {/* 向きは「もらった/あげた」バッジで。金額は符号なし monospace。 */}
+                            <span className={`dirpill dir-${r.direction}`}>
+                              {r.direction === "received" ? "もらった" : "あげた"}
+                            </span>
+                            <span className="amt-mono">{yen(r.amount)}</span>
+                          </div>
+                          <div className="lrow-date">
+                            {r.occurred_at
+                              ? `${+r.occurred_at.slice(5, 7)}/${+r.occurred_at.slice(8, 10)}`
+                              : ""}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="card-del"
+                          aria-label={`${r.party_name} の記録を削除`}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            doDeleteRecord(r.id, r.party_name);
+                          }}
+                        >
+                          <Icon name="trash" size={16} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <div className="amount">{yen(r.amount)}</div>
-                  <button
-                    type="button"
-                    className="card-del"
-                    aria-label={`${r.party_name} の記録を削除`}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      doDeleteRecord(r.id, r.party_name);
-                    }}
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </>
           );
         })()}
@@ -1598,6 +1696,31 @@ export function App() {
             <Icon name="info" size={15} />
             以下の商品リンクはアフィリエイト広告です。
           </div>
+          {suggestCats.length > 0 && (
+            <div className="sugtabs" role="tablist" aria-label="品目で絞り込み">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeCat === null}
+                className={`chip sugtab${activeCat === null ? " on" : ""}`}
+                onClick={() => selectSuggestCat(null)}
+              >
+                おすすめ
+              </button>
+              {suggestCats.map((c) => (
+                <button
+                  key={c.slug}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCat === c.slug}
+                  className={`chip sugtab${activeCat === c.slug ? " on" : ""}`}
+                  onClick={() => selectSuggestCat(c.slug)}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
           {suggestions.map((s) => (
             <div className="card" key={s.item_code ?? s.title}>
               <div className="sug-head">
@@ -1974,50 +2097,96 @@ export function App() {
         <>
           <Bar title="おつきあい" />
           <p className="muted" style={{ marginTop: 6 }}>
-            相手別の収支バランス。気になる関係をそっとお知らせします。
+            続き柄ごとに。相手とのバランスをそっとお知らせ。
           </p>
           {relationships && relationships.length === 0 && (
             <p className="muted" style={{ marginTop: 16 }}>
               まだ記録がありません。贈答を記録すると、ここにおつきあいが表示されます。
             </p>
           )}
-          {relationships?.map((r) => {
-            const label =
-              r.status === "owe" ? "もらい多め" : r.status === "ahead" ? "お贈り多め" : "均衡";
-            return (
-              // タップでその相手の履歴（台帳の絞り込み）へ（#180）。
-              // biome-ignore lint/a11y/useSemanticElements: バッジ等を内包するカードのため button にできない。role+キーボードで代替。
-              <div
-                className="card tap"
-                key={r.party_name}
-                role="button"
-                tabIndex={0}
-                onClick={() => openPartyHistory(r.party_name)}
-                onKeyDown={(ev) => {
-                  if (ev.key === "Enter" || ev.key === " ") {
-                    ev.preventDefault();
-                    openPartyHistory(r.party_name);
-                  }
-                }}
-              >
-                <div className="between">
-                  <b className="val">{withHonor(r.party_name)}</b>
-                  {/* 気になる関係だけ穏やかに強調。それ以外は静かなバッジに（#181） */}
-                  <span className={`balbadge ${r.attention ? "attention" : r.status}`}>
-                    {r.attention ? "気になる関係" : label}
-                  </span>
-                </div>
-                <div className="muted" style={{ marginTop: 4 }}>
-                  もらった {yen(r.received)} ／ あげた {yen(r.given)} ・ 最終 {r.last_at || "—"}
-                </div>
-                {r.attention && (
-                  <div className="muted" style={{ marginTop: 4, color: "var(--color-warning)" }}>
-                    しばらくお贈りしていません。折を見て一言いかがでしょう。
+          {relationships &&
+            relationships.length > 0 &&
+            (() => {
+              // 続き柄でグルーピング（親族/友人/知人/仕事/近所、その他は末尾）。
+              const ORDER = ["親族", "友人", "知人", "仕事", "近所"];
+              const COLOR: Record<string, string> = {
+                親族: "k-shu",
+                友人: "k-mid",
+                知人: "k-yama",
+                仕事: "k-kon",
+                近所: "k-sand",
+              };
+              const groups = new Map<string, Relationship[]>();
+              for (const r of relationships) {
+                const key = r.relationship || "その他";
+                const arr = groups.get(key);
+                if (arr) arr.push(r);
+                else groups.set(key, [r]);
+              }
+              const keys = [...groups.keys()].sort((a, b) => {
+                const ia = ORDER.indexOf(a);
+                const ib = ORDER.indexOf(b);
+                return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+              });
+              return keys.map((key) => {
+                const rows = groups.get(key) ?? [];
+                const gnet = rows.reduce((s, r) => s + (r.received - r.given), 0);
+                // 収支は符号ではなく言葉で（もらい越し/おくり越し/均衡）。
+                const gbal =
+                  gnet > 0
+                    ? `もらい越し ${yen(gnet)}`
+                    : gnet < 0
+                      ? `おくり越し ${yen(-gnet)}`
+                      : "均衡";
+                const gcls = gnet > 0 ? "bg-recv" : gnet < 0 ? "bg-give" : "";
+                return (
+                  <div key={key}>
+                    <div className={`relhdr ${COLOR[key] ?? "k-sand"}`}>
+                      <span className="ttl">
+                        <span className="swatch" aria-hidden="true" />
+                        {key}
+                        <span className="cnt">{rows.length}人</span>
+                      </span>
+                      <span className={`bal ${gcls}`}>{gbal}</span>
+                    </div>
+                    {rows.map((r) => {
+                      const net = r.received - r.given;
+                      const status = net > 0 ? "recv" : net < 0 ? "give" : "even";
+                      const lbl = net > 0 ? "もらい越し" : net < 0 ? "おくり越し" : "均衡";
+                      return (
+                        // タップでその相手の履歴（台帳の絞り込み）へ（#180）。
+                        // biome-ignore lint/a11y/useSemanticElements: バッジ等を内包するため button にできない。role+キーボードで代替。
+                        <div
+                          className="drow"
+                          key={r.party_name}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openPartyHistory(r.party_name)}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter" || ev.key === " ") {
+                              ev.preventDefault();
+                              openPartyHistory(r.party_name);
+                            }
+                          }}
+                        >
+                          <div className="grow">
+                            <div className="nm">{withHonor(r.party_name)}</div>
+                            <div className="sub">
+                              もらった {yen(r.received)}・あげた {yen(r.given)}
+                              {r.last_at ? `・最終 ${r.last_at}` : ""}
+                            </div>
+                          </div>
+                          <div className="rt">
+                            <span className={`balbdg ${status}`}>{lbl}</span>
+                            {net !== 0 && <span className="amt-mono">{yen(Math.abs(net))}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              });
+            })()}
         </>
       )}
 

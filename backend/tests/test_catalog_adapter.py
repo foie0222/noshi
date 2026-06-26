@@ -36,20 +36,24 @@ def _row(
 
 
 class FakeStore:
-    def __init__(self, buckets):
+    def __init__(self, buckets, manifests=None):
         self.buckets = buckets  # {(slug, band): [rows]}
+        self.manifests = manifests or {}  # {(tone, band): [cat, ...]}
         self.clicks = []
 
     def read_bucket(self, slug, band, now):
         return self.buckets.get((slug, band), [])
 
+    def read_manifest(self, tone, band, now):
+        return self.manifests.get((tone, band), [])
+
     def put_click(self, item_code, bucket, position, rel_group, now):
         self.clicks.append((item_code, bucket, position, rel_group))
 
 
-def _adapter(buckets):
+def _adapter(buckets, manifests=None):
     return DynamoCatalogAdapter(
-        store=FakeStore(buckets), fallback=GiftCatalogMock(), now=lambda: NOW
+        store=FakeStore(buckets, manifests), fallback=GiftCatalogMock(), now=lambda: NOW
     )
 
 
@@ -221,3 +225,35 @@ def test_log_clickはrel_groupをストアへ透過する():
     a = DynamoCatalogAdapter(store=store, fallback=GiftCatalogMock(), now=lambda: NOW)
     a.log_click("shop:1", "BUCKET#baby#5000-9999", 2, "work")
     assert store.clicks == [("shop:1", "BUCKET#baby#5000-9999", 2, "work")]
+
+
+def test_category指定で品目バケツを引く():
+    row = _row(code="shop:t1", bucket="BUCKET#cele#towel#5000-9999")
+    a = _adapter({("cele#towel", "5000-9999"): [row]})
+    out = a.suggest(budget=7000, relationship="友人", purpose="出産祝い", category="towel")
+    assert out[0]["item_code"] == "shop:t1"
+    # 4セグメントのバケツPKでも価格帯ラベルが正しく出る
+    assert out[0]["price_band"] == "〜¥9,999"
+
+
+def test_category無指定は従来の用途バケツ():
+    a = _adapter({("baby", "5000-9999"): [_row()]})
+    out = a.suggest(budget=7000, relationship="友人", purpose="出産祝い")
+    assert out[0]["item_code"] == "shop:1"
+
+
+def test_available_categoriesはマニフェスト順に表示名つきで返す():
+    a = _adapter(
+        {},
+        manifests={("cele", "5000-9999"): ["towel", "catalog"]},
+    )
+    cats = a.available_categories(budget=7000, purpose="出産祝い")
+    assert cats == [
+        {"slug": "towel", "label": "タオル・寝具"},
+        {"slug": "catalog", "label": "カタログギフト"},
+    ]
+
+
+def test_available_categoriesはマニフェスト未登録なら空():
+    a = _adapter({})
+    assert a.available_categories(budget=7000, purpose="香典") == []

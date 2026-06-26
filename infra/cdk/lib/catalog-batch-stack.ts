@@ -16,8 +16,8 @@ interface CatalogBatchStackProps extends StackProps {
 }
 
 /**
- * CatalogBatchStack — お返し品カタログの日次バッチ（スペック2026-06-11 §7）。
- * JST 5:00/17:00 に楽天API→スコアリング→LLM→カタログテーブル総入れ替え。
+ * CatalogBatchStack — お返し品カタログの日次バッチ（スペック2026-06-11 §7 / 2026-06-17 改）。
+ * 用途63バケツ @ JST 9:00 / 品目84バケツ @ JST 9:20 の2ジョブ分割（15分制約マージン確保）。
  * 二重実行ガード: DynamoDB 条件付き書き込みのジョブロック（job.handler 内）＋
  * 非同期リトライ0。reserved concurrency はアカウントの同時実行数上限が小さく
  * 確保できないため使わない（最低 Unreserved 10 を割るとデプロイ不可）。
@@ -62,11 +62,20 @@ export class CatalogBatchStack extends Stack {
         ],
       }),
     );
-    // JST 5:00 = UTC 20:00（前日）/ JST 17:00 = UTC 8:00
-    for (const [name, hour] of [["Morning", "20"], ["Evening", "8"]] as const) {
+    // 15分制約のマージン確保のため用途/品目を別ジョブに分割（Haiku運用）。
+    // 用途63バケツ @ JST 9:00（UTC0:00）/ 品目84バケツ @ JST 9:20（UTC0:20）。別ロックIDで相互非ブロック。
+    for (const [name, minute, set] of [
+      ["Purpose", "0", "purpose"],
+      ["Item", "20", "item"],
+    ] as const) {
       new events.Rule(this, `CatalogJob${name}`, {
-        schedule: events.Schedule.cron({ minute: "0", hour }),
-        targets: [new targets.LambdaFunction(fn, { retryAttempts: 0 })], // リトライ0（手動再実行のみ）
+        schedule: events.Schedule.cron({ minute, hour: "0" }),
+        targets: [
+          new targets.LambdaFunction(fn, {
+            retryAttempts: 0, // リトライ0（手動再実行のみ）
+            event: events.RuleTargetInput.fromObject({ set }),
+          }),
+        ],
       });
     }
   }

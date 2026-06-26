@@ -32,7 +32,8 @@ export class WorkerStack extends Stack {
         cmd: ["app.worker.handler"],
         exclude: LAMBDA_IMAGE_EXCLUDE,
       }),
-      timeout: Duration.seconds(180), // OCR レイテンシ + コールドスタートに余裕
+      // OCR は ~8-20s + コンテナのコールドスタート余裕。SQS 可視性(180s)未満であること（SQS+Lambda 制約）。
+      timeout: Duration.seconds(120),
       memorySize: 1024,
       environment: {
         NOSHI_TABLE: props.table.tableName,

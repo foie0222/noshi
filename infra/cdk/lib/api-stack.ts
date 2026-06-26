@@ -1,5 +1,6 @@
 import { Stack, StackProps, Duration, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
+import * as path from "path";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
@@ -7,7 +8,11 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
-import { backendLambdaCode } from "./lambda-code";
+
+// Claude Agent SDK は Node + claude CLI を必要とするため、backend/Dockerfile.lambda で
+// ビルドしたコンテナイメージで動かす（zip の backendLambdaCode は不可）。
+const BACKEND_DIR = path.resolve(__dirname, "../../../backend");
+const LAMBDA_IMAGE_EXCLUDE = [".venv", "__pycache__", "**/__pycache__", "tests", ".pytest_cache"];
 
 interface ApiStackProps extends StackProps {
   table: dynamodb.Table;
@@ -27,13 +32,17 @@ export class ApiStack extends Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
-    const apiFn = new lambda.Function(this, "BffFn", {
-      runtime: lambda.Runtime.PYTHON_3_12,
-      handler: "app.lambda_handler.handler", // Mangum(app) — backend/app/lambda_handler.py
-      code: backendLambdaCode(), // 依存ライブラリ込みでバンドル（fastapi/mangum/pyjwt 等）
-
-      timeout: Duration.seconds(15),
-      memorySize: 256,
+    const apiFn = new lambda.DockerImageFunction(this, "BffFn", {
+      // Node + claude CLI 同梱のコンテナ（backend/Dockerfile.lambda）。CMD を Mangum ハンドラに上書き。
+      code: lambda.DockerImageCode.fromImageAsset(BACKEND_DIR, {
+        file: "Dockerfile.lambda",
+        cmd: ["app.lambda_handler.handler"],
+        exclude: LAMBDA_IMAGE_EXCLUDE,
+      }),
+      // API Gateway HTTP API の統合タイムアウトは最大 30s。コールドスタート(Node起動)+LLM が
+      // これを超えると 504 になるため、超過が頻発するなら OCR を非同期(worker)へ寄せる検討が必要。
+      timeout: Duration.seconds(29),
+      memorySize: 1024,                          // Node サブプロセス + LLM 用に増量（旧 256）
       environment: {
         NOSHI_TABLE: props.table.tableName,
         NOSHI_USE_DYNAMO: "1",                   // 本番は DynamoDB 永続化（必須）
@@ -41,7 +50,8 @@ export class ApiStack extends Stack {
         NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName, // #35: 撮影画像のS3バケット
         NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
 
-        NOSHI_USE_BEDROCK: "1",                  // 実 OCR/LLM（Bedrock/Claude）
+        NOSHI_LLM_PROVIDER: "claude_agent",      // 実 OCR/LLM は Claude サブスク(OAuth) 経由
+        NOSHI_CLAUDE_TOKEN_SSM: "/noshi/claude/oauth-token", // OAuth トークン（SSM SecureString）
         // 既定で Cognito 認証を強制（安全側、#101）。POOL_ID 注入で JWT(RS256/JWKS) 検証が有効になる。
         // デモ/ローカル等でスタブ認証(X-User-Id)を使う場合のみ context `allowStubAuth=true` を指定する。
         ...(this.node.tryGetContext("allowStubAuth") ? {} : { NOSHI_COGNITO_POOL_ID: props.userPoolId }),
@@ -56,7 +66,12 @@ export class ApiStack extends Stack {
     // クリック記録（CLICK# への put）。テーブルは公開データ専用なので write 許容
     // （ユーザーテーブルとは分離済み。スペック§8 の IAM 分離）
     props.catalogTable.grantWriteData(apiFn);
-    // Bedrock(Claude) 推論呼び出しのみ許可（OCR/礼状生成）。
+    // Claude OAuth トークンを SSM SecureString から取得（OCR/LLM 認証）。
+    apiFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ssm:GetParameter"],
+      resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/noshi/claude/*`],
+    }));
+    // Bedrock(Claude) 推論。NOSHI_LLM_PROVIDER=bedrock のフォールバック運用時のみ使用。
     // jp./apac. 等のクロスリージョン推論プロファイルは複数リージョンの基盤モデルへ
     // ルーティングするため、foundation-model は全リージョン(*)を許可する。
     apiFn.addToRolePolicy(new iam.PolicyStatement({

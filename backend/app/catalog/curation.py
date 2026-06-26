@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Callable
 from typing import Any, cast
 
 from app.adapters import _extract_json  # JSON 取り出しは OCR と共用
@@ -119,6 +120,13 @@ def validate_output(
     return out
 
 
+def parse_curation(text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """LLM 応答テキストを検証済みの選定結果に変換する（Bedrock・Claude Agent 共用）。"""
+    allowed = {c["item_code"] for c in candidates}
+    fallback = {c["item_code"]: template_reason(c) for c in candidates}
+    return validate_output(_extract_json(text), allowed, fallback)
+
+
 def _validate_fit(raw: Any, score: int) -> dict[str, int]:
     """fit の機械検証（スペック§3）。キー単位で不正を score 埋めし、常に4キー返す。"""
     src = raw if isinstance(raw, dict) else {}
@@ -165,6 +173,44 @@ class BedrockCurator:
             },  # fit 追加で出力 +300トークン程度（スペック§3 の試算）
         )
         text: str = r["output"]["message"]["content"][0]["text"]
-        allowed = {c["item_code"] for c in candidates}
-        fallback = {c["item_code"]: template_reason(c) for c in candidates}
-        return validate_output(_extract_json(text), allowed, fallback)
+        return parse_curation(text, candidates)
+
+
+class ClaudeAgentCurator:
+    """Claude Agent SDK(OAuth サブスク) によるキュレーション。Bedrock を経由しない。
+
+    プロンプト生成(build_user_prompt)・検証(parse_curation)は BedrockCurator と共用し、
+    トランスポートのみ Agent SDK に差し替える。runner はテストで注入可能。
+    """
+
+    def __init__(self, runner: Callable[..., str] | None = None, model: str | None = None):
+        self._runner = runner
+        self.model = model
+
+    @property
+    def runner(self) -> Callable[..., str]:
+        if self._runner is None:
+            from app.claude_agent import run_query  # 遅延 import（テストは runner 注入）
+
+            self._runner = run_query
+        return self._runner
+
+    def curate(
+        self, slug: str, band: str, candidates: list[dict[str, Any]], season_note: str
+    ) -> list[dict[str, Any]]:
+        """候補からトップ10を選定。失敗時は例外を投げる（呼び出し側が線形フォールバック）。"""
+        from app.claude_agent import text_block
+
+        prompt = build_user_prompt(slug, band, candidates, season_note)
+        text = self.runner(_SYSTEM, [text_block(prompt)], model=self.model)
+        return parse_curation(text, candidates)
+
+
+def default_curator() -> Any:
+    """NOSHI_LLM_PROVIDER でキュレーション実装を選ぶ。
+
+    claude_agent → Claude Agent SDK(サブスク)、それ以外(bedrock 等) → Bedrock。
+    """
+    if os.environ.get("NOSHI_LLM_PROVIDER") == "claude_agent":
+        return ClaudeAgentCurator()
+    return BedrockCurator()

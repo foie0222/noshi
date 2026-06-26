@@ -12,6 +12,7 @@ import base64
 import json
 import os
 import re
+from collections.abc import Callable
 from typing import Any
 
 # Bedrock Converse が受け付ける画像フォーマット
@@ -67,11 +68,34 @@ def _extract_json(text: str) -> dict[str, Any]:
     return loaded if isinstance(loaded, dict) else {}
 
 
+# 確信度（＝要確認の判定）に使う主要項目。item は任意のため含めない（読めたら入れる程度）。
+_FIELDS = ("amount", "party_name", "relationship", "purpose", "occurred_at")
+
+
+def assemble_extract(parsed: dict[str, Any]) -> dict[str, Any]:
+    """モデル応答(parsed JSON)を抽出結果(candidates/field_confidence/confidence)に整形する。
+
+    Bedrock・Claude Agent いずれのトランスポートでも応答 JSON は同形のため共用する。
+    """
+    fc_raw = parsed.get("field_confidence") or {}
+    field_confidence = {k: _clamp(fc_raw.get(k, 0.5)) for k in _FIELDS}
+    candidates = {
+        "amount": int(parsed.get("amount") or 0),
+        "party_name": parsed.get("party_name") or "",
+        "relationship": parsed.get("relationship") or "",
+        "purpose": parsed.get("purpose") or "",
+        "occurred_at": parsed.get("occurred_at") or "",
+        "item": parsed.get("item") or "",
+    }
+    return {
+        "candidates": candidates,
+        "field_confidence": field_confidence,
+        "confidence": min(field_confidence.values()),
+    }
+
+
 class BedrockOcrLlm:
     """Amazon Bedrock(Claude) による OCR/LLM 実装。"""
-
-    # 確信度（＝要確認の判定）に使う主要項目。item は任意のため含めない（読めたら入れる程度）。
-    _FIELDS = ("amount", "party_name", "relationship", "purpose", "occurred_at")
 
     def __init__(self, model_id: str | None = None, client: Any = None, region: str | None = None):
         self.model_id = model_id or os.environ.get(
@@ -109,22 +133,40 @@ class BedrockOcrLlm:
             {"text": _EXTRACT_PROMPT},
         ]
         parsed = _extract_json(self._converse(content, _EXTRACT_SYSTEM, max_tokens=512))
+        return assemble_extract(parsed)
 
-        fc_raw = parsed.get("field_confidence") or {}
-        field_confidence = {k: _clamp(fc_raw.get(k, 0.5)) for k in self._FIELDS}
-        candidates = {
-            "amount": int(parsed.get("amount") or 0),
-            "party_name": parsed.get("party_name") or "",
-            "relationship": parsed.get("relationship") or "",
-            "purpose": parsed.get("purpose") or "",
-            "occurred_at": parsed.get("occurred_at") or "",
-            "item": parsed.get("item") or "",
-        }
-        return {
-            "candidates": candidates,
-            "field_confidence": field_confidence,
-            "confidence": min(field_confidence.values()),
-        }
+
+class ClaudeAgentOcrLlm:
+    """Claude Agent SDK(OAuth サブスク) による OCR/LLM 実装。Bedrock を経由しない。
+
+    画像を Anthropic 形式のコンテンツブロックで渡す以外は BedrockOcrLlm と同じ
+    プロンプト・パース（assemble_extract）を共用する。runner はテストで注入可能。
+    """
+
+    def __init__(self, runner: Callable[..., str] | None = None, model: str | None = None):
+        self._runner = runner
+        self.model = model
+
+    @property
+    def runner(self) -> Callable[..., str]:
+        if self._runner is None:
+            from app.claude_agent import run_query  # 遅延 import（テストは runner 注入）
+
+            self._runner = run_query
+        return self._runner
+
+    def extract(self, images: list[str]) -> dict[str, Any]:
+        if not images:
+            raise ValueError("画像がありません。")
+        fmt, data = parse_data_url(images[0])
+        if fmt not in _SUPPORTED:
+            raise ValueError(f"対応していない画像形式です: {fmt}（JPEG/PNG/GIF/WEBP のみ）")
+        from app.claude_agent import image_block, text_block
+
+        media = "jpeg" if fmt == "jpg" else fmt
+        content = [image_block(f"image/{media}", data), text_block(_EXTRACT_PROMPT)]
+        text = self.runner(_EXTRACT_SYSTEM, content, model=self.model)
+        return assemble_extract(_extract_json(text))
 
 
 def _clamp(v: Any) -> float:

@@ -4,3 +4,4 @@ pydantic==2.13.4
 boto3==1.43.29
 mangum==0.21.0
 pyjwt[crypto]==2.13.0  # Cognito JWT 検証（RS256/JWKS）・ローカルは HS256
+claude-agent-sdk==0.2.110  # OCR/キュレーションを Claude サブスク(OAuth)経由で呼ぶ。要 Node + claude CLI

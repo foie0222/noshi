@@ -36,10 +36,19 @@ from app.services import ForbiddenError, NoshiService, ValidationError
 
 
 def _default_ocr() -> OcrLlmPort:
-    """OCR/LLM の実装を選ぶ。NOSHI_USE_BEDROCK=1 で本物(Bedrock/Claude)、既定はモック。"""
+    """OCR/LLM の実装を選ぶ。
+
+    NOSHI_LLM_PROVIDER=claude_agent で Claude Agent SDK(サブスク/OAuth)、
+    =bedrock（または後方互換の NOSHI_USE_BEDROCK=1）で Bedrock、既定はモック。
+    """
     import os
 
-    if os.environ.get("NOSHI_USE_BEDROCK") == "1":
+    provider = os.environ.get("NOSHI_LLM_PROVIDER")
+    if provider == "claude_agent":
+        from app.adapters import ClaudeAgentOcrLlm
+
+        return ClaudeAgentOcrLlm()
+    if provider == "bedrock" or os.environ.get("NOSHI_USE_BEDROCK") == "1":
         from app.adapters import BedrockOcrLlm
 
         return BedrockOcrLlm()

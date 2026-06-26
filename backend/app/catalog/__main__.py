@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.catalog.buckets import CATEGORIES, PRICE_BANDS
-from app.catalog.curation import BedrockCurator
+from app.catalog.curation import default_curator
 from app.catalog.job import run_job
 from app.catalog.rakuten import RakutenClient
 from app.catalog.store import CatalogStore
@@ -71,7 +71,7 @@ def main() -> int:
 
     summary = run_job(
         rakuten,
-        BedrockCurator(),
+        default_curator(),
         store,
         now=datetime.now(UTC),
         deadline=None,

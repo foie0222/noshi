@@ -183,7 +183,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     """Lambda エントリポイント（EventBridge から起動）。"""
     import boto3
 
-    from app.catalog.curation import BedrockCurator
+    from app.catalog.curation import default_curator
     from app.catalog.rakuten import RakutenClient
     from app.catalog.store import CatalogStore
 
@@ -201,7 +201,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
         affiliate_id=_ssm(ssm, "/noshi/rakuten/affiliate-id"),
         access_key=_ssm(ssm, "/noshi/rakuten/access-key"),
     )
-    return run_job(rakuten, BedrockCurator(), store, now=now, deadline=deadline)
+    return run_job(rakuten, default_curator(), store, now=now, deadline=deadline)
 
 
 def _ssm(client: Any, name: str) -> str:

@@ -1,0 +1,26 @@
+# Claude Agent SDK 経由で Claude（サブスク/OAuth）を呼ぶ Lambda コンテナ。
+# claude_agent_sdk(Python) は Node.js 製の `claude` CLI をサブプロセス起動するため、
+# 通常の zip バンドル（pip のみ）では動かない。Node + CLI を同梱する。
+#
+# CMD は CDK 側で上書きする:
+#   - API:   app.lambda_handler.handler
+#   - Batch: app.catalog.job.handler
+FROM public.ecr.aws/lambda/python:3.12
+
+# Node.js 20（Amazon Linux 2023）と Claude Code CLI。
+RUN dnf install -y nodejs20 \
+    && dnf clean all \
+    && npm install -g @anthropic-ai/claude-code \
+    && npm cache clean --force
+
+# Python 依存（fastapi/mangum/boto3/claude-agent-sdk 等）。
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt -t ${LAMBDA_TASK_ROOT}
+
+# アプリ本体。
+COPY app ${LAMBDA_TASK_ROOT}/app
+
+# claude CLI は設定/セッションを HOME 配下に書く。Lambda は /tmp のみ書込可。
+ENV HOME=/tmp
+
+CMD ["app.lambda_handler.handler"]

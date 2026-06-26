@@ -56,12 +56,30 @@ export DYNAMODB_ENDPOINT=http://localhost:8001 AWS_REGION=ap-northeast-1 \
 .venv/bin/python -c "from app.repository import create_table; create_table('noshi')"  # 初回のみ
 .venv/bin/python -m uvicorn app.main:app                        # 以後データは DynamoDB に永続化
 ```
-**実 AI で画像を読む**（モック→本物）には Amazon Bedrock(Claude) を有効化:
+**実 AI で画像を読む**（モック→本物）。`NOSHI_LLM_PROVIDER` で実装を選ぶ:
+
+既定（推奨）— Claude サブスクリプション（OAuth / Claude Agent SDK 経由。Bedrock 不要）:
+```bash
+# 要 Node.js 18+ とログイン済みの claude CLI（`npm i -g @anthropic-ai/claude-code`）。
+export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)   # ローカルは claude CLI ログインでも可（未設定OK）
+export NOSHI_LLM_PROVIDER=claude_agent                 # OCR/キュレーションを Claude サブスク経由で実行
+.venv/bin/python -m uvicorn app.main:app               # /api/capture が実画像を Claude Vision で抽出
+```
+
+フォールバック — Amazon Bedrock(Claude):
 ```bash
 aws login                                  # AWS 認証（要 Bedrock の Claude モデル利用許可）
 .venv/bin/pip install "botocore[crt]"      # aws login の資格情報を boto3 が読むために必要
-export NOSHI_USE_BEDROCK=1                  # 既定モデル jp.anthropic.claude-sonnet-4-5（NOSHI_BEDROCK_MODEL で変更可）
-.venv/bin/python -m uvicorn app.main:app   # /api/capture が実画像を Claude Vision で抽出
+export NOSHI_LLM_PROVIDER=bedrock          # 既定モデル jp.anthropic.claude-sonnet-4-6（NOSHI_BEDROCK_MODEL で変更可）
+.venv/bin/python -m uvicorn app.main:app
+```
+
+本番(Lambda): 両 Lambda はコンテナ（`backend/Dockerfile.lambda`、Node + claude CLI 同梱）で動き、
+`NOSHI_LLM_PROVIDER=claude_agent`。OAuth トークンは **SSM SecureString `/noshi/claude/oauth-token`**
+から取得する。初回・ローテーション時に手動更新:
+```bash
+aws ssm put-parameter --name /noshi/claude/oauth-token --type SecureString \
+  --value "$(claude setup-token)" --overwrite
 ```
 
 ### 認証・家族共有

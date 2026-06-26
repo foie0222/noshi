@@ -27,5 +27,5 @@ ignore_missing_imports = false
 
 # 型スタブの無い外部ライブラリ
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*", "mangum.*", "jwt.*"]
+module = ["boto3.*", "botocore.*", "mangum.*", "jwt.*", "claude_agent_sdk.*"]
 ignore_missing_imports = true

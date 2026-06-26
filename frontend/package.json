@@ -17,7 +17,7 @@
     "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.4.0",
     "@capacitor/ios": "^8.4.0",
-    "@capgo/capacitor-social-login": "^8.3.24",
+    "@capgo/capacitor-social-login": "^8.3.30",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

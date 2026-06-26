@@ -1,4 +1,5 @@
 -r requirements.txt
+-r requirements-claude.txt  # ローカル/CI で OCR/キュレーションの実SDK経路も動かせるように
 pytest==9.1.0
 httpx==0.28.1
 moto[dynamodb]==5.2.2  # DynamoRepository をモックでテスト

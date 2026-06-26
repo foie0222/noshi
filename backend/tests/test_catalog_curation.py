@@ -4,7 +4,9 @@ import json
 
 from app.catalog.curation import (
     BedrockCurator,
+    ClaudeAgentCurator,
     build_user_prompt,
+    default_curator,
     template_reason,
     validate_output,
 )
@@ -180,6 +182,33 @@ def test_検証はfit自体が無くてもscoreで埋める():
             fallback_by_code={"shop:0": "fb"},
         )
         assert out[0]["fit"] == {"family": 75, "friend": 75, "work": 75, "other": 75}, bad_fit
+
+
+def test_ClaudeAgentキュレータはrunner応答をパースして返す():
+    """ClaudeAgentCurator が runner にテキストブロックを渡し、JSON を検証結果に変換することを検証する。"""
+    body = {"items": [{"itemCode": "shop:0", "score": 88, "reason": "落ち着いた定番の品です"}]}
+    calls: list[dict] = []
+
+    def runner(system, content, *, model=None):
+        calls.append({"system": system, "content": content, "model": model})
+        return json.dumps(body, ensure_ascii=False)
+
+    cur = ClaudeAgentCurator(runner=runner)
+    out = cur.curate("koden", "5000-9999", _cands(1), season_note="")
+    assert out[0]["item_code"] == "shop:0"
+    assert out[0]["reason"] == "落ち着いた定番の品です"
+    # テキストブロック1個（プロンプト）を渡している
+    assert calls[0]["content"][0]["type"] == "text"
+    assert "香典返し" in calls[0]["content"][0]["text"]
+
+
+def test_default_curatorはプロバイダで実装を選ぶ(monkeypatch):
+    monkeypatch.setenv("NOSHI_LLM_PROVIDER", "claude_agent")
+    assert isinstance(default_curator(), ClaudeAgentCurator)
+    monkeypatch.setenv("NOSHI_LLM_PROVIDER", "bedrock")
+    assert isinstance(default_curator(), BedrockCurator)
+    monkeypatch.delenv("NOSHI_LLM_PROVIDER", raising=False)
+    assert isinstance(default_curator(), BedrockCurator)  # 既定は Bedrock
 
 
 def test_品目バケツのプロンプトはトーンと品目を伝える():

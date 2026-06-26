@@ -35,7 +35,7 @@ const auth = new AuthStack(app, "NoshiAuthStack", {
   hostedZoneName: DOMAIN,
 });
 new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId, catalogTable: data.catalogTable });
-new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue });
+new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket });
 
 // お返し期限のリマインド（#178）。日次バッチ→SES でメール送信。
 new ReminderStack(app, "NoshiReminderStack", { env, table: data.table, domainName: DOMAIN });

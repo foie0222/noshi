@@ -66,6 +66,16 @@ class ImageStore:
             )
         )
 
+    def put(self, key: str, data: bytes, content_type: str) -> None:
+        """サーバ側からオブジェクトを保存する（撮影画像の非同期OCR用、capture が直接S3へ）。"""
+        self._s3().put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
+
+    def get(self, key: str) -> bytes:
+        """オブジェクトのバイト列を取得する（抽出ワーカーが S3 から画像を読む）。"""
+        r = self._s3().get_object(Bucket=self.bucket, Key=key)
+        body: bytes = r["Body"].read()
+        return body
+
     def delete(self, key: str) -> None:
         # 差し替え/削除時の後始末。失敗しても致命ではない（孤立オブジェクトはライフサイクルで回収可）。
         try:

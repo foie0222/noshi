@@ -31,17 +31,16 @@ export class ApiStack extends Stack {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: "app.lambda_handler.handler", // Mangum(app) — backend/app/lambda_handler.py
       code: backendLambdaCode(), // 依存ライブラリ込みでバンドル（fastapi/mangum/pyjwt 等）
-
-      timeout: Duration.seconds(15),
-      memorySize: 256,
+      // OCR は worker(SQS) に移したため API は重い LLM を呼ばない（zip で軽量・低コールドスタート）。
+      // capture は S3 保存 + SQS enqueue のみで高速 → 30s 統合上限の問題は無い。
+      timeout: Duration.seconds(29),
+      memorySize: 512,
       environment: {
         NOSHI_TABLE: props.table.tableName,
         NOSHI_USE_DYNAMO: "1",                   // 本番は DynamoDB 永続化（必須）
-        EXTRACTION_QUEUE_URL: props.queue.queueUrl,
+        EXTRACTION_QUEUE_URL: props.queue.queueUrl, // capture の抽出ジョブ enqueue 先
         NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName, // #35: 撮影画像のS3バケット
         NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
-
-        NOSHI_USE_BEDROCK: "1",                  // 実 OCR/LLM（Bedrock/Claude）
         // 既定で Cognito 認証を強制（安全側、#101）。POOL_ID 注入で JWT(RS256/JWKS) 検証が有効になる。
         // デモ/ローカル等でスタブ認証(X-User-Id)を使う場合のみ context `allowStubAuth=true` を指定する。
         ...(this.node.tryGetContext("allowStubAuth") ? {} : { NOSHI_COGNITO_POOL_ID: props.userPoolId }),
@@ -56,14 +55,7 @@ export class ApiStack extends Stack {
     // クリック記録（CLICK# への put）。テーブルは公開データ専用なので write 許容
     // （ユーザーテーブルとは分離済み。スペック§8 の IAM 分離）
     props.catalogTable.grantWriteData(apiFn);
-    // Bedrock(Claude) 推論呼び出しのみ許可（OCR/礼状生成）。
-    // jp./apac. 等のクロスリージョン推論プロファイルは複数リージョンの基盤モデルへ
-    // ルーティングするため、foundation-model は全リージョン(*)を許可する。
-    apiFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ["bedrock:InvokeModel"],
-      resources: ["arn:aws:bedrock:*::foundation-model/*",
-                  `arn:aws:bedrock:*:${this.account}:inference-profile/*`],
-    }));
+    // 注: OCR/LLM は worker(SQS) に移したため、API には Claude(SSM)/Bedrock 権限は不要。
     // アカウント削除（#118）: 本人の Cognito ユーザーを削除する。
     // ListUsers は sub→Username 解決に使用（#198: Apple revoke フロー）。
     apiFn.addToRolePolicy(new iam.PolicyStatement({

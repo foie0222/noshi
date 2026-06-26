@@ -1,11 +1,15 @@
 import { Stack, StackProps, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
+import * as path from "path";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import { backendLambdaCode } from "./lambda-code";
+
+// キュレーションは Claude Agent SDK（Node + claude CLI 同梱コンテナ）で実行する。
+const BACKEND_DIR = path.resolve(__dirname, "../../../backend");
+const LAMBDA_IMAGE_EXCLUDE = [".venv", "__pycache__", "**/__pycache__", "tests", ".pytest_cache"];
 
 interface CatalogBatchStackProps extends StackProps {
   catalogTable: dynamodb.Table;
@@ -21,18 +25,26 @@ interface CatalogBatchStackProps extends StackProps {
 export class CatalogBatchStack extends Stack {
   constructor(scope: Construct, id: string, props: CatalogBatchStackProps) {
     super(scope, id, props);
-    const fn = new lambda.Function(this, "CatalogJob", {
-      runtime: lambda.Runtime.PYTHON_3_12,
-      handler: "app.catalog.job.handler",
-      code: backendLambdaCode(),
+    const fn = new lambda.DockerImageFunction(this, "CatalogJob", {
+      // Node + claude CLI 同梱コンテナ（backend/Dockerfile.lambda）。CMD をバッチハンドラに上書き。
+      code: lambda.DockerImageCode.fromImageAsset(BACKEND_DIR, {
+        file: "Dockerfile.lambda",
+        cmd: ["app.catalog.job.handler"],
+        exclude: LAMBDA_IMAGE_EXCLUDE,
+      }),
       timeout: Duration.minutes(15),
       memorySize: 1024,
-      environment: { NOSHI_CATALOG_TABLE: props.catalogTable.tableName },
+      environment: {
+        NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
+        NOSHI_LLM_PROVIDER: "claude_agent",                  // キュレーションは Claude サブスク(OAuth)
+        NOSHI_CLAUDE_TOKEN_SSM: "/noshi/claude/oauth-token", // OAuth トークン（SSM SecureString）
+      },
     });
     props.catalogTable.grantWriteData(fn); // バッチは書き込みのみ（IAM分離、スペック§8）
     fn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:InvokeModel"],
+        // NOSHI_LLM_PROVIDER=bedrock フォールバック時のみ使用。
         // クロスリージョン推論プロファイル（jp.）は inference-profile/* でカバー（api-stack と同一パターン）
         resources: [
           "arn:aws:bedrock:*::foundation-model/*",
@@ -44,7 +56,9 @@ export class CatalogBatchStack extends Stack {
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
         resources: [
+          // 楽天 API 認証情報 + Claude OAuth トークン。
           `arn:aws:ssm:${this.region}:${this.account}:parameter/noshi/rakuten/*`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/noshi/claude/*`,
         ],
       }),
     );

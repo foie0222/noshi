@@ -46,6 +46,8 @@ import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
 import {
   type AnnualSummary,
+  type CaptureCandidates,
+  type CaptureResponse,
   type Direction,
   type Draft,
   type EditDraft,
@@ -502,6 +504,20 @@ export function App() {
   }
 
   // ---- 撮影 → 抽出 ----
+  // 抽出ジョブが completed になるまでポーリング（本番は worker が S3 画像を OCR）。
+  // 最大 90 秒。pending の間は待ち、completed で候補を返す。failed/timeout は例外。
+  async function pollCaptureJob(jobId: string): Promise<CaptureResponse> {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const deadline = Date.now() + 90_000;
+    while (Date.now() < deadline) {
+      await sleep(1500);
+      const job = await api.getCaptureJob(jobId);
+      if (job.status === "completed") return job;
+      if (job.status === "failed") throw new Error("画像の読み取りに失敗しました。");
+    }
+    throw new Error("読み取りに時間がかかっています。時間をおいて再度お試しください。");
+  }
+
   async function doCapture() {
     if (!capturedImage) {
       notify("先に写真を撮るか、画像を選んでください。");
@@ -509,10 +525,14 @@ export function App() {
     }
     setExtracting(true);
     try {
-      // 撮影画像を送って AI 抽出（モック or Bedrock/Claude を環境変数で切替）。
-      const job = await api.capture(capturedImage);
+      // 撮影画像を送って AI 抽出。本番は pending が返るので worker 完了までポーリング。
+      // ローカル/モックは即 completed（候補入り）が返る。
+      let job = await api.capture(capturedImage);
+      if (job.status === "pending") {
+        job = await pollCaptureJob(job.job_id);
+      }
       setDraft({
-        ...job.candidates,
+        ...(job.candidates ?? ({} as CaptureCandidates)),
         direction: captureDirection, // 撮影画面で選んだ種類を引き継ぐ（確認画面で変更可）
         field_review: job.field_review || {},
         image: capturedImage,

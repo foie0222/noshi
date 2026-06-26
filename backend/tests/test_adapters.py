@@ -6,7 +6,7 @@
 
 import json
 
-from app.adapters import BedrockOcrLlm, parse_data_url
+from app.adapters import BedrockOcrLlm, ClaudeAgentOcrLlm, parse_data_url
 
 
 class FakeBedrock:
@@ -80,6 +80,52 @@ def test_抽出はマークダウン括りのJSONも解釈する():
     """モデルが ```json ...``` で括って返しても候補を取り出せることを検証する（頑健なパース）。"""
     reply = "```json\n" + json.dumps({"amount": 10000, "party_name": "田中"}) + "\n```"
     out = BedrockOcrLlm(client=FakeBedrock(reply)).extract([TINY])
+    assert out["candidates"]["amount"] == 10000
+
+
+class FakeRunner:
+    """run_query 互換のダミー。system/content/model を記録し用意した本文を返す。"""
+
+    def __init__(self, reply_text: str):
+        self.reply_text = reply_text
+        self.calls: list[dict] = []
+
+    def __call__(self, system: str, content: list[dict], *, model: str | None = None) -> str:
+        self.calls.append({"system": system, "content": content, "model": model})
+        return self.reply_text
+
+
+def test_ClaudeAgent抽出は画像ブロックをAnthropic形式で送りJSONを候補に変換する():
+    """ClaudeAgentOcrLlm が Anthropic 形式の画像ブロックを runner に渡し、JSON を候補化することを検証する。"""
+    reply = json.dumps(
+        {
+            "amount": 30000,
+            "party_name": "佐藤 花子",
+            "relationship": "友人",
+            "purpose": "出産祝い",
+            "occurred_at": "2026-05-20",
+            "field_confidence": {"amount": 0.95, "party_name": 0.6},
+        }
+    )
+    runner = FakeRunner(reply)
+    out = ClaudeAgentOcrLlm(runner=runner).extract([TINY])
+    # Anthropic 形式の画像ブロック（type=image, source.type=base64）が送られている
+    sent = runner.calls[0]["content"]
+    img = next(b for b in sent if b.get("type") == "image")
+    assert img["source"]["type"] == "base64"
+    assert img["source"]["media_type"] == "image/jpeg"
+    assert img["source"]["data"]  # base64 文字列
+    # JSON が候補・信頼度に反映される
+    assert out["candidates"]["amount"] == 30000
+    assert out["candidates"]["party_name"] == "佐藤 花子"
+    assert out["field_confidence"]["party_name"] == 0.6
+    assert out["confidence"] == 0.5  # 未指定フィールドは 0.5 default のため最低値は 0.5
+
+
+def test_ClaudeAgent抽出はマークダウン括りのJSONも解釈する():
+    """runner が ```json``` 括りで返しても候補を取り出せることを検証する（Bedrock と同じパース共用）。"""
+    reply = "```json\n" + json.dumps({"amount": 10000, "party_name": "田中"}) + "\n```"
+    out = ClaudeAgentOcrLlm(runner=FakeRunner(reply)).extract([TINY])
     assert out["candidates"]["amount"] == 10000
 
 

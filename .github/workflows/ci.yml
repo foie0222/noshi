@@ -77,6 +77,17 @@ jobs:
       - name: cdk synth
         run: npx cdk synth
 
+  operator:
+    name: operator (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: pytest (operator scripts)
+        run: python -m pytest scripts/operator -q
+
   # main への push のみ・全チェック通過後に AWS へ自動デプロイ（OIDC ロール）。
   deploy:
     name: deploy to AWS (main)

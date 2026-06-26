@@ -19,3 +19,9 @@
 
 ## ローカルでロジックを試す
 python -m pytest scripts/operator
+
+## ブランチ保護の前提（auto-merge が成立する条件）
+`main` のルールセットで、必須チェック（CI / Claude review）とレビュースレッド解決を
+required にする。ただし「人間の PR 承認」を必須にしないこと（必須にすると merge:auto でも
+人間承認待ちで止まる）。センシティブ変更の人間ゲートは merge:human を auto-merge しないことで担保する。
+既存ルールセットの確認: `gh api repos/:owner/:repo/rulesets`。

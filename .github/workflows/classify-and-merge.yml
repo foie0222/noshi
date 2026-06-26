@@ -1,0 +1,61 @@
+name: Classify and Merge
+
+# CI ワークフローの完了をトリガに、対象 PR を分類する。
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  classify:
+    name: classify and (maybe) auto-merge
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: 対象 PR を特定
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          num=$(gh pr list --search "$HEAD_SHA" --state open --json number -q '.[0].number')
+          [ -n "$num" ] || { echo "対象 PR 無し"; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "number=$num" >> "$GITHUB_OUTPUT"
+
+      - name: 分類してラベル付与
+        if: steps.pr.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          files=$(gh pr view "$PR" --json files -q '.files[].path')
+          added=$(gh pr view "$PR" --json additions -q '.additions')
+          labels=$(gh pr view "$PR" --json labels -q '.labels[].name')
+          verdict=$(FILES="$files" ADDED="$added" LABELS="$labels" python - <<'PY'
+          import os
+          from scripts.operator.classify_merge import classify
+          files = [f for f in os.environ["FILES"].splitlines() if f]
+          labels = [x for x in os.environ["LABELS"].splitlines() if x]
+          d = classify(files, int(os.environ["ADDED"] or 0), labels)
+          print(f"{d.verdict}\t{d.reason}")
+          PY
+          )
+          v=$(printf '%s' "$verdict" | cut -f1); reason=$(printf '%s' "$verdict" | cut -f2-)
+          if [ "$v" = "auto" ]; then
+            gh pr edit "$PR" --add-label merge:auto --remove-label merge:human
+            gh pr merge "$PR" --squash --auto
+            gh pr comment "$PR" --body "merge:auto と判定（$reason）。CI緑+レビュー解決で自動マージします。"
+          else
+            gh pr edit "$PR" --add-label merge:human --remove-label merge:auto
+            gh pr comment "$PR" --body "merge:human と判定（$reason）。PO のマージが必要です。"
+          fi

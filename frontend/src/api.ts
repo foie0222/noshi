@@ -69,11 +69,14 @@ export interface RecordInput {
 export const api = {
   home: () => req<HomeResponse>("/home"),
   ledger: () => req<LedgerResponse>("/ledger"),
+  // 非同期OCR: pending（job_id+status）が返る。ローカル/モックでは completed（候補入り）。
   capture: (image?: string) =>
     req<CaptureResponse>("/capture", {
       method: "POST",
       body: JSON.stringify({ image: image ?? null }),
     }),
+  // ポーリング: worker が OCR を終えると completed（候補入り）になる。
+  getCaptureJob: (jobId: string) => req<CaptureResponse>(`/capture/${jobId}`),
   createRecord: (r: RecordInput) =>
     req<{ record: GiftRecord; event: EventView | null }>("/records", {
       method: "POST",

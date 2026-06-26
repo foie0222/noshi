@@ -1,0 +1,4 @@
+# Claude Agent SDK（OCR/キュレーションを Claude サブスク経由で呼ぶ）。
+# Node + claude CLI を要するため Lambda は backend/Dockerfile.lambda（worker/batch）で使う。
+# API zip(backendLambdaCode) には載せない（OCR は worker 側で実行＝API はこの依存不要・サイズ抑制）。
+claude-agent-sdk==0.2.110

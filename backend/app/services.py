@@ -7,10 +7,12 @@ PrivacyService / AccessControlService）を単一の NoshiService に集約（MV
 
 from __future__ import annotations
 
+import base64
 import datetime
 from typing import Any
 
 from app.account import canonical_sub
+from app.adapters import parse_data_url
 from app.domain import rules
 from app.domain.entities import (
     AuditEntry,
@@ -24,6 +26,7 @@ from app.domain.entities import (
 )
 from app.images import ImageStore
 from app.ports import GiftCatalogPort, OcrLlmPort
+from app.queue import ExtractionQueue
 from app.repository import Repository
 
 
@@ -54,11 +57,13 @@ class NoshiService:
         ocr: OcrLlmPort,
         catalog: GiftCatalogPort,
         images: ImageStore | None = None,
+        queue: ExtractionQueue | None = None,
     ):
         self.repo = repo
         self.ocr = ocr
         self.catalog = catalog
         self.images = images or ImageStore()  # 既定は環境変数 NOSHI_IMAGE_BUCKET を読む
+        self.queue = queue or ExtractionQueue()  # 既定は環境変数 EXTRACTION_QUEUE_URL を読む
 
     # --- 撮影画像（S3・署名付きURL）（#35）---
     def image_upload_url(self, user_id: str, content_type: str) -> dict[str, Any]:
@@ -416,6 +421,7 @@ class NoshiService:
 
     # --- 撮影 → 抽出 ---
     def submit_extraction(self, user_id: str, image_refs: list[str]) -> ExtractionJob:
+        """同期インライン抽出（ローカル/モック、または S3+SQS 未設定時のフォールバック）。"""
         out = self.ocr.extract(image_refs)
         job = ExtractionJob(
             user_id=self._scope(user_id),
@@ -425,6 +431,50 @@ class NoshiService:
             field_confidence=out.get("field_confidence", {}),
         )
         return self.repo.put_job(job)
+
+    def async_extraction_enabled(self) -> bool:
+        """非同期抽出（S3 へ保存し SQS worker で OCR）が使えるか。本番のみ True。"""
+        return self.queue.enabled() and self.images.enabled()
+
+    def enqueue_extraction(self, user_id: str, image: str) -> ExtractionJob:
+        """画像を S3 に保存し pending ジョブを作って SQS に積む。worker が OCR して更新する。
+
+        OCR は時間がかかり API Gateway の 30s 統合上限を超え得るため、リクエストからは
+        切り離して worker（timeout 余裕あり）で実行する。
+        """
+        scope = self._scope(user_id)
+        fmt, data = parse_data_url(image)
+        content_type = f"image/{'jpeg' if fmt == 'jpg' else fmt}"
+        key = self.images.new_key(scope, content_type)
+        self.images.put(key, data, content_type)
+        job = self.repo.put_job(ExtractionJob(user_id=scope, status="pending"))
+        self.queue.send(
+            {"job_id": job.id, "user_id": scope, "image_key": key, "content_type": content_type}
+        )
+        return job
+
+    def get_extraction(self, user_id: str, job_id: str) -> ExtractionJob | None:
+        """抽出ジョブを本人スコープで取得（フロントのポーリング用）。無ければ None。"""
+        return self.repo.get_job(self._scope(user_id), job_id)
+
+    def run_extraction(
+        self, scope: str, job_id: str, image_key: str, content_type: str = "image/jpeg"
+    ) -> None:
+        """worker から呼ぶ: S3 の画像を OCR し、ジョブを completed/failed に更新する。"""
+        job = self.repo.get_job(scope, job_id)
+        if job is None:
+            return  # 取り違え/期限切れ。冪等に無視
+        try:
+            data = self.images.get(image_key)
+            data_url = f"data:{content_type};base64,{base64.b64encode(data).decode()}"
+            out = self.ocr.extract([data_url])
+            job.status = "completed"
+            job.candidates = out["candidates"]
+            job.confidence = out["confidence"]
+            job.field_confidence = out.get("field_confidence", {})
+        except Exception:  # noqa: BLE001 - 失敗は failed として確定（無言成功にしない）
+            job.status = "failed"
+        self.repo.put_job(job)
 
     def extraction_needs_review(self, job: ExtractionJob) -> bool:
         return rules.needs_review(job.confidence)

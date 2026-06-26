@@ -13,9 +13,12 @@ RUN dnf install -y nodejs20 \
     && npm install -g @anthropic-ai/claude-code \
     && npm cache clean --force
 
-# Python 依存（fastapi/mangum/boto3/claude-agent-sdk 等）。
-COPY requirements.txt ${LAMBDA_TASK_ROOT}/
-RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt -t ${LAMBDA_TASK_ROOT}
+# Python 依存（fastapi/mangum/boto3 + claude-agent-sdk）。SDK はこのコンテナ専用。
+COPY requirements.txt requirements-claude.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir --retries 5 --timeout 120 \
+    -r ${LAMBDA_TASK_ROOT}/requirements.txt \
+    -r ${LAMBDA_TASK_ROOT}/requirements-claude.txt \
+    -t ${LAMBDA_TASK_ROOT}
 
 # アプリ本体。
 COPY app ${LAMBDA_TASK_ROOT}/app

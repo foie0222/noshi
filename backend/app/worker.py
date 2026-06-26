@@ -1,17 +1,46 @@
 """抽出ワーカー Lambda（SQS イベントソース）。
 
-CDK WorkerStack の handler は app.worker.handler を指す。
-SQS から抽出ジョブを受け、OcrLlmPort で抽出し DynamoDB を更新する（本番）。
-MVP では同期モック抽出のため、本ワーカーは骨子（冪等キー=jobId）。
+capture が S3 に保存して積んだジョブを受け、Claude(Agent SDK 等) で OCR して
+DynamoDB のジョブを completed/failed に更新する。OCR は時間がかかり API Gateway の
+30s 統合上限を超え得るため、ここ（timeout 余裕あり）で実行する。
+冪等キーは jobId（取り違え/期限切れは run_extraction が無視）。
 """
 
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+def _service() -> Any:
+    """worker 用の NoshiService を組み立てる（DynamoRepository + 実 OCR + ImageStore）。"""
+    from app.adapters import default_ocr
+    from app.images import ImageStore
+    from app.ports import GiftCatalogMock
+    from app.repository import DynamoRepository
+    from app.services import NoshiService
+
+    return NoshiService(DynamoRepository(), default_ocr(), GiftCatalogMock(), images=ImageStore())
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    # event["Records"]: SQS メッセージ（body に jobId/userId/imageRef）。
-    # 本番: OcrLlmPort 実行 → ExtractionCompleted/Failed → DynamoRepository 更新。
+    # event["Records"]: SQS メッセージ（body に job_id/user_id/image_key/content_type）。
     records = (event or {}).get("Records", [])
-    return {"processed": len(records)}
+    svc = _service()
+    processed = 0
+    for rec in records:
+        try:
+            msg = json.loads(rec["body"])
+            svc.run_extraction(
+                msg["user_id"],
+                msg["job_id"],
+                msg["image_key"],
+                msg.get("content_type", "image/jpeg"),
+            )
+            processed += 1
+        except Exception:  # noqa: BLE001 - 1件の失敗を他に波及させない
+            logger.exception("extraction record failed")
+    return {"processed": processed}

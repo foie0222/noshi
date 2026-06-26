@@ -136,6 +136,22 @@ class BedrockOcrLlm:
         return assemble_extract(parsed)
 
 
+def default_ocr() -> Any:
+    """NOSHI_LLM_PROVIDER で OCR/LLM 実装を選ぶ（main・worker で共用）。
+
+    claude_agent → Claude Agent SDK(サブスク)、bedrock（または後方互換 NOSHI_USE_BEDROCK=1）
+    → Bedrock、それ以外 → モック。
+    """
+    provider = os.environ.get("NOSHI_LLM_PROVIDER")
+    if provider == "claude_agent":
+        return ClaudeAgentOcrLlm()
+    if provider == "bedrock" or os.environ.get("NOSHI_USE_BEDROCK") == "1":
+        return BedrockOcrLlm()
+    from app.ports import OcrLlmMock
+
+    return OcrLlmMock()
+
+
 class ClaudeAgentOcrLlm:
     """Claude Agent SDK(OAuth サブスク) による OCR/LLM 実装。Bedrock を経由しない。
 

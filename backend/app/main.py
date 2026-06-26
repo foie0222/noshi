@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.auth import Identity
-from app.ports import GiftCatalogMock, GiftCatalogPort, OcrLlmMock, OcrLlmPort
+from app.ports import GiftCatalogMock, GiftCatalogPort, OcrLlmPort
 from app.repository import InMemoryRepository, Repository
 from app.schemas import (
     CaptureIn,
@@ -36,23 +36,15 @@ from app.services import ForbiddenError, NoshiService, ValidationError
 
 
 def _default_ocr() -> OcrLlmPort:
-    """OCR/LLM の実装を選ぶ。
+    """OCR/LLM の実装を選ぶ（NOSHI_LLM_PROVIDER。worker と共用の adapters.default_ocr）。
 
-    NOSHI_LLM_PROVIDER=claude_agent で Claude Agent SDK(サブスク/OAuth)、
-    =bedrock（または後方互換の NOSHI_USE_BEDROCK=1）で Bedrock、既定はモック。
+    本番では OCR は worker（SQS）で実行されるため、API 側がこの実装を直接使うのは
+    S3/SQS 未設定のローカル・モック時の同期フォールバックのみ。
     """
-    import os
+    from app.adapters import default_ocr
 
-    provider = os.environ.get("NOSHI_LLM_PROVIDER")
-    if provider == "claude_agent":
-        from app.adapters import ClaudeAgentOcrLlm
-
-        return ClaudeAgentOcrLlm()
-    if provider == "bedrock" or os.environ.get("NOSHI_USE_BEDROCK") == "1":
-        from app.adapters import BedrockOcrLlm
-
-        return BedrockOcrLlm()
-    return OcrLlmMock()
+    ocr: OcrLlmPort = default_ocr()
+    return ocr
 
 
 def _default_catalog() -> GiftCatalogPort:
@@ -200,20 +192,7 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
             "recent": [vars(r) for r in records[-5:]],
         }
 
-    @app.post("/api/capture")
-    def capture(body: CaptureIn | None = None, uid: str = Depends(current_user)) -> dict[str, Any]:
-        # 画像があれば抽出器（モック or Bedrock）へ渡す。無ければモック用のダミー参照。
-        image_refs = [body.image] if (body and body.image) else ["mock.jpg"]
-        try:
-            job = svc.submit_extraction(uid, image_refs)
-        except Exception as exc:  # 抽出失敗は握り潰さず 502 で返す（モックへ無言降格しない）
-            import logging
-
-            logging.getLogger("noshi").exception("extraction failed")
-            raise HTTPException(
-                status_code=502,
-                detail="画像の読み取りに失敗しました。時間をおいて再度お試しください。",
-            ) from exc
+    def _capture_view(job: Any) -> dict[str, Any]:
         return {
             "job_id": job.id,
             "status": job.status,
@@ -223,6 +202,37 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
             "field_review": svc.field_review(job),  # 項目別 要確認（P0-2）
             "needs_review": svc.extraction_needs_review(job),
         }
+
+    @app.post("/api/capture")
+    def capture(body: CaptureIn | None = None, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # 本番(S3+SQS構成): 画像を保存し pending を返す → worker が OCR → フロントは GET でポーリング。
+        # OCR は API Gateway の 30s 統合上限を超え得るためリクエストから切り離す。
+        # ローカル/モック(未設定)時は同期インライン抽出にフォールバック。
+        image = body.image if (body and body.image) else None
+        try:
+            if image and svc.async_extraction_enabled():
+                job = svc.enqueue_extraction(uid, image)
+                return {"job_id": job.id, "status": job.status}  # pending
+            job = svc.submit_extraction(uid, [image] if image else ["mock.jpg"])
+        except Exception as exc:  # 抽出失敗は握り潰さず 502 で返す（モックへ無言降格しない）
+            import logging
+
+            logging.getLogger("noshi").exception("extraction failed")
+            raise HTTPException(
+                status_code=502,
+                detail="画像の読み取りに失敗しました。時間をおいて再度お試しください。",
+            ) from exc
+        return _capture_view(job)
+
+    @app.get("/api/capture/{job_id}")
+    def capture_status(job_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+        # フロントのポーリング: 完了なら候補を返し、pending/failed なら status のみ。
+        job = svc.get_extraction(uid, job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="not found")
+        if job.status == "completed":
+            return _capture_view(job)
+        return {"job_id": job.id, "status": job.status}
 
     @app.post("/api/records")
     def create_record(body: RecordIn, uid: str = Depends(current_user)) -> dict[str, Any]:

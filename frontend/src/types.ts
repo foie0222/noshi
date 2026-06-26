@@ -135,14 +135,16 @@ export interface CaptureCandidates {
   item: string; // 品物（読めたら自動入力、ダメなら空で手入力）
 }
 
+// 非同期OCR: capture は pending（job_id+status のみ）を返し、worker 完了後に
+// GET /capture/{job_id} で候補が入る。完了時のみ candidates 以下が存在する。
 export interface CaptureResponse {
   job_id: string;
-  status: string;
-  candidates: CaptureCandidates;
-  confidence: number;
-  field_confidence: Record<string, number>;
-  field_review: Record<string, boolean>;
-  needs_review: boolean;
+  status: string; // pending / completed / failed
+  candidates?: CaptureCandidates;
+  confidence?: number;
+  field_confidence?: Record<string, number>;
+  field_review?: Record<string, boolean>;
+  needs_review?: boolean;
 }
 
 // --- クライアント側で組み立てる作業用オブジェクト ---

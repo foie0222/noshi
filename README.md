@@ -74,9 +74,14 @@ export NOSHI_LLM_PROVIDER=bedrock          # 既定モデル jp.anthropic.claude
 .venv/bin/python -m uvicorn app.main:app
 ```
 
-本番(Lambda): 両 Lambda はコンテナ（`backend/Dockerfile.lambda`、Node + claude CLI 同梱）で動き、
-`NOSHI_LLM_PROVIDER=claude_agent`。OAuth トークンは **SSM SecureString `/noshi/claude/oauth-token`**
-から取得する。初回・ローテーション時に手動更新:
+ローカルは S3/SQS 未設定のため `/api/capture` は**同期インライン**で抽出する（上記設定で動く）。
+
+本番(Lambda): OCR は **API Gateway の 30s 統合上限**を超え得るため**非同期**で実行する。
+`/api/capture` は画像を S3 に保存し SQS に積んで即 `pending` を返し、フロントが
+`GET /api/capture/{job_id}` をポーリングする。OCR/キュレーションを実行する
+**worker / catalog-batch** はコンテナ（`backend/Dockerfile.lambda`、Node + claude CLI 同梱）で動き、
+`NOSHI_LLM_PROVIDER=claude_agent`。API 本体は OCR を呼ばないため軽量な zip のまま。
+OAuth トークンは **SSM SecureString `/noshi/claude/oauth-token`** から取得する。初回・ローテーション時に手動更新:
 ```bash
 aws ssm put-parameter --name /noshi/claude/oauth-token --type SecureString \
   --value "$(claude setup-token)" --overwrite

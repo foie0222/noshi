@@ -227,3 +227,16 @@ def test_worker_handlerは一時障害のmessageIdをbatchItemFailuresで返す(
     finally:
         w._service = orig
     assert out["batchItemFailures"] == [{"itemIdentifier": "m9"}]
+
+
+def test_enqueueは非対応画像形式を拒否する():
+    """capture(enqueue) 経路でも許可外形式(gif等)を ValidationError で弾く（M8）。"""
+    import base64 as _b64
+
+    import pytest
+    from app.services import ValidationError
+
+    gif = "data:image/gif;base64," + _b64.b64encode(b"GIF89a").decode()
+    svc = _svc(FakeImages(), FakeQueue())
+    with pytest.raises(ValidationError):
+        svc.enqueue_extraction("u1", gif)

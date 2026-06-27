@@ -32,6 +32,7 @@ from app.queue import ExtractionQueue
 from app.repository import Repository
 
 _JOB_TTL_SECONDS = 24 * 60 * 60  # 抽出ジョブ(確定前PII)の保持上限（NFR-D2）
+_ALLOWED_IMAGE_TYPES = ("image/jpeg", "image/png", "image/webp")  # 許可する撮影画像形式（一元管理）
 
 
 def _job_ttl() -> int:
@@ -77,7 +78,7 @@ class NoshiService:
     # --- 撮影画像（S3・署名付きURL）（#35）---
     def image_upload_url(self, user_id: str, content_type: str) -> dict[str, Any]:
         """アップロード用のサイズ上限つき署名POST(url/fields)と保存先キーを払い出す（世帯スコープ）。"""
-        if content_type not in ("image/jpeg", "image/png", "image/webp"):
+        if content_type not in _ALLOWED_IMAGE_TYPES:
             raise ValidationError(["対応していない画像形式です。"])
         key = self.images.new_key(self._scope(user_id), content_type)
         post = self.images.upload_post(key, content_type)
@@ -219,6 +220,9 @@ class NoshiService:
 
     def remove_member(self, user_id: str, target_user_id: str) -> dict[str, Any]:
         """管理者が世帯から家族メンバーを外す。外された人は次回アクセスで新しい世帯になる。"""
+        # パス由来の sub は別名の可能性があるため代表 sub に正規化する
+        # （membership は代表 sub にしか無く、別名指定だと外せない）。
+        target_user_id = canonical_sub(self.repo, target_user_id)
         me = self.repo.get_membership(user_id)
         if me is None or me.role != "owner":
             raise ForbiddenError("only the owner can remove members")
@@ -468,6 +472,8 @@ class NoshiService:
         scope = self._scope(user_id)
         fmt, data = parse_data_url(image)
         content_type = f"image/{'jpeg' if fmt == 'jpg' else fmt}"
+        if content_type not in _ALLOWED_IMAGE_TYPES:
+            raise ValidationError(["対応していない画像形式です。"])
         key = self.images.new_key(scope, content_type)
         self.images.put(key, data, content_type)
         job = self.repo.put_job(ExtractionJob(user_id=scope, status="pending", ttl=_job_ttl()))

@@ -1444,6 +1444,9 @@ export function App() {
               </div>
               {fields.map((k) => {
                 const warn = !!fr[k];
+                // 空欄に「確定」を出さない（読めなかった項目を高信頼に見せない）。
+                const hasValue =
+                  k === "amount" ? Number(draft.amount) > 0 : String(draft[k] ?? "").trim() !== "";
                 const err =
                   k === "amount" ? errs.amount : k === "purpose" ? errs.purpose : undefined;
                 return (
@@ -1452,12 +1455,12 @@ export function App() {
                       {labels[k]}
                       {warn ? (
                         <span className="reviewbadge">要確認</span>
-                      ) : (
+                      ) : hasValue ? (
                         <span className="okbadge">
                           <Icon name="check" size={13} strokeWidth={2.6} />
                           確定
                         </span>
-                      )}
+                      ) : null}
                     </label>
                     {k === "purpose" ? (
                       <MasterSelect

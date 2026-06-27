@@ -93,15 +93,19 @@ def validate_output(
     allowed: set[str],
     fallback_by_code: dict[str, str],
 ) -> list[dict[str, Any]]:
-    """LLM出力の機械検証。未知 itemCode は棄却、不正な理由文はテンプレに差し替え。"""
+    """LLM出力の機械検証。未知/重複 itemCode は棄却、不正な理由文はテンプレに差し替え。"""
     items = parsed.get("items") or []
     if not isinstance(items, list):
         items = []
     out: list[dict[str, Any]] = []
-    for row in items[:10]:
+    seen: set[str] = set()
+    for row in items:
+        if len(out) >= 10:
+            break
         code = str(row.get("itemCode", ""))
-        if code not in allowed:
-            continue  # ハルシネーション棄却
+        if code not in allowed or code in seen:
+            continue  # ハルシネーション/重複 棄却（同一商品が複数ランクで配信されないように）
+        seen.add(code)
         reason = str(row.get("reason", "")).strip()
         if (
             not reason
@@ -113,6 +117,7 @@ def validate_output(
             llm_score = int(row.get("score", 0))
         except (TypeError, ValueError):
             llm_score = 0  # 項目単位で許容し、バケツ全体のフォールバックは避ける（スペック§6）
+        llm_score = max(0, min(100, llm_score))  # 負値/範囲外をクランプ（ソート・表示の乱れ防止）
         fit = _validate_fit(row.get("fit"), llm_score)
         out.append(
             {

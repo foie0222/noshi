@@ -222,3 +222,28 @@ def test_品目バケツのプロンプトはトーンと品目を伝える():
     m = build_user_prompt("mourn#food", "5000-9999", _cands(), season_note="")
     assert "弔事" in m
     assert "食品" in m
+
+
+def test_検証は重複itemCodeを1件に畳む():
+    """LLM が同一 itemCode を複数回返しても1件だけ採用（同一商品の複数ランク配信を防ぐ）。"""
+    out = validate_output(
+        {
+            "items": [
+                {"itemCode": "shop:0", "score": 90, "reason": "良い品です"},
+                {"itemCode": "shop:0", "score": 80, "reason": "別ランクの重複"},
+                {"itemCode": "shop:1", "score": 70, "reason": "二つ目の品です"},
+            ]
+        },
+        allowed={"shop:0", "shop:1"},
+        fallback_by_code={"shop:0": "fb0", "shop:1": "fb1"},
+    )
+    assert [x["item_code"] for x in out] == ["shop:0", "shop:1"]
+
+
+def test_検証は負のscoreを0にクランプする():
+    out = validate_output(
+        {"items": [{"itemCode": "shop:0", "score": -5, "reason": "良い品です"}]},
+        allowed={"shop:0"},
+        fallback_by_code={"shop:0": "fb"},
+    )
+    assert out[0]["llm_score"] == 0

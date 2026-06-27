@@ -2,7 +2,7 @@ name: Operator
 
 on:
   schedule:
-    - cron: "0 18 * * 0-4" # 平日 03:00 JST（UTC 18:00、日〜木＝翌平日）
+    - cron: "0 18 * * *" # 毎日 03:00 JST（UTC 18:00。土日も実行）
   workflow_dispatch:
     inputs:
       propose:

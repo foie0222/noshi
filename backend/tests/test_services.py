@@ -660,6 +660,18 @@ def test_account_subsは代表と別名を返す():
     assert set(svc.account_subs("primaryX")) == {"primaryX", "aliasA"}
 
 
+def test_remove_memberは別名subでも家族を外せる():
+    """パス由来の別名 sub を代表に正規化してから membership を引く（M2）。"""
+    svc = make_service()
+    # owner と、別名を持つ家族メンバーを同じ世帯に用意
+    owner_h = svc.resolve_household("owner1")
+    svc.join_household("memberPrimary", svc.repo.get_household(owner_h.id).invite_code)
+    svc.repo.put_account_link("memberAlias", "memberPrimary")  # 別名 → 代表
+    # 別名 sub を指定しても外せる
+    svc.remove_member("owner1", "memberAlias")
+    assert svc.repo.get_membership("memberPrimary") is None
+
+
 def test_returns_payloadはcategory素通しと品目タブを1回の認可で返す():
     class SpyCatalog(GiftCatalogMock):
         def __init__(self):

@@ -23,6 +23,7 @@ from typing import Any
 from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
 
 _token_loaded = False
+_token_lock = threading.Lock()
 
 
 def text_block(text: str) -> dict[str, Any]:
@@ -51,14 +52,18 @@ def _ensure_token() -> None:
     global _token_loaded
     if _token_loaded:
         return
-    if not os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        ssm_name = os.environ.get("NOSHI_CLAUDE_TOKEN_SSM")
-        if ssm_name:
-            import boto3  # 遅延 import（ローカル/テストでは不要）
+    # 複数スレッドから同時に呼ばれても SSM 取得を一度きりにする（二重 fetch・部分初期化防止）。
+    with _token_lock:
+        if _token_loaded:
+            return
+        if not os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+            ssm_name = os.environ.get("NOSHI_CLAUDE_TOKEN_SSM")
+            if ssm_name:
+                import boto3  # 遅延 import（ローカル/テストでは不要）
 
-            r = boto3.client("ssm").get_parameter(Name=ssm_name, WithDecryption=True)
-            os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = str(r["Parameter"]["Value"])
-    _token_loaded = True
+                r = boto3.client("ssm").get_parameter(Name=ssm_name, WithDecryption=True)
+                os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = str(r["Parameter"]["Value"])
+        _token_loaded = True
 
 
 async def _query_text(system: str, content: list[dict[str, Any]], model: str | None) -> str:

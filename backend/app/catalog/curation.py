@@ -126,10 +126,18 @@ def validate_output(
 
 
 def parse_curation(text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """LLM 応答テキストを検証済みの選定結果に変換する（Bedrock・Claude Agent 共用）。"""
+    """LLM 応答テキストを検証済みの選定結果に変換する（Bedrock・Claude Agent 共用）。
+
+    JSON 抽出不能（_extract_json が ValueError）は空選定として扱い、呼び出し側（_curate）の
+    リトライ→線形フォールバックに委ねる。
+    """
     allowed = {c["item_code"] for c in candidates}
     fallback = {c["item_code"]: template_reason(c) for c in candidates}
-    return validate_output(_extract_json(text), allowed, fallback)
+    try:
+        parsed = _extract_json(text)
+    except ValueError:
+        parsed = {}
+    return validate_output(parsed, allowed, fallback)
 
 
 def _validate_fit(raw: Any, score: int) -> dict[str, int]:

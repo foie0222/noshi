@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import datetime
 import logging
+import time
 from typing import Any
 
 from app.account import canonical_sub
@@ -29,6 +30,13 @@ from app.images import ImageStore
 from app.ports import GiftCatalogPort, OcrLlmPort
 from app.queue import ExtractionQueue
 from app.repository import Repository
+
+_JOB_TTL_SECONDS = 24 * 60 * 60  # 抽出ジョブ(確定前PII)の保持上限（NFR-D2）
+
+
+def _job_ttl() -> int:
+    """抽出ジョブの DynamoDB TTL（現在 + 24h の epoch 秒）。"""
+    return int(time.time()) + _JOB_TTL_SECONDS
 
 
 def _parse_date(value: str | None) -> datetime.date | None:
@@ -443,6 +451,7 @@ class NoshiService:
             candidates=out["candidates"],
             confidence=out["confidence"],
             field_confidence=out.get("field_confidence", {}),
+            ttl=_job_ttl(),
         )
         return self.repo.put_job(job)
 
@@ -461,7 +470,7 @@ class NoshiService:
         content_type = f"image/{'jpeg' if fmt == 'jpg' else fmt}"
         key = self.images.new_key(scope, content_type)
         self.images.put(key, data, content_type)
-        job = self.repo.put_job(ExtractionJob(user_id=scope, status="pending"))
+        job = self.repo.put_job(ExtractionJob(user_id=scope, status="pending", ttl=_job_ttl()))
         self.queue.send(
             {"job_id": job.id, "user_id": scope, "image_key": key, "content_type": content_type}
         )
@@ -502,6 +511,10 @@ class NoshiService:
             )
             job.status = "failed"
             self.repo.put_job(job)
+        # 確定後（completed/failed）に撮影画像を後始末する。保存レコードの画像は
+        # フロントが保存時に別キーへアップロードするため、ジョブ画像は再利用されず孤立する。
+        # 一時障害（送出済み・ここに到達しない）では再試行のため消さない。
+        self.images.delete(image_key)
 
     def extraction_needs_review(self, job: ExtractionJob) -> bool:
         return rules.needs_review(job.confidence)

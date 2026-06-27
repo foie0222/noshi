@@ -77,8 +77,13 @@ class ImageStore:
         return body
 
     def delete(self, key: str) -> None:
-        # 差し替え/削除時の後始末。失敗しても致命ではない（孤立オブジェクトはライフサイクルで回収可）。
+        # 差し替え/削除時の後始末。失敗しても致命ではない（後続の TTL/手動掃除で回収）が、
+        # IAM 誤設定等で恒久的に失敗し続けるとPII画像が残るため、握りつぶさずログに残す。
+        if not self.bucket:
+            return
         try:
             self._s3().delete_object(Bucket=self.bucket, Key=key)
-        except Exception:  # noqa: BLE001 - ベストエフォート
-            pass
+        except Exception:  # noqa: BLE001 - ベストエフォート（ログは残す）
+            import logging
+
+            logging.getLogger("noshi").warning("image delete failed key=%s", key, exc_info=True)

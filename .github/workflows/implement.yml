@@ -63,10 +63,11 @@ jobs:
 
             手順:
             1. `gh issue view ${{ inputs.issue_number }}` で要求を把握。
-            2. `AGENTS.md`・`REVIEW.md`・`CLAUDE.md` を Read ツールで読み、規約（TDD 必須・スコープ厳守・lint/型）を厳守。
+            2. `AGENTS.md`・`REVIEW.md`・`CLAUDE.md` を Read ツールで読み、規約（スコープ厳守・lint/型）を厳守。
             3. `main` から `issue-${{ inputs.issue_number }}` ブランチを切る。
-            4. 失敗するテストを先に書き、最小実装で通す（Red→Green→Refactor）。
-            5. backend は `cd backend && .venv/bin/python -m pytest`、frontend は `npx vitest run` で緑を確認。
+            4. コードのロジックを変更する場合は TDD（失敗するテストを先に書き→最小実装で通す。Red→Green→Refactor）。
+               ドキュメント・設定・コメントなどテストが意味を持たない変更では TDD は省く。
+            5. テストを書いた/触った場合のみ、backend は `cd backend && .venv/bin/python -m pytest`、frontend は `npx vitest run` で緑を確認。
             6. 変更は小さく保つ。要求が大きすぎる/曖昧すぎる、または外向き・カネ・方向性の
                PO 判断が必要だと判断したら、コードを書かずに Issue へその旨をコメントし、
                PR は作らずに終了する（後段でラベル `needs:po` を付ける）。

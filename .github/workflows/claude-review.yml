@@ -56,6 +56,9 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # オペレーター(GitHub App)が作る PR も Claude レビューの対象にする。
+          # 既定では Bot 起因のワークフローは拒否されるため、当該 App を明示許可。
+          allowed_bots: "noshi-operator-foie0222,noshi-operator-foie0222[bot]"
           classify_inline_comments: "false" # 分類を挟まず即投稿
           claude_args: |
             --max-turns 30

@@ -7,5 +7,6 @@
   { "name": "agent:pr-open", "color": "5319e7", "description": "PRを開いた" },
   { "name": "needs:po", "color": "e99695", "description": "PO級の判断が必要。Claudeは手を止める" },
   { "name": "merge:auto", "color": "c2e0c6", "description": "低リスク。CI緑+レビュー通過で自動マージ" },
-  { "name": "merge:human", "color": "f9d0c4", "description": "センシティブ。人間(PO)がマージ" }
+  { "name": "merge:human", "color": "f9d0c4", "description": "センシティブ。人間(PO)がマージ" },
+  { "name": "agent:briefing", "color": "bfdadc", "description": "Operator Briefing の固定Issue" }
 ]

@@ -36,3 +36,28 @@ def test_needs_po_ラベルは無条件で人間マージ():
 def test_お金のドメインルールは人間マージ():
     d = classify(["backend/app/domain/rules.py"], 4, [])
     assert d.verdict == "human"
+
+
+def test_merge_human_ラベルは無条件で人間マージ():
+    d = classify(["docs/README.md"], 1, ["merge:human"])
+    assert d.verdict == "human"
+
+
+def test_境界値ちょうど150は自動マージ可():
+    d = classify(["frontend/src/util.ts"], DEFAULT_POLICY.max_auto_lines, [])
+    assert d.verdict == "auto"
+
+
+def test_認証変種パスは人間マージ():
+    for p in [
+        "backend/app/auth_triggers.py",
+        "backend/app/cognito_admin.py",
+        "backend/app/apple_revoke.py",
+        "backend/app/account.py",
+    ]:
+        assert classify([p], 1, []).verdict == "human", p
+
+
+def test_自己改変パスは人間マージ():
+    for p in [".github/workflows/operator.yml", "scripts/operator/classify_merge.py"]:
+        assert classify([p], 1, []).verdict == "human", p

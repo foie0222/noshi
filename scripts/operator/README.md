@@ -20,8 +20,21 @@
 ## ローカルでロジックを試す
 python -m pytest scripts/operator
 
+## GitHub App セットアップ（オペレーターの PR 作成に必須）
+implement が作る PR に CI/レビューを発火させるため、PR は GitHub App の installation
+トークンで作成する（GITHUB_TOKEN だと下流ワークフローが起動しない GitHub 仕様の回避）。
+
+1. GitHub App を作成（Settings → Developer settings → GitHub Apps → New）。
+   Repository permissions: Contents=Read and write、Pull requests=Read and write、Issues=Read and write。
+2. この App をリポジトリに Install。
+3. App の秘密鍵(.pem)を生成し、リポジトリ secret に登録:
+   - `OPERATOR_APP_ID`（App ID）
+   - `OPERATOR_APP_PRIVATE_KEY`（.pem の中身）
+
 ## ブランチ保護の前提（auto-merge が成立する条件）
 `main` のルールセットで、必須チェック（CI / Claude review）とレビュースレッド解決を
 required にする。ただし「人間の PR 承認」を必須にしないこと（必須にすると merge:auto でも
 人間承認待ちで止まる）。センシティブ変更の人間ゲートは merge:human を auto-merge しないことで担保する。
 既存ルールセットの確認: `gh api repos/:owner/:repo/rulesets`。
+- implement の PR は App 名義のため CI/Claude review が発火する。merge:auto の自動マージは、
+  指摘ゼロ（未解決スレッド無し）かつ必須チェック緑のときだけ成立する＝レビューが安全弁になる。

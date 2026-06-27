@@ -157,6 +157,7 @@ export function App() {
   const [suggestCats, setSuggestCats] = useState<SuggestCategory[]>([]);
   const [activeCat, setActiveCat] = useState<string | null>(null); // null = おすすめ
   const suggestCatReq = useRef(0);
+  const captureReq = useRef(0); // 撮影→抽出の世代。古い完了が新しい操作を上書きしないよう破棄に使う
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
   );
@@ -180,6 +181,7 @@ export function App() {
   const [uploading, setUploading] = useState<boolean>(false); // 画像アップロード中(#54)
 
   async function onPickImage(file: File | null) {
+    if (extracting) return; // 読み取り中は撮り直し不可（抽出と画像の取り違え防止）
     const err = validateImageFile(file);
     if (err) {
       notify(err);
@@ -523,28 +525,36 @@ export function App() {
       notify("先に写真を撮るか、画像を選んでください。");
       return;
     }
+    const reqId = ++captureReq.current; // この撮影の世代
+    const img = capturedImage; // 送信した画像を固定（ポーリング中に撮り直されても取り違えない）
+    const direction = captureDirection;
     setExtracting(true);
     try {
       // 撮影画像を送って AI 抽出。本番は pending が返るので worker 完了までポーリング。
       // ローカル/モックは即 completed（候補入り）が返る。
-      let job = await api.capture(capturedImage);
+      let job = await api.capture(img);
       if (job.status === "pending") {
         job = await pollCaptureJob(job.job_id);
       }
+      if (captureReq.current !== reqId) return; // 新しい撮影/操作が来ていれば古い完了は破棄
+      if (job.status !== "completed" || !job.candidates) {
+        // completed 以外、または候補欠落（読み取り不可）は失敗として扱う（空ドラフトを無警告で作らない）
+        throw new Error("画像の読み取りに失敗しました。手入力で続けられます。");
+      }
       setDraft({
-        ...(job.candidates ?? ({} as CaptureCandidates)),
-        direction: captureDirection, // 撮影画面で選んだ種類を引き継ぐ（確認画面で変更可）
+        ...job.candidates,
+        direction, // 撮影画面で選んだ種類を引き継ぐ（確認画面で変更可）
         field_review: job.field_review || {},
-        image: capturedImage,
+        image: img,
         party_id: "", // 確認画面で相手を選ぶ/作る（#47）
         // item は job.candidates に含まれる（読めたら自動入力、ダメなら空で手入力）
       });
       setReviewTried(false);
       go("review");
     } catch (e) {
-      notify(errMsg(e));
+      if (captureReq.current === reqId) notify(errMsg(e));
     } finally {
-      setExtracting(false);
+      if (captureReq.current === reqId) setExtracting(false);
     }
   }
 
@@ -1331,6 +1341,7 @@ export function App() {
             className="visually-hidden"
             type="file"
             accept="image/*"
+            disabled={extracting} // 読み取り中の撮り直しを禁止（抽出と画像の取り違え防止）
             onChange={(e) => onPickImage(e.target.files?.[0] ?? null)}
           />
 

@@ -55,17 +55,26 @@ def parse_data_url(image: str) -> tuple[str, bytes]:
 
 
 def _extract_json(text: str) -> dict[str, Any]:
-    """モデル応答からJSONオブジェクトを頑健に取り出す（```括りや前後の文章を許容）。"""
+    """モデル応答からJSONオブジェクトを頑健に取り出す（```括りや前後の文章を許容）。
+
+    抽出できない（JSON 不在・パース不能・オブジェクトでない）場合は ValueError を投げる。
+    「空 dict を返して成功扱い」にすると、モデルの拒否や出力切れが「金額0・全空の正常結果」
+    に化けてしまう（無言の空降格）。呼び出し側で恒久エラーとして failed/フォールバックに分岐する。
+    """
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     raw = fenced.group(1) if fenced else None
     if raw is None:
         start, end = text.find("{"), text.rfind("}")
-        raw = text[start : end + 1] if start != -1 and end != -1 else "{}"
+        if start == -1 or end == -1 or end < start:
+            raise ValueError("モデル応答に JSON オブジェクトが見つかりません")
+        raw = text[start : end + 1]
     try:
         loaded = json.loads(raw)
-    except json.JSONDecodeError:
-        return {}
-    return loaded if isinstance(loaded, dict) else {}
+    except json.JSONDecodeError as e:
+        raise ValueError(f"モデル応答が有効な JSON ではありません: {e}") from e
+    if not isinstance(loaded, dict):
+        raise ValueError("モデル応答の JSON がオブジェクトではありません")
+    return loaded
 
 
 # 確信度（＝要確認の判定）に使う主要項目。item は任意のため含めない（読めたら入れる程度）。

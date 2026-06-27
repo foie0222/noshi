@@ -99,6 +99,31 @@ def test_LLMが空を返したら線形フォールバック扱いになる():
     assert all(len(codes) > 0 for _, _, codes in store.replaced)
 
 
+def test_楽天コール上限はジョブ全体を即終了する():
+    """RakutenBudgetExceeded はバケツ単位 except で握らず run_job 全体を打ち切る（空上書き防止）。"""
+    import pytest
+    from app.catalog.rakuten import RakutenBudgetExceeded
+
+    class BudgetRakuten:
+        def __init__(self):
+            self.calls = 0
+
+        def ranking(self, genre_id):
+            return {}
+
+        def search_items(self, keyword, min_price, max_price, page):
+            self.calls += 1
+            if self.calls > 3:
+                raise RakutenBudgetExceeded("上限")
+            return [_raw(f"shop:{page}-{i}") for i in range(5)] if page == 1 else []
+
+    store = FakeStore()
+    with pytest.raises(RakutenBudgetExceeded):
+        run_job(BudgetRakuten(), FakeCurator(), store, now=NOW, deadline=None)
+    # 上限到達後は残りバケツを空で上書きしない（途中で打ち切られる）
+    assert len(store.replaced) < 147
+
+
 def test_時間バジェット超過後はLLMを呼ばない():
     cur = FakeCurator()
     store = FakeStore()

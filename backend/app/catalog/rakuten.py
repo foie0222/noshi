@@ -45,6 +45,10 @@ def _iso_jst(raw: str) -> str:
         return ""
 
 
+class RakutenBudgetExceeded(RuntimeError):
+    """日次コール上限超過。バケツ単位の except では握らず、ジョブ全体を即終了させる。"""
+
+
 class RakutenClient:
     def __init__(
         self,
@@ -81,7 +85,7 @@ class RakutenClient:
         for attempt in (1, 2):  # バックオフ付き1回リトライ（スペック§10）
             self._calls += 1
             if self._calls > self._max_calls:
-                raise RuntimeError("楽天APIの日次コール上限に達しました（ジョブ打ち切り）")
+                raise RakutenBudgetExceeded("楽天APIの日次コール上限に達しました（ジョブ打ち切り）")
             try:
                 return self._fetch(url)
             except Exception:  # noqa: BLE001

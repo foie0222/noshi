@@ -19,6 +19,7 @@ TINY = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff\x00jpeg").dec
 class FakeImages:
     def __init__(self):
         self.store: dict[str, bytes] = {}
+        self.deleted: list[str] = []
 
     def enabled(self):
         return True
@@ -31,6 +32,10 @@ class FakeImages:
 
     def get(self, key):
         return self.store[key]
+
+    def delete(self, key):
+        self.deleted.append(key)
+        self.store.pop(key, None)
 
 
 class FakeQueue:
@@ -82,9 +87,32 @@ def test_enqueueはS3保存しpendingジョブを作りSQSに積む():
     job = svc.enqueue_extraction("u1", TINY)
     assert job.status == "pending"
     assert images.store  # S3 に保存された
+    assert job.ttl > 0  # 確定前PIIの自動失効TTL（NFR-D2）が付く
     sent = queue.sent[0]
     assert sent["job_id"] == job.id and sent["content_type"] == "image/jpeg"
     assert sent["image_key"] in images.store
+
+
+def test_run_extractionは完了後に撮影画像を削除する():
+    images, queue = FakeImages(), FakeQueue()
+    svc = _svc(images, queue)
+    job = svc.enqueue_extraction("u1", TINY)
+    msg = queue.sent[0]
+    svc.run_extraction(msg["user_id"], msg["job_id"], msg["image_key"], msg["content_type"])
+    assert svc.get_extraction("u1", job.id).status == "completed"
+    assert msg["image_key"] in images.deleted  # 孤立画像を後始末
+
+
+def test_run_extraction一時障害では画像を残す():
+    import pytest
+
+    images, queue = FakeImages(), FakeQueue()
+    svc = _svc(images, queue, FakeOcr(error=RuntimeError("throttled")))
+    svc.enqueue_extraction("u1", TINY)
+    msg = queue.sent[0]
+    with pytest.raises(RuntimeError):
+        svc.run_extraction(msg["user_id"], msg["job_id"], msg["image_key"], msg["content_type"])
+    assert images.deleted == []  # 再試行のため画像は消さない
 
 
 def test_run_extractionはS3画像をOCRしジョブをcompletedにする():

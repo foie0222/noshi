@@ -104,6 +104,7 @@ class ExtractionJob:
     candidates: dict[str, Any] = field(default_factory=dict)  # confidential（確定前）
     confidence: float = 0.0
     field_confidence: dict[str, float] = field(default_factory=dict)  # 項目別信頼度（P0-2）
+    ttl: int = 0  # DynamoDB TTL(epoch秒)。確定前PII(candidates)を自動失効（NFR-D2）
     id: str = field(default_factory=_id)
 
 

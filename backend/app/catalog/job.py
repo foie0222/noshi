@@ -23,6 +23,7 @@ from app.catalog.buckets import (
     RAKUTEN_GENRE_BY_ITEM_CATEGORY,
 )
 from app.catalog.curation import template_reason
+from app.catalog.rakuten import RakutenBudgetExceeded
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,8 @@ def run_job(
         genre_specific[slug] = genre is not None
         try:
             ranks[slug] = rakuten.ranking(genre)
+        except RakutenBudgetExceeded:
+            raise  # コール上限はジョブ全体を即終了（バケツ失敗として握り潰さない）
         except Exception:  # noqa: BLE001
             logger.exception("ranking failed: %s", slug)
             ranks[slug] = {}
@@ -132,6 +135,8 @@ def run_job(
                     manifest_acc.setdefault((tone, band), [])
                     if top:
                         manifest_acc[(tone, band)].append(cat)
+            except RakutenBudgetExceeded:
+                raise  # コール上限はジョブ全体を即終了（残りバケツを空上書きしない）
             except Exception:  # noqa: BLE001
                 logger.exception("bucket failed: %s %s", slug, band)
                 failed += 1

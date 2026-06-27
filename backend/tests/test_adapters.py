@@ -138,3 +138,24 @@ def test_GiftCatalogMockは品目引数と空カテゴリに対応する():
     assert len(out) == 3
     # モックは品目タブを持たない
     assert m.available_categories(5000, "出産祝い") == []
+
+
+def test_extract_jsonはJSONが無ければValueError():
+    """モデル応答に JSON が無い/壊れている場合は ValueError（空dictで成功扱いにしない）。"""
+    import pytest
+    from app.adapters import _extract_json
+
+    with pytest.raises(ValueError):
+        _extract_json("申し訳ありませんが読み取れませんでした")
+    with pytest.raises(ValueError):
+        _extract_json('{"amount": 100')  # 壊れたJSON
+
+
+def test_ClaudeAgent抽出はJSON以外の応答でValueErrorを送出する():
+    """非JSON応答は恒久エラー(ValueError)→ run_extraction が failed 確定に分岐できる。"""
+    import pytest
+
+    with pytest.raises(ValueError):
+        ClaudeAgentOcrLlm(runner=FakeRunner("これは画像の説明です。JSONではありません。")).extract(
+            [TINY]
+        )

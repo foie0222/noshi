@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import datetime
+import logging
 from typing import Any
 
 from app.account import canonical_sub
@@ -473,7 +474,15 @@ class NoshiService:
     def run_extraction(
         self, scope: str, job_id: str, image_key: str, content_type: str = "image/jpeg"
     ) -> None:
-        """worker から呼ぶ: S3 の画像を OCR し、ジョブを completed/failed に更新する。"""
+        """worker から呼ぶ: S3 の画像を OCR し、ジョブを completed/failed に更新する。
+
+        失敗は2種に区別する:
+        - 恒久エラー（ValueError: 画像形式不正・モデル応答がJSONでない等）→ job=failed で確定
+          （リトライしても無駄なのでメッセージは正常消費させる）。
+        - 一時障害（S3/SSM/DynamoDB throttling・LLM の 5xx/タイムアウト等）→ 例外を送出し、
+          worker 経由で SQS に戻して再試行→DLQ に到達させる（無言成功でメッセージを消さない）。
+        確定書き込み(put_job)の失敗も一時障害として送出する（ジョブが pending 固定にならないよう）。
+        """
         job = self.repo.get_job(scope, job_id)
         if job is None:
             return  # 取り違え/期限切れ。冪等に無視
@@ -485,9 +494,14 @@ class NoshiService:
             job.candidates = out["candidates"]
             job.confidence = out["confidence"]
             job.field_confidence = out.get("field_confidence", {})
-        except Exception:  # noqa: BLE001 - 失敗は failed として確定（無言成功にしない）
+            self.repo.put_job(job)
+        except ValueError as exc:
+            # 恒久エラー: 再試行不要。failed 確定（この put_job 失敗は下に伝播＝一時障害扱い）。
+            logging.getLogger("noshi").warning(
+                "extraction permanently failed job=%s: %s", job_id, exc
+            )
             job.status = "failed"
-        self.repo.put_job(job)
+            self.repo.put_job(job)
 
     def extraction_needs_review(self, job: ExtractionJob) -> bool:
         return rules.needs_review(job.confidence)

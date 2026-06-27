@@ -14,6 +14,7 @@ interface ApiStackProps extends StackProps {
   queue: sqs.Queue;
   imageBucket: s3.Bucket;
   userPoolId: string; // Cognito 世帯認証（JWT を RS256/JWKS で検証）
+  userPoolClientId: string; // aud 検証（想定アプリクライアント以外のトークンを拒否）
   catalogTable: dynamodb.Table;
 }
 
@@ -43,7 +44,12 @@ export class ApiStack extends Stack {
         NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
         // 既定で Cognito 認証を強制（安全側、#101）。POOL_ID 注入で JWT(RS256/JWKS) 検証が有効になる。
         // デモ/ローカル等でスタブ認証(X-User-Id)を使う場合のみ context `allowStubAuth=true` を指定する。
-        ...(this.node.tryGetContext("allowStubAuth") ? {} : { NOSHI_COGNITO_POOL_ID: props.userPoolId }),
+        ...(this.node.tryGetContext("allowStubAuth")
+          ? {}
+          : {
+              NOSHI_COGNITO_POOL_ID: props.userPoolId,
+              NOSHI_COGNITO_CLIENT_ID: props.userPoolClientId, // aud/client_id 検証
+            }),
       },
     });
 

@@ -63,6 +63,14 @@ def _verify_cognito(token: str, pool_id: str, region: str) -> dict[str, Any]:
     # アクセストークン/IDトークンのみ受理（A07）
     if claims.get("token_use") not in (None, "id", "access"):
         raise AuthError("unexpected token_use")
+    # 想定アプリクライアント以外のトークンを拒否（同一プールの別クライアントなりすまし防止）。
+    # ID トークンは aud、アクセストークンは client_id にクライアントIDが入る。
+    # NOSHI_COGNITO_CLIENT_ID 未設定時は検証しない（後方互換）。
+    allowed_client = os.environ.get("NOSHI_COGNITO_CLIENT_ID")
+    if allowed_client:
+        token_client = claims.get("aud") or claims.get("client_id")
+        if token_client != allowed_client:
+            raise AuthError("unexpected audience")
     return claims
 
 
@@ -71,10 +79,12 @@ def decode_identity(token: str) -> Identity:
     secret = os.environ.get("NOSHI_JWT_SECRET")
     pool_id = os.environ.get("NOSHI_COGNITO_POOL_ID")
     region = os.environ.get("AWS_REGION", "ap-northeast-1")
-    if secret:
-        claims = _verify_hs256(token, secret)
-    elif pool_id:
+    # Cognito(RS256) を最優先。本番に NOSHI_JWT_SECRET が混入しても HS256(対称鍵)に
+    # 降格させない（対称鍵を知る者による sub/email なりすまし防止）。HS256 はローカル/CI 専用。
+    if pool_id:
         claims = _verify_cognito(token, pool_id, region)
+    elif secret:
+        claims = _verify_hs256(token, secret)
     else:
         raise AuthError("no auth method configured")
 

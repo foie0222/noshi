@@ -6,7 +6,8 @@ from functools import lru_cache
 
 @lru_cache(maxsize=256)
 def _compile(pattern: str) -> re.Pattern[str]:
-    out = ["^"]
+    # アンカー（^/$）は付けない。matches() が fullmatch で全体一致を強制する。
+    out: list[str] = []
     i = 0
     n = len(pattern)
     while i < n:
@@ -21,7 +22,6 @@ def _compile(pattern: str) -> re.Pattern[str]:
         else:
             out.append(re.escape(pattern[i]))
             i += 1
-    out.append("$")
     return re.compile("".join(out))
 
 

@@ -62,7 +62,7 @@ jobs:
 
             手順:
             1. `gh issue view ${{ inputs.issue_number }}` で要求を把握。
-            2. `cat AGENTS.md REVIEW.md CLAUDE.md` を読み、規約（TDD 必須・スコープ厳守・lint/型）を厳守。
+            2. `AGENTS.md`・`REVIEW.md`・`CLAUDE.md` を Read ツールで読み、規約（TDD 必須・スコープ厳守・lint/型）を厳守。
             3. `main` から `issue-${{ inputs.issue_number }}` ブランチを切る。
             4. 失敗するテストを先に書き、最小実装で通す（Red→Green→Refactor）。
             5. backend は `cd backend && .venv/bin/python -m pytest`、frontend は `npx vitest run` で緑を確認。

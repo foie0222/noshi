@@ -33,3 +33,8 @@ def test_prio_highは新しくても先に選ばれる():
 def test_needs_poは除外される():
     issues = [Issue(1, ("po:approved", "needs:po"), "2026-06-01T00:00:00Z")]
     assert select_next(issues) is None
+
+
+def test_pr作成済みは除外される():
+    issues = [Issue(1, ("po:approved", "agent:pr-open"), "2026-06-01T00:00:00Z")]
+    assert select_next(issues) is None

@@ -18,7 +18,9 @@ DEFAULT_POLICY = MergePolicy(
     sensitive_globs=(
         # カネ/アフィリエイト（お返し品提案・楽天・スコアリング・課金）
         "backend/app/catalog/**",
-        "backend/app/domain/rules.py",
+        # コアのビジネスルール/ドメイン（半返し等の金額ロジックを含む。将来の
+        # domain 配下の新ルールも取りこぼさないよう配下全体をセンシティブ扱い）
+        "backend/app/domain/**",
         # 認証・本人/世帯スコープ（OWASP A01）
         "backend/app/auth.py",
         "backend/app/auth_triggers.py",

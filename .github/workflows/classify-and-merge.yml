@@ -55,8 +55,14 @@ jobs:
           v=$(printf '%s' "$verdict" | cut -f1); reason=$(printf '%s' "$verdict" | cut -f2-)
           if [ "$v" = "auto" ]; then
             gh pr edit "$PR" --add-label merge:auto --remove-label merge:human
-            gh pr merge "$PR" --squash --auto
-            gh pr comment "$PR" --body "merge:auto と判定（$reason）。CI緑+レビュー解決で自動マージします。"
+            # 自動マージはオペレーター発行 PR（agent:pr-open）のみ。人間発行の低リスク PR は PO がマージ。
+            agent_pr=$(gh pr view "$PR" --json labels -q '.labels[].name' | grep -cx 'agent:pr-open' || true)
+            if [ "$agent_pr" -gt 0 ]; then
+              gh pr merge "$PR" --squash --auto
+              gh pr comment "$PR" --body "merge:auto と判定（$reason）。CI緑+レビュー解決で自動マージします。"
+            else
+              gh pr comment "$PR" --body "merge:auto と判定（$reason）。人間発行 PR のため自動マージはスキップ（PO がマージしてください）。"
+            fi
           else
             gh pr edit "$PR" --add-label merge:human --remove-label merge:auto
             gh pr comment "$PR" --body "merge:human と判定（$reason）。PO のマージが必要です。"

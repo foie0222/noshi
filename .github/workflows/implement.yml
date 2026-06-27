@@ -36,8 +36,9 @@ jobs:
           labels=$(gh issue view "$ISSUE" --json labels -q '.labels[].name')
           echo "$labels" | grep -qx 'po:approved' || { echo '::error::po:approved が無い'; exit 1; }
           for b in agent:pr-open needs:po; do
-            echo "$labels" | grep -qx "$b" && { echo "::error::$b が付いている"; exit 1; }
+            if echo "$labels" | grep -qx "$b"; then echo "::error::$b が付いている"; exit 1; fi
           done
+          echo "guard ok"  # 末尾を成功で終える（for の最終 grep 失敗が exit code に残るのを防ぐ）
 
       - name: GitHub App トークンを発行（PR作成イベントでCI/レビューを発火させる）
         id: app-token

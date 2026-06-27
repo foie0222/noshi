@@ -1,0 +1,12 @@
+[
+  { "name": "po:proposal", "color": "fbca04", "description": "Claude生成の提案。PO判断待ち。Claudeは実装しない" },
+  { "name": "po:approved", "color": "0e8a16", "description": "POがGo。Claudeが実装に着手する唯一のトリガ" },
+  { "name": "po:rejected", "color": "b60205", "description": "POが却下" },
+  { "name": "prio:high", "color": "d93f0b", "description": "優先度高。承認済みの中で先に着手" },
+  { "name": "agent:in-progress", "color": "1d76db", "description": "オペレーターが着手中（二重着手防止）" },
+  { "name": "agent:pr-open", "color": "5319e7", "description": "PRを開いた" },
+  { "name": "needs:po", "color": "e99695", "description": "PO級の判断が必要。Claudeは手を止める" },
+  { "name": "merge:auto", "color": "c2e0c6", "description": "低リスク。CI緑+レビュー通過で自動マージ" },
+  { "name": "merge:human", "color": "f9d0c4", "description": "センシティブ。人間(PO)がマージ" },
+  { "name": "agent:briefing", "color": "bfdadc", "description": "Operator Briefing の固定Issue" }
+]

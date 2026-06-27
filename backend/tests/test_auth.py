@@ -58,3 +58,50 @@ def test_decode_identity_は_email_verified_と_raw_user_id_を取り込む(monk
     assert ident.user_id == "sub1"
     assert ident.raw_user_id == "sub1"  # 解決前は raw==user_id
     assert ident.email_verified is True
+
+
+def test_pool_id優先でHS256secretを無視する(monkeypatch):
+    """本番に NOSHI_JWT_SECRET が混入しても Cognito(RS256) を優先し HS256 へ降格しない（なりすまし防止）。"""
+    import app.auth as auth
+
+    monkeypatch.setenv("NOSHI_JWT_SECRET", SECRET)
+    monkeypatch.setenv("NOSHI_COGNITO_POOL_ID", "pool-x")
+    called = {"cognito": False, "hs256": False}
+
+    def fake_cognito(token, pool_id, region):
+        called["cognito"] = True
+        return {"sub": "u1", "token_use": "id"}
+
+    def fake_hs256(token, secret):
+        called["hs256"] = True
+        return {"sub": "should-not-be-used"}
+
+    monkeypatch.setattr(auth, "_verify_cognito", fake_cognito)
+    monkeypatch.setattr(auth, "_verify_hs256", fake_hs256)
+    ident = decode_identity("dummy")
+    assert ident.user_id == "u1"
+    assert called["cognito"] is True and called["hs256"] is False
+
+
+def test_aud不一致のトークンは拒否される(monkeypatch):
+    """別アプリクライアント向け(aud/client_id 不一致)のトークンを拒否する。"""
+    import app.auth as auth
+
+    monkeypatch.setenv("NOSHI_COGNITO_CLIENT_ID", "client-allowed")
+
+    class FakeKey:
+        key = "k"
+
+    class FakeJwks:
+        def get_signing_key_from_jwt(self, token):
+            return FakeKey()
+
+    auth._jwks_client = FakeJwks()
+    monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-other"})
+    with pytest.raises(AuthError):
+        auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
+    # 一致すれば通る
+    monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-allowed"})
+    claims = auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
+    assert claims["sub"] == "u1"
+    auth._jwks_client = None  # 後始末

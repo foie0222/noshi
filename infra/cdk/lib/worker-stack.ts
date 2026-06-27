@@ -52,6 +52,10 @@ export class WorkerStack extends Stack {
       }),
     );
     // 1メッセージ=1OCR（遅い画像が他をブロックしない／SQS が並列にスケール）。
-    worker.addEventSource(new SqsEventSource(props.queue, { batchSize: 1 }));
+    // reportBatchItemFailures: ハンドラが返す batchItemFailures の messageId だけ再試行→DLQ。
+    // これが無いと「成功 return＝全削除」となり、一時障害でも再試行/DLQ が働かない。
+    worker.addEventSource(
+      new SqsEventSource(props.queue, { batchSize: 1, reportBatchItemFailures: true }),
+    );
   }
 }

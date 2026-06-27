@@ -28,9 +28,11 @@ def _service() -> Any:
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # event["Records"]: SQS メッセージ（body に job_id/user_id/image_key/content_type）。
+    # 失敗した record は batchItemFailures で SQS に返す（再試行→DLQ）。例外を握りつぶして
+    # 正常 return すると SQS がメッセージを削除し、再試行/DLQ が一切働かなくなる（要 reportBatchItemFailures）。
     records = (event or {}).get("Records", [])
     svc = _service()
-    processed = 0
+    failures: list[dict[str, str]] = []
     for rec in records:
         try:
             msg = json.loads(rec["body"])
@@ -40,7 +42,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 msg["image_key"],
                 msg.get("content_type", "image/jpeg"),
             )
-            processed += 1
-        except Exception:  # noqa: BLE001 - 1件の失敗を他に波及させない
-            logger.exception("extraction record failed")
-    return {"processed": processed}
+        except Exception:  # noqa: BLE001 - 1件の失敗を他に波及させず、当該のみ再試行対象に
+            logger.exception("extraction record failed messageId=%s", rec.get("messageId"))
+            mid = rec.get("messageId")
+            if mid:
+                failures.append({"itemIdentifier": mid})
+    return {"batchItemFailures": failures}

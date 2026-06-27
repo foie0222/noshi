@@ -45,19 +45,20 @@ class FakeQueue:
 
 
 class FakeOcr:
-    def __init__(self, result=None, fail=False):
+    def __init__(self, result=None, fail=False, error=None):
         self.result = result or {
             "candidates": {"amount": 30000, "party_name": "佐藤"},
             "confidence": 0.9,
             "field_confidence": {"amount": 0.9},
         }
-        self.fail = fail
+        # error: 投げる例外（None なら正常）。fail=True は後方互換で RuntimeError(一時障害)。
+        self.error = error or (RuntimeError("ocr boom") if fail else None)
         self.seen: list[list[str]] = []
 
     def extract(self, image_refs):
         self.seen.append(image_refs)
-        if self.fail:
-            raise RuntimeError("ocr boom")
+        if self.error is not None:
+            raise self.error
         return self.result
 
 
@@ -99,13 +100,27 @@ def test_run_extractionはS3画像をOCRしジョブをcompletedにする():
     assert ocr.seen[0][0].startswith("data:image/jpeg;base64,")
 
 
-def test_run_extraction失敗はfailedで確定する():
+def test_run_extraction恒久エラー_ValueErrorはfailedで確定する():
     images, queue = FakeImages(), FakeQueue()
-    svc = _svc(images, queue, FakeOcr(fail=True))
+    svc = _svc(images, queue, FakeOcr(error=ValueError("形式不正")))
     job = svc.enqueue_extraction("u1", TINY)
     msg = queue.sent[0]
+    # 恒久エラーは握って failed 確定（リトライ不要）→ 例外は出ない
     svc.run_extraction(msg["user_id"], msg["job_id"], msg["image_key"], msg["content_type"])
     assert svc.get_extraction("u1", job.id).status == "failed"
+
+
+def test_run_extraction一時障害は例外を送出しジョブを触らない():
+    import pytest
+
+    images, queue = FakeImages(), FakeQueue()
+    svc = _svc(images, queue, FakeOcr(error=RuntimeError("throttled")))
+    job = svc.enqueue_extraction("u1", TINY)
+    msg = queue.sent[0]
+    # 一時障害は再試行のため送出（worker が SQS に戻す）。ジョブは pending のまま。
+    with pytest.raises(RuntimeError):
+        svc.run_extraction(msg["user_id"], msg["job_id"], msg["image_key"], msg["content_type"])
+    assert svc.get_extraction("u1", job.id).status == "pending"
 
 
 def test_run_extractionは未知ジョブを冪等に無視する():
@@ -153,7 +168,7 @@ def test_worker_handlerはSQSレコードを処理する():
     job = svc.enqueue_extraction("u1", TINY)
     import json as _json
 
-    event = {"Records": [{"body": _json.dumps(queue.sent[0])}]}
+    event = {"Records": [{"messageId": "m1", "body": _json.dumps(queue.sent[0])}]}
     # _service をフェイク svc に差し替え
     import app.worker as w
 
@@ -163,5 +178,24 @@ def test_worker_handlerはSQSレコードを処理する():
         out = worker_handler(event, None)
     finally:
         w._service = orig
-    assert out["processed"] == 1
+    assert out["batchItemFailures"] == []  # 成功 → 再試行対象なし
     assert svc.get_extraction("u1", job.id).status == "completed"
+
+
+def test_worker_handlerは一時障害のmessageIdをbatchItemFailuresで返す():
+    # run_extraction が一時障害で送出 → worker は当該 messageId を返し SQS に再試行させる
+    images, queue = FakeImages(), FakeQueue()
+    svc = _svc(images, queue, FakeOcr(error=RuntimeError("throttled")))
+    svc.enqueue_extraction("u1", TINY)
+    import json as _json
+
+    import app.worker as w
+
+    event = {"Records": [{"messageId": "m9", "body": _json.dumps(queue.sent[0])}]}
+    orig = w._service
+    w._service = lambda: svc
+    try:
+        out = worker_handler(event, None)
+    finally:
+        w._service = orig
+    assert out["batchItemFailures"] == [{"itemIdentifier": "m9"}]

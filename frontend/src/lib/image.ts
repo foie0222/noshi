@@ -20,7 +20,7 @@ export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
+    reader.onerror = () => reject(reader.error ?? new Error("画像を変換できませんでした。"));
     reader.readAsDataURL(file);
   });
 }
@@ -65,8 +65,8 @@ export async function downscaleImageToDataUrl(
   const blob = await downscaleImage(dataUrl, maxDim, quality);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("画像を変換できませんでした。"));
     reader.readAsDataURL(blob);
   });
 }

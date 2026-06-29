@@ -538,6 +538,7 @@ export function App() {
       // ローカル/モックは即 completed（候補入り）が返る。
       // OCR 送信前にリサイズ（長辺1280px・JPEG 82%）。スマホ写真(5〜10MB)を圧縮して高速化。
       const resized = await downscaleImageToDataUrl(img);
+      if (captureReq.current !== reqId) return;
       let job = await api.capture(resized);
       if (job.status === "pending") {
         job = await pollCaptureJob(job.job_id);

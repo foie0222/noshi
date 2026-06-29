@@ -20,7 +20,7 @@ export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
+    reader.onerror = () => reject(reader.error ?? new Error("画像を変換できませんでした。"));
     reader.readAsDataURL(file);
   });
 }
@@ -53,5 +53,20 @@ export function downscaleImage(dataUrl: string, maxDim = 1280, quality = 0.82): 
     };
     img.onerror = () => reject(new Error("画像を読み込めませんでした。"));
     img.src = dataUrl;
+  });
+}
+
+/** data URL の画像を縮小し JPEG data URL にして返す（OCR 送信用）。 */
+export async function downscaleImageToDataUrl(
+  dataUrl: string,
+  maxDim = 1280,
+  quality = 0.82,
+): Promise<string> {
+  const blob = await downscaleImage(dataUrl, maxDim, quality);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("画像を変換できませんでした。"));
+    reader.readAsDataURL(blob);
   });
 }

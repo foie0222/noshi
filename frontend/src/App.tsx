@@ -37,7 +37,12 @@ import { emptyManualDraft } from "./lib/draft";
 import { openExternalUrl } from "./lib/external";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
-import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
+import {
+  downscaleImage,
+  downscaleImageToDataUrl,
+  fileToDataUrl,
+  validateImageFile,
+} from "./lib/image";
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
@@ -46,7 +51,6 @@ import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
 import {
   type AnnualSummary,
-  type CaptureCandidates,
   type CaptureResponse,
   type Direction,
   type Draft,
@@ -532,7 +536,10 @@ export function App() {
     try {
       // 撮影画像を送って AI 抽出。本番は pending が返るので worker 完了までポーリング。
       // ローカル/モックは即 completed（候補入り）が返る。
-      let job = await api.capture(img);
+      // OCR 送信前にリサイズ（長辺1280px・JPEG 82%）。スマホ写真(5〜10MB)を圧縮して高速化。
+      const resized = await downscaleImageToDataUrl(img);
+      if (captureReq.current !== reqId) return;
+      let job = await api.capture(resized);
       if (job.status === "pending") {
         job = await pollCaptureJob(job.job_id);
       }

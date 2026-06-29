@@ -1,7 +1,6 @@
 """足切りゲート・スコア合成・saleNote 生成のテスト。スペック§6に対応。"""
 
 import pytest
-
 from app.catalog.scoring import (
     bayes_score,
     linear_score,

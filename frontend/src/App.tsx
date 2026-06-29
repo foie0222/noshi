@@ -37,7 +37,12 @@ import { emptyManualDraft } from "./lib/draft";
 import { openExternalUrl } from "./lib/external";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
-import { downscaleImage, downscaleImageToDataUrl, fileToDataUrl, validateImageFile } from "./lib/image";
+import {
+  downscaleImage,
+  downscaleImageToDataUrl,
+  fileToDataUrl,
+  validateImageFile,
+} from "./lib/image";
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { reviewMessage } from "./lib/review";
@@ -46,7 +51,6 @@ import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
 import {
   type AnnualSummary,
-  type CaptureCandidates,
   type CaptureResponse,
   type Direction,
   type Draft,

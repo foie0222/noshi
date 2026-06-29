@@ -57,7 +57,11 @@ export function downscaleImage(dataUrl: string, maxDim = 1280, quality = 0.82): 
 }
 
 /** data URL の画像を縮小し JPEG data URL にして返す（OCR 送信用）。 */
-export async function downscaleImageToDataUrl(dataUrl: string, maxDim = 1280, quality = 0.82): Promise<string> {
+export async function downscaleImageToDataUrl(
+  dataUrl: string,
+  maxDim = 1280,
+  quality = 0.82,
+): Promise<string> {
   const blob = await downscaleImage(dataUrl, maxDim, quality);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

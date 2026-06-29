@@ -129,8 +129,8 @@ def half_return(amount: int, purpose: str) -> ReturnRange:
     return ReturnRange(recommended, min(low, recommended), max(high, recommended), ratio, rationale)
 
 
-# 社会通念上の贈答で集計除外する用途（BR-4-TAX）。
-_GIFT_TAX_EXCLUDED = ("香典", "御霊前", "御仏前", "お中元", "お歳暮", "中元", "歳暮")
+# 社会通念上の贈答で集計除外する用途（BR-4-TAX-1 列挙: 香典・お中元・お歳暮のみ）。
+_GIFT_TAX_EXCLUDED = ("香典", "お中元", "お歳暮")
 GIFT_TAX_EXEMPTION = 1_100_000  # 暦年課税の基礎控除
 
 

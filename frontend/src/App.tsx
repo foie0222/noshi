@@ -46,7 +46,6 @@ import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
 import {
   type AnnualSummary,
-  type CaptureCandidates,
   type CaptureResponse,
   type Direction,
   type Draft,
@@ -2158,9 +2157,7 @@ export function App() {
                     <button
                       type="button"
                       className="btn ghost"
-                      onClick={() =>
-                        setReturnDraft({ item: "", amount: "", occurred_at: "" })
-                      }
+                      onClick={() => setReturnDraft({ item: "", amount: "", occurred_at: "" })}
                     >
                       お返しを記録する
                     </button>
@@ -2183,9 +2180,7 @@ export function App() {
                         />
                         {returnTried &&
                           (!returnDraft.amount.trim() || Number(returnDraft.amount) <= 0) && (
-                            <span className="field-error">
-                              金額は1円以上で入力してください。
-                            </span>
+                            <span className="field-error">金額は1円以上で入力してください。</span>
                           )}
                       </div>
                       <div className="field">
@@ -2196,9 +2191,7 @@ export function App() {
                           list="return-item-suggestions"
                           placeholder="カタログギフト など"
                           value={returnDraft.item}
-                          onChange={(e) =>
-                            setReturnDraft({ ...returnDraft, item: e.target.value })
-                          }
+                          onChange={(e) => setReturnDraft({ ...returnDraft, item: e.target.value })}
                         />
                         <datalist id="return-item-suggestions">
                           {ITEM_SUGGESTIONS.map((s) => (

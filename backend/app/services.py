@@ -182,10 +182,34 @@ class NoshiService:
         }
 
     def join_household(self, user_id: str, code: str, email: str = "") -> Household:
-        """招待コードで世帯に参加する（既存の所属は上書き）。"""
+        """招待コードで世帯に参加する。旧世帯を後始末してから新世帯へ移る（#321）。"""
         h = self.repo.get_household_by_invite((code or "").strip().upper())
         if h is None:
             raise ValidationError(["招待コードが正しくありません。"])
+        # 旧世帯の後始末: leave_household と同等の処理（owner 引き継ぎ / 単独なら purge）。
+        m = self.repo.get_membership(user_id)
+        if m is not None and m.household_id != h.id:
+            old_hid, was_owner = m.household_id, m.role == "owner"
+            self.repo.delete_membership(user_id)  # USER# + HOUSEHOLD# 逆引きを両方消す
+            self._audit(user_id, "leave_household", old_hid)  # A09
+            if was_owner:
+                remaining = sorted(self.repo.list_members(old_hid), key=lambda x: x.joined_at)
+                if remaining:
+                    # 最古参メンバーに owner を引き継ぐ
+                    heir = remaining[0]
+                    self.repo.put_membership(
+                        Membership(
+                            user_id=heir.user_id,
+                            household_id=old_hid,
+                            role="owner",
+                            email=heir.email,
+                            joined_at=heir.joined_at,
+                        )
+                    )
+                    self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
+                else:
+                    # 単独だったので旧世帯ごと purge（孤児化防止）
+                    self._purge_household(old_hid)
         self.repo.put_membership(
             Membership(user_id=user_id, household_id=h.id, role="member", email=email)
         )

@@ -672,6 +672,57 @@ def test_remove_memberは別名subでも家族を外せる():
     assert svc.repo.get_membership("memberPrimary") is None
 
 
+def test_join_householdで旧世帯のowner不在を防ぎ引き継ぎが行われる():
+    """owner が他世帯へ join したとき、旧世帯の最古参メンバーに owner が引き継がれることを検証する（#321）。"""
+    svc = make_service()
+    old_h = svc.resolve_household("owner1")
+    svc.join_household("member1", svc.repo.get_household(old_h.id).invite_code)
+    # owner1 が別の世帯に join する
+    new_h = svc.resolve_household("owner2")
+    svc.join_household("owner1", svc.repo.get_household(new_h.id).invite_code)
+    # 旧世帯の member1 が新 owner になっているはず
+    m = svc.repo.get_membership("member1")
+    assert m is not None and m.role == "owner" and m.household_id == old_h.id
+
+
+def test_join_householdで旧世帯が単独の場合孤児化せず世帯が削除される():
+    """owner 単独の世帯から他世帯へ join したとき、旧世帯レコードが purge されることを検証する（#321）。"""
+    svc = make_service()
+    old_h = svc.resolve_household("loner")
+    old_hid = old_h.id
+    new_h = svc.resolve_household("owner2")
+    svc.join_household("loner", svc.repo.get_household(new_h.id).invite_code)
+    # 旧世帯の Household エンティティが削除されている
+    assert svc.repo.get_household(old_hid) is None
+
+
+def test_join_householdで旧世帯の逆引きインデックスが残らない():
+    """join 後に旧世帯のメンバー一覧が空になり、DynamoDB 相当の逆引きインデックスが孤児化しないことを検証する（#321）。"""
+    svc = make_service()
+    old_h = svc.resolve_household("u1")
+    old_hid = old_h.id
+    new_h = svc.resolve_household("u2")
+    svc.join_household("u1", svc.repo.get_household(new_h.id).invite_code)
+    # 旧世帯のメンバー一覧が空（逆引きインデックスが後始末されている）
+    assert svc.repo.list_members(old_hid) == []
+
+
+def test_join_householdでEMAIL代表は新世帯へも追従し整合を保つ():
+    """EMAIL# 代表 sub が join 後も有効で、新世帯へのログイン解決に使えることを検証する（#321）。"""
+    svc = make_service()
+    # owner が EMAIL# 代表として旧世帯にいる
+    svc.resolve_household("ownerSub", email="a@x.com", email_verified=True)
+    assert svc.repo.get_email_primary("a@x.com") == "ownerSub"
+    # 別の世帯に join
+    new_h = svc.resolve_household("other")
+    svc.join_household("ownerSub", svc.repo.get_household(new_h.id).invite_code, email="a@x.com")
+    # EMAIL# は ownerSub のまま（sub は変わらないので代表は引き続き有効）
+    assert svc.repo.get_email_primary("a@x.com") == "ownerSub"
+    # ownerSub の membership が新世帯を指している
+    m = svc.repo.get_membership("ownerSub")
+    assert m is not None and m.household_id == new_h.id
+
+
 def test_returns_payloadはcategory素通しと品目タブを1回の認可で返す():
     class SpyCatalog(GiftCatalogMock):
         def __init__(self):

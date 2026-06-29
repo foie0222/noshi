@@ -744,3 +744,20 @@ def test_givenレコードへのreturn_for_id紐付けは拒否される():
             direction="given",
             return_for_id=given_rec.id,  # given への紐付けは不可
         )
+
+
+def test_received方向でreturn_for_idを指定するとValidationErrorになる():
+    """return_for_id は direction=given のみ許可される。received での指定は ValidationError になることを検証する。"""
+    svc = make_service()
+    received_rec, _ = svc.create_record(
+        "u1", amount=10000, purpose="お歳暮", party_name="山田", direction="received"
+    )
+    with pytest.raises(ValidationError):
+        svc.create_record(
+            "u1",
+            amount=5000,
+            purpose="お歳暮",
+            party_name="山田",
+            direction="received",  # given 以外での return_for_id は不可
+            return_for_id=received_rec.id,
+        )

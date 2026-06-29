@@ -40,6 +40,7 @@ import { isSharing, memberDisplay } from "./lib/household";
 import { downscaleImage, fileToDataUrl, validateImageFile } from "./lib/image";
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
+import { filterReturnRecords, isValidReturnAmount } from "./lib/return";
 import { reviewMessage } from "./lib/review";
 import { priceLine } from "./lib/suggestion";
 import { toneOf } from "./lib/tone";
@@ -157,6 +158,7 @@ export function App() {
   const [activeCat, setActiveCat] = useState<string | null>(null); // null = おすすめ
   const suggestCatReq = useRef(0);
   const captureReq = useRef(0); // 撮影→抽出の世代。古い完了が新しい操作を上書きしないよう破棄に使う
+  const returnRecordsReq = useRef(0); // お返し実績ロードの世代。画面遷移後に古い応答が混入しないよう破棄に使う
   const [fontLarge, setFontLarge] = useState<boolean>(
     () => localStorage.getItem("noshi-font") === "large",
   );
@@ -627,11 +629,13 @@ export function App() {
   }
 
   async function loadReturnRecords(recordId: string) {
+    const reqId = ++returnRecordsReq.current;
     try {
       const r = await api.ledger();
-      setReturnRecords(r.records.filter((rec) => rec.return_for_id === recordId));
+      if (returnRecordsReq.current !== reqId) return; // 新しい画面遷移が来ていれば古い応答は破棄
+      setReturnRecords(filterReturnRecords(r.records, recordId));
     } catch {
-      setReturnRecords([]);
+      if (returnRecordsReq.current === reqId) setReturnRecords([]);
     }
   }
 
@@ -869,11 +873,11 @@ export function App() {
   }
   async function saveReturn() {
     if (!event || !returnDraft) return;
-    const amount = Number(returnDraft.amount);
-    if (!returnDraft.amount.trim() || amount <= 0) {
+    if (!isValidReturnAmount(returnDraft.amount)) {
       setReturnTried(true);
       return;
     }
+    const amount = Number(returnDraft.amount);
     try {
       await api.createRecord({
         direction: "given",

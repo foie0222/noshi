@@ -155,8 +155,7 @@ def gift_tax_summary(records: list[GiftRecord], year: int) -> dict[str, Any]:
         purpose = getattr(r, "purpose", "") or ""
         if any(k in purpose for k in _GIFT_TAX_EXCLUDED):
             continue
-        occurred = (getattr(r, "occurred_at", "") or "")[:4]
-        if occurred and occurred != str(year):
+        if (getattr(r, "occurred_at", "") or "")[:4] != str(year):
             continue
         total += getattr(r, "amount", 0) or 0
     return {

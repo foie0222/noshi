@@ -723,6 +723,34 @@ def test_join_householdでEMAIL代表は新世帯へも追従し整合を保つ(
     assert m is not None and m.household_id == new_h.id
 
 
+def test_leave_householdで単独ownerが脱退したら旧世帯が削除される():
+    """owner 単独の世帯から leave したとき、旧世帯レコードが purge されることを検証する（#321 の leave_household 版）。"""
+    svc = make_service()
+    old_h = svc.resolve_household("loner")
+    old_hid = old_h.id
+    svc.leave_household("loner")
+    assert svc.repo.get_household(old_hid) is None
+
+
+def test_leave_householdでownerが抜けて家族に所有権が引き継がれる():
+    """owner が leave したとき、残存メンバー最古参に owner が引き継がれることを検証する（#321 の leave_household 版）。"""
+    svc = make_service()
+    h = svc.resolve_household("owner1")
+    svc.join_household("member1", svc.repo.get_household(h.id).invite_code)
+    svc.leave_household("owner1")
+    m = svc.repo.get_membership("member1")
+    assert m is not None and m.role == "owner" and m.household_id == h.id
+
+
+def test_delete_accountでowner単独の世帯が削除される():
+    """delete_account 時、owner 単独の世帯が purge されることを検証する。"""
+    svc = make_service()
+    h = svc.resolve_household("solo")
+    hid = h.id
+    svc.delete_account("solo")
+    assert svc.repo.get_household(hid) is None
+
+
 def test_returns_payloadはcategory素通しと品目タブを1回の認可で返す():
     class SpyCatalog(GiftCatalogMock):
         def __init__(self):

@@ -55,11 +55,13 @@ jobs:
           v=$(printf '%s' "$verdict" | cut -f1); reason=$(printf '%s' "$verdict" | cut -f2-)
           if [ "$v" = "auto" ]; then
             gh pr edit "$PR" --add-label merge:auto --remove-label merge:human
-            # 自動マージはオペレーター(GitHub App)発行 PR のみ。判定は PR の作者で行う
-            # （agent:pr-open ラベルは Issue に付き PR には付かないため、作者で見るのが正しい）。
+            # 自動マージ対象は operator(GitHub App) が implement.yml 経由で開いた PR のみ。
+            # 判定は PR の作者の「完全一致」で行う（部分一致は evil-...noshi-operator-foie0222 等の
+            # 偽アカウントを許してしまうため不可）。agent:pr-open ラベルは Issue に付き PR には付かない。
+            # gh の GraphQL author.login は App だと "app/<slug>" を返す。REST 由来の "<slug>[bot]" も防御的に許可。
             # 人間発行の低リスク PR は PO がマージ。レビュー指摘があれば未解決スレッドで自動マージは保留される。
             author=$(gh pr view "$PR" --json author -q '.author.login')
-            if echo "$author" | grep -q 'noshi-operator-foie0222'; then
+            if [ "$author" = "app/noshi-operator-foie0222" ] || [ "$author" = "noshi-operator-foie0222[bot]" ]; then
               gh pr merge "$PR" --squash --auto
               gh pr comment "$PR" --body "merge:auto と判定（$reason）。operator PR のため CI緑+レビュー解決で自動マージします。"
             else

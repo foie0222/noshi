@@ -269,6 +269,7 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
             occurred_at=body.occurred_at,
             item=body.item,
             image_key=body.image_key,
+            return_for_id=body.return_for_id,
         )
         # given はお返しイベントを持たない（ev is None）。安全に null を返す（FR-8-1）。
         return {"record": vars(rec), "event": vars(ev) if ev is not None else None}

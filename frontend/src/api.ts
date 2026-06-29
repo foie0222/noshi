@@ -65,6 +65,7 @@ export interface RecordInput {
   occurred_at?: string;
   item?: string;
   image_key?: string;
+  return_for_id?: string;
 }
 
 export const api = {

@@ -545,6 +545,12 @@ class NoshiService:
         errors = rules.validate_record(amount, purpose, party.name, direction)
         if errors:
             raise ValidationError(errors)
+        return_for_id = (extra.get("return_for_id") or "").strip()
+        if return_for_id:
+            # 同一世帯スコープの received レコードのみ紐付け可（OWASP A01）
+            target = self.repo.get_record(scope, return_for_id)
+            if target is None or target.direction != "received":
+                raise ValidationError(["紐付け先の記録が見つかりません。"])
         rec = GiftRecord(
             user_id=scope,
             amount=amount,
@@ -555,6 +561,7 @@ class NoshiService:
             occurred_at=extra.get("occurred_at", ""),
             item=extra.get("item", ""),
             image_key=extra.get("image_key", ""),
+            return_for_id=return_for_id,
         )
         self.repo.put_record(rec)
         # received のみお返しイベントを生成（BR-3-GIVEN: given は対象外）

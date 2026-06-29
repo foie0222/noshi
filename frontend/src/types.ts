@@ -13,6 +13,7 @@ export interface GiftRecord {
   item: string;
   relationship: string;
   memo: string;
+  return_for_id?: string;
 }
 
 /** 相手（人）。同名でも別人を ID で区別する（#47）。 */

@@ -4,7 +4,6 @@
 // Web では本モジュールを使わず、従来の <input type="file"> 経路に委ねる。
 
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
-import { Capacitor } from "@capacitor/core";
 
 /** カメラ・写真ライブラリの両方が拒否され、撮影に進めない状態。UI は設定誘導を出す。 */
 export class CameraPermissionDeniedError extends Error {
@@ -12,11 +11,6 @@ export class CameraPermissionDeniedError extends Error {
     super("カメラ・写真へのアクセスが許可されていません。");
     this.name = "CameraPermissionDeniedError";
   }
-}
-
-/** ネイティブ環境か。UI（撮影導線の出し分け）に使う。 */
-export function isNativeCamera(): boolean {
-  return Capacitor.isNativePlatform();
 }
 
 function looksLikeCancel(message: string): boolean {

@@ -16,7 +16,7 @@ import { PartySelect } from "./components/PartySelect";
 import { PasswordInput } from "./components/PasswordInput";
 import { Select } from "./components/Select";
 import { LEGAL_DOCS, type LegalDocKey, legalDocFromPath } from "./legal";
-import { CameraPermissionDeniedError, captureNativePhoto, isNativeCamera } from "./lib/camera";
+import { CameraPermissionDeniedError, captureNativePhoto } from "./lib/camera";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -46,6 +46,7 @@ import {
 } from "./lib/image";
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
+import { isNativePlatform } from "./lib/platform";
 import { filterReturnRecords, isValidReturnAmount } from "./lib/return";
 import { reviewMessage } from "./lib/review";
 import { priceLine } from "./lib/suggestion";
@@ -124,6 +125,9 @@ const TrustNote = () => (
     </div>
   </div>
 );
+
+// 実行プラットフォームは起動後に変化しないため、モジュール評価時に一度だけ判定する。
+const nativeCamera = isNativePlatform();
 
 export function App() {
   // 直URL（/privacy 等）は未ログインでも法的文書を直接開く（#155）。
@@ -211,12 +215,12 @@ export function App() {
 
   // ネイティブ（iOS/Android）はカメラ/ライブラリをネイティブ起動し、得た画像を
   // 既存 onPickImage の検証→ダウンスケール→抽出パスへ合流させる（#203 / 4.2 対策 #197）。
-  const nativeCamera = isNativeCamera();
   async function onCaptureNative() {
     if (extracting) return; // 読み取り中の撮り直しを禁止（抽出と画像の取り違え防止）
     try {
       const file = await captureNativePhoto();
-      if (!file) return; // ユーザーがキャンセル
+      // null はユーザーのキャンセル（＝意図的に無反応で正しい。撮り直しもタップで再開できる）。
+      if (!file) return;
       await onPickImage(file);
     } catch (e) {
       // 行き止まりにしない: 権限拒否は設定誘導、その他は手入力へ案内する。

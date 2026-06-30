@@ -1,7 +1,6 @@
-import { Capacitor } from "@capacitor/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CameraPermissionDeniedError, captureNativePhoto, isNativeCamera } from "./camera";
+import { CameraPermissionDeniedError, captureNativePhoto } from "./camera";
 
 // Capacitor プラグインはプロキシ解決のため spyOn 不可。モジュールごとモックする（external.test.ts に倣う）。
 const { getPhotoMock, checkPermissionsMock } = vi.hoisted(() => ({
@@ -22,16 +21,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   getPhotoMock.mockReset();
   checkPermissionsMock.mockReset();
-});
-
-describe("isNativeCamera（ネイティブ判定）", () => {
-  it("Capacitor.isNativePlatform を反映する", () => {
-    const spy = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
-    expect(isNativeCamera()).toBe(true);
-    spy.mockReturnValue(false);
-    expect(isNativeCamera()).toBe(false);
-    spy.mockRestore();
-  });
 });
 
 describe("captureNativePhoto（ネイティブ撮影）", () => {
@@ -56,6 +45,12 @@ describe("captureNativePhoto（ネイティブ撮影）", () => {
   it("ユーザーがキャンセルしたら null を返す（エラーにしない）", async () => {
     grant();
     getPhotoMock.mockRejectedValue(new Error("User cancelled photos app"));
+    await expect(captureNativePhoto()).resolves.toBeNull();
+  });
+
+  it("撮影は成功したが webPath が無いときは null を返す（防御）", async () => {
+    grant();
+    getPhotoMock.mockResolvedValue({ webPath: undefined, format: "jpeg" });
     await expect(captureNativePhoto()).resolves.toBeNull();
   });
 

@@ -108,6 +108,16 @@ def test_贈与税集計は暦年と受領に限定する():
     assert s["total"] == 500000
 
 
+def test_贈与税集計は日付なしレコードを除外する():
+    """occurred_at が空のレコードが gift_tax_summary の合計に含まれないことを検証する（BR-4-TAX-2）。"""
+    recs = [
+        _rec(500000, "出産祝い", occurred_at="2026-05-01"),
+        _rec(300000, "新築祝い", occurred_at=""),  # 日付なし → 除外
+    ]
+    s = rules.gift_tax_summary(recs, year=2026)
+    assert s["total"] == 500000
+
+
 def test_贈与税の残枠と超過を判定する():
     """110万円枠に対する残額と超過フラグを判定することを検証する（BR-4-TAX-3）。"""
     under = rules.gift_tax_summary([_rec(800000, "新築祝い")], year=2026)

@@ -66,8 +66,11 @@ def trend_score(rank: int | None, genre_specific: bool = True) -> float:
 
 
 def sale_score(point_rate: int, discount: float) -> float:
-    """セールスコア: 倍率10倍 or 30%引きで満点（スペック§6②）。"""
-    return min(1.0, max(point_rate / 10.0, discount / 0.3))
+    """セールスコア: 倍率10倍 or 30%引きで満点（スペック§6②）。
+    point_rate < 2（楽天の通常1倍）はセール扱いせず 0（sale_note と閾値を統一）。
+    """
+    eff = point_rate if point_rate >= 2 else 0
+    return min(1.0, max(eff / 10.0, discount / 0.3))
 
 
 def linear_score(

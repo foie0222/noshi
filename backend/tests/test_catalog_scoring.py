@@ -1,5 +1,6 @@
 """足切りゲート・スコア合成・saleNote 生成のテスト。スペック§6に対応。"""
 
+import pytest
 from app.catalog.scoring import (
     bayes_score,
     linear_score,
@@ -93,8 +94,17 @@ def test_総合ランキング使用時はトレンド半減():
 def test_セールスコアは10倍or30パーセント引きで満点():
     assert sale_score(point_rate=10, discount=0.0) == 1.0
     assert sale_score(point_rate=1, discount=0.3) == 1.0
-    assert sale_score(point_rate=1, discount=0.0) < 0.2
     assert sale_score(point_rate=100, discount=1.0) == 1.0  # クリップ
+
+
+def test_非セール品はセールスコアが0():
+    # point_rate=1（楽天通常）はセール扱いせず0。sale_note の閾値と一致させる
+    assert sale_score(point_rate=1, discount=0.0) == 0.0
+
+
+def test_セールスコアはpoint_rate2倍からカウント():
+    # 2倍が最低セール。0.2 = 2/10
+    assert sale_score(point_rate=2, discount=0.0) == pytest.approx(0.2)
 
 
 def test_線形スコアはギフト加点を含む():

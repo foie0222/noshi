@@ -181,11 +181,43 @@ class NoshiService:
             "members": self.household_members(user_id),
         }
 
+    def _detach_from_household(self, user_id: str, old_hid: str, was_owner: bool) -> None:
+        """ユーザーを旧世帯から切り離す（membership 削除 → owner 引き継ぎ or 世帯 purge）。
+
+        join_household / leave_household / delete_account の3箇所に共通する後始末。
+        was_owner が True のとき:
+          - 残存メンバーがいれば最古参に owner を引き継ぐ（孤立 owner 防止）
+          - 単独だった場合は旧世帯を丸ごと purge（孤児世帯防止）
+        """
+        self.repo.delete_membership(user_id)  # USER# + HOUSEHOLD# 逆引きを両方消す
+        self._audit(user_id, "leave_household", old_hid)  # A09
+        if was_owner:
+            remaining = sorted(self.repo.list_members(old_hid), key=lambda x: x.joined_at)
+            if remaining:
+                # 最古参メンバーに owner を引き継ぐ
+                heir = remaining[0]
+                self.repo.put_membership(
+                    Membership(
+                        user_id=heir.user_id,
+                        household_id=old_hid,
+                        role="owner",
+                        email=heir.email,
+                        joined_at=heir.joined_at,
+                    )
+                )
+                self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
+            else:
+                # 単独だったので旧世帯ごと purge（孤児化防止）
+                self._purge_household(old_hid)
+
     def join_household(self, user_id: str, code: str, email: str = "") -> Household:
-        """招待コードで世帯に参加する（既存の所属は上書き）。"""
+        """招待コードで世帯に参加する。旧世帯を後始末してから新世帯へ移る（#321）。"""
         h = self.repo.get_household_by_invite((code or "").strip().upper())
         if h is None:
             raise ValidationError(["招待コードが正しくありません。"])
+        m = self.repo.get_membership(user_id)
+        if m is not None and m.household_id != h.id:
+            self._detach_from_household(user_id, m.household_id, m.role == "owner")
         self.repo.put_membership(
             Membership(user_id=user_id, household_id=h.id, role="member", email=email)
         )
@@ -198,24 +230,7 @@ class NoshiService:
         email = ""
         if m is not None:
             email = m.email
-            old_hid, was_owner = m.household_id, m.role == "owner"
-            self.repo.delete_membership(user_id)
-            self._audit(user_id, "leave_household", old_hid)  # A09
-            # 管理者が抜けて家族が残るなら、最古参のメンバーに管理者を引き継ぐ
-            if was_owner:
-                remaining = sorted(self.repo.list_members(old_hid), key=lambda x: x.joined_at)
-                if remaining:
-                    heir = remaining[0]
-                    self.repo.put_membership(
-                        Membership(
-                            user_id=heir.user_id,
-                            household_id=old_hid,
-                            role="owner",
-                            email=heir.email,
-                            joined_at=heir.joined_at,
-                        )
-                    )
-                    self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
+            self._detach_from_household(user_id, m.household_id, m.role == "owner")
         return self.resolve_household(user_id, email=email)  # 常にどこかの世帯に属する
 
     def remove_member(self, user_id: str, target_user_id: str) -> dict[str, Any]:
@@ -241,7 +256,7 @@ class NoshiService:
 
     def delete_account(self, user_id: str) -> list[str]:
         """論理アカウント（代表＋全別名）を削除する（#118/#198）。
-        世帯データ purge / owner 引き継ぎ → account_link/EMAIL# 掃除 → membership 削除。
+        _detach_from_household で世帯後始末 → EMAIL# 解放 → alias リンク掃除の順。
         Cognito ユーザー削除と Apple revoke は呼び出し側（main）で行う。
         戻り値: 削除対象の全 sub（代表＋別名。Cognito 削除に使う）。"""
         aliases = self.repo.list_aliases(user_id)
@@ -249,26 +264,10 @@ class NoshiService:
         m = self.repo.get_membership(user_id)
         hid = m.household_id if m else ""
         if m:
-            others = [x for x in self.repo.list_members(hid) if x.user_id != user_id]
-            if others:
-                if m.role == "owner":
-                    heir = sorted(others, key=lambda x: x.joined_at)[0]
-                    self.repo.put_membership(
-                        Membership(
-                            user_id=heir.user_id,
-                            household_id=hid,
-                            role="owner",
-                            email=heir.email,
-                            joined_at=heir.joined_at,
-                        )
-                    )
-                    self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
-            else:
-                self._purge_household(hid)
+            self._detach_from_household(user_id, hid, m.role == "owner")
             # 代表メールの EMAIL# を解放（代表を指す場合のみ）。Phase1 では別名は EMAIL# を持たない。
             if m.email and self.repo.get_email_primary(m.email) == user_id:
                 self.repo.delete_email_primary(m.email)
-            self.repo.delete_membership(user_id)
         # 別名リンク（＋逆引き）を掃除。
         for alias in aliases:
             self.repo.delete_account_link(alias)

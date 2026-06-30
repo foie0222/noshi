@@ -48,6 +48,7 @@ import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { filterReturnRecords, isValidReturnAmount } from "./lib/return";
 import { reviewMessage } from "./lib/review";
 import { priceLine } from "./lib/suggestion";
+import { hydrateToken } from "./lib/tokenStore";
 import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
 import {
@@ -136,6 +137,9 @@ export function App() {
     pickInitialScreen(authEnabled(), isLoggedIn()),
   ); // 法的文書からの戻り先（ログイン前は login）
   const [agreedTerms, setAgreedTerms] = useState<boolean>(false); // 規約・ポリシーへの同意（#152）
+  // ネイティブは起動時に Keychain からトークンを同期キャッシュへ復元するまで待つ（#207）。
+  // Web は localStorage を同期参照するため最初から true。
+  const [hydrated, setHydrated] = useState<boolean>(() => !Capacitor.isNativePlatform());
   const [toast, setToast] = useState<string>("");
   const [home, setHome] = useState<HomeResponse | null>(null);
   const [ledger, setLedger] = useState<LedgerResponse | null>(null);
@@ -363,6 +367,17 @@ export function App() {
     setLedger(await api.ledger());
   }
 
+  // ネイティブ起動時: Keychain のトークンを同期キャッシュへ復元してから初期画面を再判定する（#207）。
+  // これがないとトークンがあっても初回描画でログイン画面に倒れてしまう。
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 起動時1回だけ実行する意図
+  useEffect(() => {
+    if (hydrated) return;
+    void hydrateToken().then(() => {
+      if (!initialLegal) setScreen(pickInitialScreen(authEnabled(), isLoggedIn()));
+      setHydrated(true);
+    });
+  }, []);
+
   // ソーシャルログインのコールバック処理（URL に ?code= / ?error= があるときだけ動く）
   // biome-ignore lint/correctness/useExhaustiveDependencies: 起動時1回だけ実行する意図
   useEffect(() => {
@@ -387,8 +402,10 @@ export function App() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: 画面遷移時のみ判定する意図
   useEffect(() => {
     // 法的文書（規約・ポリシー）は未ログインでも閲覧可（#155）。
+    // ネイティブの Keychain 復元前は判定しない（誤ってログイン画面に倒さない、#207）。
+    if (!hydrated) return;
     if (authEnabled() && !isLoggedIn() && screen !== "login" && screen !== "legal") go("login");
-  }, [screen]);
+  }, [screen, hydrated]);
 
   // ブラウザの戻る/進むで画面を復元する（#168）。go() が積んだ {screen} を読む。
   // state が無い履歴（起動エントリや OAuth コールバック後）は初期画面の判定にフォールバック。
@@ -920,6 +937,15 @@ export function App() {
       <div style={{ width: 28 }} />
     </div>
   );
+
+  // ネイティブの Keychain 復元待ち（#207）。ログイン画面のちらつきを避け、ブランド地で待つ。
+  if (!hydrated) {
+    return (
+      <div className="phone" style={{ display: "grid", placeItems: "center" }}>
+        <Logo variant="full" size={40} />
+      </div>
+    );
+  }
 
   return (
     <div className={`phone${fontLarge ? " font-large" : ""}`}>

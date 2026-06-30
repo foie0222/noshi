@@ -14,6 +14,7 @@ class RecordIn(BaseModel):
     occurred_at: str = ""
     item: str = ""  # もらった/あげた品物の内容（例: 現金/メガネ。任意）
     image_key: str = ""  # 事前にアップロード済みのS3キー（#35）
+    return_for_id: str = ""  # お返し元の received レコード ID（given のみ）
 
 
 class ImageUploadIn(BaseModel):

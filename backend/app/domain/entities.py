@@ -82,6 +82,7 @@ class GiftRecord:
     item: str = ""  # confidential（もらった/あげた品物の内容。例: 現金/メガネ。空なら未記入）
     memo: str = ""
     image_key: str = ""  # confidential（S3 オブジェクトキー、#35）。空なら画像なし
+    return_for_id: str = ""  # お返し元の received レコード ID（given のみ使用）
     id: str = field(default_factory=_id)
 
 

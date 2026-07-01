@@ -24,8 +24,10 @@ beforeEach(() => {
   removeItemMock.mockClear();
 });
 afterEach(() => {
+  // clearToken を先に呼ぶ: restoreAllMocks 後だと isNative() が false になり
+  // 非ネイティブパスで動いて in-memory cache が残る（テスト間リーク）。
+  clearToken();
   vi.restoreAllMocks();
-  clearToken(); // キャッシュを空に戻す
 });
 
 describe("tokenStore（Web: localStorage 同期）", () => {

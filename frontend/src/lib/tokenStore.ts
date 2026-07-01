@@ -47,7 +47,11 @@ export function getToken(): string {
 export function setToken(token: string): void {
   if (isNative()) {
     cache = token;
-    void SecureStorage.setItem(TOKEN_KEY, token).catch(() => {});
+    // 失敗しても同期キャッシュには載っているので現セッションは継続できる。ただし永続化は
+    // されないため、原因追跡できるようログに残す（黙殺すると次回起動で予期せぬログアウト）。
+    void SecureStorage.setItem(TOKEN_KEY, token).catch((e) => {
+      console.error("[tokenStore] Keychain 書き込みに失敗しました", e);
+    });
     return;
   }
   localStorage.setItem(TOKEN_KEY, token);
@@ -57,7 +61,11 @@ export function setToken(token: string): void {
 export function clearToken(): void {
   if (isNative()) {
     cache = "";
-    void SecureStorage.removeItem(TOKEN_KEY).catch(() => {});
+    // 削除失敗時は Keychain にトークンが残り、次回起動の hydrateToken で復元されて
+    // 「ログアウトしたのに元ユーザーで入れる」状態になりうる。黙殺せずログに残す。
+    void SecureStorage.removeItem(TOKEN_KEY).catch((e) => {
+      console.error("[tokenStore] Keychain 削除に失敗しました", e);
+    });
     return;
   }
   localStorage.removeItem(TOKEN_KEY);

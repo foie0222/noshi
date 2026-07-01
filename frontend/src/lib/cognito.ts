@@ -5,14 +5,11 @@
 
 import { App as CapApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
-import { Capacitor } from "@capacitor/core";
 import { decodeJwtPayload, isExpired } from "./jwt";
+import { isNativePlatform } from "./platform";
 
 // iOS ネイティブのソーシャル用カスタムスキーム（Info.plist の CFBundleURLTypes と一致）。
 const NATIVE_OAUTH_REDIRECT = "me.noshi.app://callback";
-function isNativePlatform(): boolean {
-  return Capacitor.isNativePlatform();
-}
 /** OAuth の redirect_uri。authorize と token 交換で必ず同一値を使う（テスト対象）。 */
 export function oauthRedirectUri(): string {
   return isNativePlatform() ? NATIVE_OAUTH_REDIRECT : `${location.origin}/`;

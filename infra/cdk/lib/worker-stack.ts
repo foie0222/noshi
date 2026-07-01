@@ -8,7 +8,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 
-// OCR は Claude Agent SDK（Node + claude CLI 同梱コンテナ）で実行する。
+// OCR は Amazon Bedrock（Claude）で実行する（商用規約＝学習利用なし・国内リージョン）。
 const BACKEND_DIR = path.resolve(__dirname, "../../../backend");
 const LAMBDA_IMAGE_EXCLUDE = [".venv", "__pycache__", "**/__pycache__", "tests", ".pytest_cache"];
 
@@ -21,7 +21,7 @@ interface WorkerStackProps extends StackProps {
 /**
  * WorkerStack — 抽出ワーカー Lambda（SQS イベントソース）。S3 の画像を OCR→DynamoDB 更新。
  * OCR は API Gateway の 30s 統合上限を超え得るため、API から切り離してここで実行する
- * （timeout 余裕あり）。Claude Agent SDK 利用のため Node + claude CLI 同梱コンテナで動かす。
+ * （timeout 余裕あり）。Bedrock(Claude) を boto3 で呼ぶ。
  */
 export class WorkerStack extends Stack {
   constructor(scope: Construct, id: string, props: WorkerStackProps) {
@@ -39,16 +39,19 @@ export class WorkerStack extends Stack {
         NOSHI_TABLE: props.table.tableName,
         NOSHI_USE_DYNAMO: "1",
         NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName,
-        NOSHI_LLM_PROVIDER: "claude_agent",
-        NOSHI_CLAUDE_TOKEN_SSM: "/noshi/claude/oauth-token",
+        NOSHI_LLM_PROVIDER: "bedrock",
       },
     });
     props.table.grantReadWriteData(worker);
     props.imageBucket.grantRead(worker); // S3 の撮影画像を読む
     worker.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["ssm:GetParameter"],
-        resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/noshi/claude/*`],
+        actions: ["bedrock:InvokeModel"],
+        // クロスリージョン推論プロファイル（jp.）は inference-profile/* でカバー（api-stack と同一パターン）。
+        resources: [
+          "arn:aws:bedrock:*::foundation-model/*",
+          `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
+        ],
       }),
     );
     // 1メッセージ=1OCR（遅い画像が他をブロックしない／SQS が並列にスケール）。

@@ -16,6 +16,7 @@ import { PartySelect } from "./components/PartySelect";
 import { PasswordInput } from "./components/PasswordInput";
 import { Select } from "./components/Select";
 import { LEGAL_DOCS, type LegalDocKey, legalDocFromPath } from "./legal";
+import { CameraPermissionDeniedError, captureNativePhoto } from "./lib/camera";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -45,6 +46,7 @@ import {
 } from "./lib/image";
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
+import { isNativePlatform } from "./lib/platform";
 import { filterReturnRecords, isValidReturnAmount } from "./lib/return";
 import { reviewMessage } from "./lib/review";
 import { priceLine } from "./lib/suggestion";
@@ -124,6 +126,9 @@ const TrustNote = () => (
     </div>
   </div>
 );
+
+// 実行プラットフォームは起動後に変化しないため、モジュール評価時に一度だけ判定する。
+const nativeCamera = isNativePlatform();
 
 export function App() {
   // 直URL（/privacy 等）は未ログインでも法的文書を直接開く（#155）。
@@ -211,6 +216,38 @@ export function App() {
       notify("画像を読み込めませんでした。");
     }
   }
+
+  // ネイティブ（iOS/Android）はカメラ/ライブラリをネイティブ起動し、得た画像を
+  // 既存 onPickImage の検証→ダウンスケール→抽出パスへ合流させる（#203 / 4.2 対策 #197）。
+  async function onCaptureNative() {
+    if (extracting) return; // 読み取り中の撮り直しを禁止（抽出と画像の取り違え防止）
+    try {
+      const file = await captureNativePhoto();
+      // null はユーザーのキャンセル（＝意図的に無反応で正しい。撮り直しもタップで再開できる）。
+      if (!file) return;
+      await onPickImage(file);
+    } catch (e) {
+      // 行き止まりにしない: 権限拒否は設定誘導、その他は手入力へ案内する。
+      if (e instanceof CameraPermissionDeniedError) {
+        notify(
+          "設定アプリの「noshi」でカメラ／写真を許可してください。下の手入力でも記録できます。",
+        );
+      } else {
+        notify("カメラを起動できませんでした。下の手入力でも記録できます。");
+      }
+    }
+  }
+  // 撮影ドロップゾーンの中身（ネイティブ button / Web label で共有し重複を避ける）。
+  const captureDropzoneInner = capturedImage ? (
+    <img className="capture-preview" src={capturedImage} alt="撮影した画像" />
+  ) : (
+    <>
+      <div className="dz-emoji" aria-hidden="true">
+        <Icon name="camera" size={34} strokeWidth={1.8} />
+      </div>
+      <div className="muted">タップして撮影 / 画像を選ぶ</div>
+    </>
+  );
 
   const notify = (m: string) => {
     setToast(m);
@@ -1407,35 +1444,52 @@ export function App() {
             </div>
           </fieldset>
 
-          <label className="dropzone" htmlFor="noshi-camera" aria-label="写真を撮る・画像を選ぶ">
-            {capturedImage ? (
-              <img className="capture-preview" src={capturedImage} alt="撮影した画像" />
-            ) : (
-              <>
-                <div className="dz-emoji" aria-hidden="true">
-                  <Icon name="camera" size={34} strokeWidth={1.8} />
-                </div>
-                <div className="muted">タップして撮影 / 画像を選ぶ</div>
-              </>
-            )}
-          </label>
-          {/* capture 属性は付けない: 付けるとスマホでカメラ直起動になり、
-              ギャラリー/ファイルからの選択ができなくなる。無しなら OS の
-              選択シート（カメラ/ライブラリ/ファイル）が出て撮影も可能。 */}
-          <input
-            id="noshi-camera"
-            className="visually-hidden"
-            type="file"
-            accept="image/*"
-            disabled={extracting} // 読み取り中の撮り直しを禁止（抽出と画像の取り違え防止）
-            onChange={(e) => onPickImage(e.target.files?.[0] ?? null)}
-          />
-
-          {capturedImage && (
-            <label className="btn ghost" htmlFor="noshi-camera" style={{ marginTop: 8 }}>
-              撮り直す / 別の画像
+          {nativeCamera ? (
+            // ネイティブは @capacitor/camera を起動（label+input ではなく button）。
+            <button
+              type="button"
+              className="dropzone"
+              onClick={onCaptureNative}
+              disabled={extracting}
+              aria-label="写真を撮る・画像を選ぶ"
+            >
+              {captureDropzoneInner}
+            </button>
+          ) : (
+            <label className="dropzone" htmlFor="noshi-camera" aria-label="写真を撮る・画像を選ぶ">
+              {captureDropzoneInner}
             </label>
           )}
+          {/* Web のみ: capture 属性は付けない。付けるとスマホでカメラ直起動になり、
+              ギャラリー/ファイルからの選択ができなくなる。無しなら OS の
+              選択シート（カメラ/ライブラリ/ファイル）が出て撮影も可能。 */}
+          {!nativeCamera && (
+            <input
+              id="noshi-camera"
+              className="visually-hidden"
+              type="file"
+              accept="image/*"
+              disabled={extracting} // 読み取り中の撮り直しを禁止（抽出と画像の取り違え防止）
+              onChange={(e) => onPickImage(e.target.files?.[0] ?? null)}
+            />
+          )}
+
+          {capturedImage &&
+            (nativeCamera ? (
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={onCaptureNative}
+                disabled={extracting}
+                style={{ marginTop: 8 }}
+              >
+                撮り直す / 別の画像
+              </button>
+            ) : (
+              <label className="btn ghost" htmlFor="noshi-camera" style={{ marginTop: 8 }}>
+                撮り直す / 別の画像
+              </label>
+            ))}
           <button
             type="button"
             className="btn primary"

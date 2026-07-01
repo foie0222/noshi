@@ -36,15 +36,13 @@ export class CatalogBatchStack extends Stack {
       memorySize: 1024,
       environment: {
         NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
-        NOSHI_LLM_PROVIDER: "claude_agent",                  // キュレーションは Claude サブスク(OAuth)
-        NOSHI_CLAUDE_TOKEN_SSM: "/noshi/claude/oauth-token", // OAuth トークン（SSM SecureString）
+        NOSHI_LLM_PROVIDER: "bedrock", // キュレーションは Bedrock(Claude)＝商用規約（学習利用なし）
       },
     });
     props.catalogTable.grantWriteData(fn); // バッチは書き込みのみ（IAM分離、スペック§8）
     fn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:InvokeModel"],
-        // NOSHI_LLM_PROVIDER=bedrock フォールバック時のみ使用。
         // クロスリージョン推論プロファイル（jp.）は inference-profile/* でカバー（api-stack と同一パターン）
         resources: [
           "arn:aws:bedrock:*::foundation-model/*",
@@ -56,9 +54,8 @@ export class CatalogBatchStack extends Stack {
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
         resources: [
-          // 楽天 API 認証情報 + Claude OAuth トークン。
+          // 楽天 API 認証情報（OCR/キュレーションは Bedrock に戻したため Claude トークンは不要）。
           `arn:aws:ssm:${this.region}:${this.account}:parameter/noshi/rakuten/*`,
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/noshi/claude/*`,
         ],
       }),
     );

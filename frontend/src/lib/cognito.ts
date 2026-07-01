@@ -7,6 +7,7 @@ import { App as CapApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { decodeJwtPayload, isExpired } from "./jwt";
 import { isNativePlatform } from "./platform";
+import { clearToken, getToken, setToken } from "./tokenStore";
 
 // iOS ネイティブのソーシャル用カスタムスキーム（Info.plist の CFBundleURLTypes と一致）。
 const NATIVE_OAUTH_REDIRECT = "me.noshi.app://callback";
@@ -18,7 +19,6 @@ export function oauthRedirectUri(): string {
 const REGION = import.meta.env.VITE_AWS_REGION ?? "ap-northeast-1";
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? "";
 const ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
-const TOKEN_KEY = "noshi-id-token";
 const DOMAIN = (import.meta.env.VITE_COGNITO_DOMAIN ?? "").replace(/\/$/, "");
 // 一時保存キー。iOS Safari はクロスサイトのログイン往復で sessionStorage を保持しない
 // ことがあるため localStorage を使い、callback 処理後（cleanup）に確実に削除する。
@@ -41,7 +41,7 @@ export function socialEnabled(): boolean {
 }
 
 export function getIdToken(): string {
-  return localStorage.getItem(TOKEN_KEY) || "";
+  return getToken();
 }
 export function isLoggedIn(): boolean {
   const t = getIdToken();
@@ -51,7 +51,7 @@ export function currentEmail(): string {
   return decodeJwtPayload(getIdToken())?.email || "";
 }
 export function signOut(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  clearToken();
 }
 
 /**
@@ -138,7 +138,7 @@ export async function signIn(email: string, password: string): Promise<void> {
   });
   const idToken = data?.AuthenticationResult?.IdToken;
   if (!idToken) throw new Error("ログインに失敗しました。");
-  localStorage.setItem(TOKEN_KEY, idToken);
+  setToken(idToken);
 }
 
 // ---- ソーシャルログイン（認可コード + PKCE・依存ゼロ）。スペック§5 ----
@@ -288,7 +288,7 @@ async function processCallback(params: URLSearchParams): Promise<CallbackResult>
       cleanup();
       return "error";
     }
-    localStorage.setItem(TOKEN_KEY, data.id_token);
+    setToken(data.id_token);
     cleanup();
     return "ok";
   } catch {

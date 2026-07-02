@@ -21,7 +21,7 @@ import jwt
 
 BUNDLE_ID = "me.noshi.app"
 BUNDLE_NAME = "noshi"
-CAPABILITIES = ["SIGN_IN_WITH_APPLE"]
+CAPABILITIES = ["APPLE_ID_AUTH"]  # ASC API 上の Sign in with Apple の capabilityType
 BASE = "https://api.appstoreconnect.apple.com"
 
 

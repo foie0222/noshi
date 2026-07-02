@@ -5,8 +5,6 @@ name: ASC Register App ID
 # push 起動にしているため main マージ前に一度だけ走らせられる。冪等（再実行安全）。
 
 on:
-  push:
-    branches: [chore/asc-appid-register]
   workflow_dispatch:
 
 permissions:

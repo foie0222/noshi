@@ -128,6 +128,16 @@ def main() -> int:
             return 1
         print(f"[ENABLED] {cap} を有効化")
 
+    # 4. App Store Connect のアプリレコード有無を確認（TestFlight 提出の前提。作成は UI 限定）。
+    st, res = api(token, "GET", f"/v1/apps?filter[bundleId]={BUNDLE_ID}&limit=1")
+    if st == 200 and res.get("data"):
+        app = res["data"][0]["attributes"]
+        print(f"[OK] ASC アプリレコードあり: name='{app.get('name')}' (SKU={app.get('sku')})")
+    elif st == 200:
+        print("[TODO] ASC アプリレコード未作成。App Store Connect の UI で作成が必要（API 非対応）。")
+    else:
+        print(f"[WARN] アプリレコード確認に失敗: HTTP {st} {json.dumps(res)}")
+
     print(f"\n[DONE] App ID {BUNDLE_ID} の登録と capability 設定が完了しました。")
     return 0
 

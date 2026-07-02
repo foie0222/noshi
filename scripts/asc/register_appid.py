@@ -97,7 +97,7 @@ def main() -> int:
     bundle_id = bundle["id"]
 
     # 2. 現在有効な capability を確認。
-    st, res = api(token, "GET", f"/v1/bundleIds/{bundle_id}/bundleIdCapabilities?limit=200")
+    st, res = api(token, "GET", f"/v1/bundleIds/{bundle_id}/bundleIdCapabilities")
     if st != 200:
         print(f"[ERROR] capability 取得に失敗: HTTP {st} {json.dumps(res)}")
         return 1

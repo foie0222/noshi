@@ -1,0 +1,45 @@
+# ASC メタデータ入力の自動化（#210/#211/#199/#201/#212）。
+# バイナリは扱わない（TestFlight 配信は .github/workflows/ios-release.yml）。
+default_platform(:ios)
+
+APP_ID = "me.noshi.app"
+
+platform :ios do
+  desc "App Store Connect へメタデータ/スクショ/年齢レーティング/レビュー情報/プライバシーラベルを反映"
+  lane :asc_metadata do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_API_KEY_P8"),
+    )
+
+    # デモアカウントのパスワードは Secret（ASC_DEMO_PASSWORD）から。未設定なら
+    # レビュー情報の更新をスキップし、既存の ASC 入力値を壊さない。
+    review_info = nil
+    if ENV["ASC_DEMO_PASSWORD"].to_s != ""
+      review_info = {
+        demo_user: "appreview@noshi.me",
+        demo_password: ENV["ASC_DEMO_PASSWORD"],
+        notes: File.read(File.expand_path("review_notes.txt", __dir__)),
+      }
+    end
+
+    deliver(
+      api_key: api_key,
+      app_identifier: APP_ID,
+      overwrite_screenshots: true,
+      skip_binary_upload: true,
+      run_precheck_before_submit: false,
+      submit_for_review: false,
+      force: true, # HTML プレビュー確認を省略（CI）
+      app_rating_config_path: File.expand_path("rating.json", __dir__),
+      **(review_info ? { app_review_information: review_info } : {}),
+    )
+
+    upload_app_privacy_details_to_app_store(
+      api_key: api_key,
+      app_identifier: APP_ID,
+      json_path: File.expand_path("app_privacy_details.json", __dir__),
+    )
+  end
+end

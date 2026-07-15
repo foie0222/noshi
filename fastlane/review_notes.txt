@@ -1,0 +1,15 @@
+noshi is a Japanese app for recording gifts received/given and managing "okaeshi" (return gifts).
+
+DEMO ACCOUNT: use the email/password entered in the App Review demo account fields.
+Sign in with Apple and Sign in with Google are also available.
+
+ACCOUNT DELETION (Guideline 5.1.1(v)) - fully in-app:
+  Tab "マイページ" (My Page, bottom-right) -> section "アカウント" -> "アカウントを削除" (Delete Account)
+  -> confirm dialog -> (for Sign in with Apple accounts) the native Apple re-authentication sheet appears
+  -> deletion completes inside the app. For Apple accounts we also revoke the Apple token via Apple's REST API.
+
+EXTERNAL PURCHASE LINKS:
+  Return-gift suggestions link out to Rakuten (rakuten.co.jp) in Safari via the Rakuten affiliate program.
+  These are physical goods purchased on an external website, so no In-App Purchase is used (Guideline 3.1.1).
+
+All text/UI is in Japanese.

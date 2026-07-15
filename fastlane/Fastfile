@@ -13,11 +13,13 @@ platform :ios do
       key_content: ENV.fetch("ASC_API_KEY_P8"),
     )
 
-    # レビュー情報は常に渡す。deliver はレビュー情報レコードが未作成のアプリで
-    # review_attachment_file の fetch が「No data」例外になるため（2.237.0 の
-    # upload_metadata.rb:752）、先に review_information でレコードを作らせて回避する。
+    # レビュー情報は常に渡す。deliver（2.237.0 で確認）はレビュー情報レコードが
+    # 未作成のアプリだと review_attachment_file 内の fetch_app_store_review_detail が
+    # 「No data」例外になるため、先に review_information でレコードを作らせて回避する。
     # デモアカウントは Secret（ASC_DEMO_PASSWORD）がある場合のみ設定。
-    review_info = { notes: File.read(File.expand_path("review_notes.txt", __dir__)) }
+    notes_path = File.expand_path("review_notes.txt", __dir__)
+    raise "review_notes.txt が見つかりません: #{notes_path}" unless File.exist?(notes_path)
+    review_info = { notes: File.read(notes_path) }
     if ENV["ASC_DEMO_PASSWORD"].to_s != ""
       review_info[:demo_user] = "appreview@noshi.me"
       review_info[:demo_password] = ENV["ASC_DEMO_PASSWORD"]

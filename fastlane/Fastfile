@@ -37,10 +37,42 @@ platform :ios do
       app_review_information: review_info,
     )
 
-    upload_app_privacy_details_to_app_store(
-      api_key: api_key,
-      app_identifier: APP_ID,
-      json_path: File.expand_path("app_privacy_details.json", __dir__),
-    )
+    # App Privacy 栄養ラベルの反映。標準アクション upload_app_privacy_details_to_app_store は
+    # Apple ID ログイン専用（2.237.0 時点で Spaceship::ConnectAPI.login を無条件に呼ぶ）のため、
+    # API キー認証（app_store_connect_api_key が set_spaceship_token でトークン設定済み）で
+    # 同アクションの中核処理（delete → create → publish）をそのまま実行する。
+    require "spaceship"
+    require "json"
+    usages_config = JSON.parse(File.read(File.expand_path("app_privacy_details.json", __dir__)))
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.user_error!("App #{APP_ID} が見つかりません") unless app
+
+    Spaceship::ConnectAPI::AppDataUsage.all(
+      app_id: app.id, includes: "category,grouping,purpose,dataProtection", limit: 500
+    ).each(&:delete!)
+
+    usages_config.each do |usage_config|
+      purposes = usage_config["purposes"] || []
+      purposes = [nil] if purposes.empty? # 「収集しない」もレコード作成が必要
+      purposes.each do |purpose|
+        (usage_config["data_protections"] || []).each do |data_protection|
+          UI.message("Setting #{usage_config['category']} / #{purpose} to #{data_protection}")
+          Spaceship::ConnectAPI::AppDataUsage.create(
+            app_id: app.id,
+            app_data_usage_category_id: usage_config["category"],
+            app_data_usage_protection_id: data_protection,
+            app_data_usage_purpose_id: purpose,
+          )
+        end
+      end
+    end
+
+    publish_state = Spaceship::ConnectAPI::AppDataUsagesPublishState.get(app_id: app.id)
+    if publish_state.published
+      UI.important("App data usage is already published")
+    else
+      publish_state.publish!
+      UI.important("App data usage is now published")
+    end
   end
 end

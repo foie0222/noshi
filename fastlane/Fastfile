@@ -13,15 +13,16 @@ platform :ios do
       key_content: ENV.fetch("ASC_API_KEY_P8"),
     )
 
-    # デモアカウントのパスワードは Secret（ASC_DEMO_PASSWORD）から。未設定なら
-    # レビュー情報の更新をスキップし、既存の ASC 入力値を壊さない。
-    review_info = nil
+    # レビュー情報は常に渡す。deliver（2.237.0 で確認）はレビュー情報レコードが
+    # 未作成のアプリだと review_attachment_file 内の fetch_app_store_review_detail が
+    # 「No data」例外になるため、先に review_information でレコードを作らせて回避する。
+    # デモアカウントは Secret（ASC_DEMO_PASSWORD）がある場合のみ設定。
+    notes_path = File.expand_path("review_notes.txt", __dir__)
+    raise "review_notes.txt が見つかりません: #{notes_path}" unless File.exist?(notes_path)
+    review_info = { notes: File.read(notes_path) }
     if ENV["ASC_DEMO_PASSWORD"].to_s != ""
-      review_info = {
-        demo_user: "appreview@noshi.me",
-        demo_password: ENV["ASC_DEMO_PASSWORD"],
-        notes: File.read(File.expand_path("review_notes.txt", __dir__)),
-      }
+      review_info[:demo_user] = "appreview@noshi.me"
+      review_info[:demo_password] = ENV["ASC_DEMO_PASSWORD"]
     end
 
     deliver(
@@ -33,7 +34,7 @@ platform :ios do
       submit_for_review: false,
       force: true, # HTML プレビュー確認を省略（CI）
       app_rating_config_path: File.expand_path("rating.json", __dir__),
-      **(review_info ? { app_review_information: review_info } : {}),
+      app_review_information: review_info,
     )
 
     upload_app_privacy_details_to_app_store(

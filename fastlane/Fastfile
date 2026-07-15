@@ -96,8 +96,9 @@ platform :ios do
         publish_state.publish!
         UI.important("App data usage is now published")
       end
-    rescue Spaceship::UnexpectedResponse => e
-      UI.important("App Privacy の API 反映に失敗（Apple 側のエンドポイント変更の可能性）: #{e.message}")
+    rescue StandardError => e
+      # public リポジトリの CI ログに Apple API の生レスポンスを出さない（クラス名のみ）
+      UI.important("App Privacy の API 反映に失敗 (#{e.class.name})。Apple 側エンドポイント変更/一時障害の可能性。")
       UI.important("→ App Store Connect の App Privacy 画面から手動で入力してください（docs/app-store-submission.md §1 に転記表あり）")
     end
   end

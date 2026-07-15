@@ -43,12 +43,15 @@ platform :ios do
     # 同アクションの中核処理（delete → create → publish）をそのまま実行する。
     require "spaceship"
     require "json"
-    usages_config = JSON.parse(File.read(File.expand_path("app_privacy_details.json", __dir__)))
+    privacy_json_path = File.expand_path("app_privacy_details.json", __dir__)
+    raise "app_privacy_details.json が見つかりません: #{privacy_json_path}" unless File.exist?(privacy_json_path)
+    usages_config = JSON.parse(File.read(privacy_json_path))
     app = Spaceship::ConnectAPI::App.find(APP_ID)
     UI.user_error!("App #{APP_ID} が見つかりません") unless app
 
+    # .all は all_pages で全ページを辿るため件数切り捨てはない（limit はページサイズ）
     Spaceship::ConnectAPI::AppDataUsage.all(
-      app_id: app.id, includes: "category,grouping,purpose,dataProtection", limit: 500
+      app_id: app.id, includes: "category,grouping,purpose,dataProtection"
     ).each(&:delete!)
 
     usages_config.each do |usage_config|

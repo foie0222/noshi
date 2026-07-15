@@ -1,0 +1,26 @@
+# App Store Connect のメタデータ入力（#210/#211/#199/#201/#212）。
+# fastlane deliver で 説明文/スクショ/カテゴリ/年齢レーティング/レビュー情報/App Privacy を反映する。
+# バイナリの TestFlight 配信は ios-release.yml（別ワークフロー）。
+name: ASC Metadata
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deliver:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload metadata to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_DEMO_PASSWORD: ${{ secrets.ASC_DEMO_PASSWORD }}
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+        run: fastlane ios asc_metadata

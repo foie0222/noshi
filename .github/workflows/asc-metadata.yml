@@ -26,6 +26,10 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           ASC_DEMO_PASSWORD: ${{ secrets.ASC_DEMO_PASSWORD }}
+          ASC_CONTACT_FIRST_NAME: ${{ secrets.ASC_CONTACT_FIRST_NAME }}
+          ASC_CONTACT_LAST_NAME: ${{ secrets.ASC_CONTACT_LAST_NAME }}
+          ASC_CONTACT_PHONE: ${{ secrets.ASC_CONTACT_PHONE }}
+          ASC_CONTACT_EMAIL: ${{ secrets.ASC_CONTACT_EMAIL }}
           FASTLANE_SKIP_UPDATE_CHECK: "1"
           BUNDLE_GEMFILE: fastlane/Gemfile
         run: bundle exec fastlane ios asc_metadata

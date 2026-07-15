@@ -13,16 +13,28 @@ platform :ios do
       key_content: ENV.fetch("ASC_API_KEY_P8"),
     )
 
-    # レビュー情報は常に渡す。deliver（2.237.0 で確認）はレビュー情報レコードが
-    # 未作成のアプリだと review_attachment_file 内の fetch_app_store_review_detail が
-    # 「No data」例外になるため、先に review_information でレコードを作らせて回避する。
-    # デモアカウントは Secret（ASC_DEMO_PASSWORD）がある場合のみ設定。
+    # レビュー情報（審査ノート・デモアカウント・審査連絡先）。
+    # レビュー情報レコード自体は初回実行で作成済み（notes 反映済み）。ASC API は
+    # レコードの「更新」時に contactLastName 等の連絡先を必須にするため、
+    # デモパスワードと連絡先の Secret がすべて揃った場合のみ送信し、
+    # 揃わない場合は警告してスキップする（レーンは継続、既存の入力値は保持）。
     notes_path = File.expand_path("review_notes.txt", __dir__)
     raise "review_notes.txt が見つかりません: #{notes_path}" unless File.exist?(notes_path)
-    review_info = { notes: File.read(notes_path) }
-    if ENV["ASC_DEMO_PASSWORD"].to_s != ""
-      review_info[:demo_user] = "appreview@noshi.me"
-      review_info[:demo_password] = ENV["ASC_DEMO_PASSWORD"]
+    required_envs = %w[ASC_DEMO_PASSWORD ASC_CONTACT_FIRST_NAME ASC_CONTACT_LAST_NAME ASC_CONTACT_PHONE ASC_CONTACT_EMAIL]
+    missing = required_envs.select { |k| ENV[k].to_s.strip.empty? }
+    if missing.empty?
+      review_info = {
+        notes: File.read(notes_path),
+        demo_user: "appreview@noshi.me",
+        demo_password: ENV["ASC_DEMO_PASSWORD"],
+        first_name: ENV["ASC_CONTACT_FIRST_NAME"],
+        last_name: ENV["ASC_CONTACT_LAST_NAME"],
+        phone_number: ENV["ASC_CONTACT_PHONE"],
+        email_address: ENV["ASC_CONTACT_EMAIL"],
+      }
+    else
+      review_info = nil
+      UI.important("レビュー情報の更新をスキップ: Secret 未設定 → #{missing.join(', ')}")
     end
 
     deliver(
@@ -34,7 +46,7 @@ platform :ios do
       submit_for_review: false,
       force: true, # HTML プレビュー確認を省略（CI）
       app_rating_config_path: File.expand_path("rating.json", __dir__),
-      app_review_information: review_info,
+      **(review_info ? { app_review_information: review_info } : {}),
     )
 
     # App Privacy 栄養ラベルの反映。標準アクション upload_app_privacy_details_to_app_store は

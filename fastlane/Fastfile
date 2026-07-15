@@ -14,10 +14,12 @@ platform :ios do
     )
 
     # レビュー情報（審査ノート・デモアカウント・審査連絡先）。
-    # レビュー情報レコード自体は初回実行で作成済み（notes 反映済み）。ASC API は
-    # レコードの「更新」時に contactLastName 等の連絡先を必須にするため、
-    # デモパスワードと連絡先の Secret がすべて揃った場合のみ送信し、
-    # 揃わない場合は警告してスキップする（レーンは継続、既存の入力値は保持）。
+    # ASC API はレコードの「更新」時に contactLastName 等の連絡先を必須にするため、
+    # notes だけの部分更新はできない。また noshi はログイン必須アプリのため
+    # デモアカウントなしのレビュー情報は審査上不完全（deliver は demo_password 欠落時に
+    # demo_account_required=false を送ってしまう）。よって5つの Secret がすべて揃った
+    # 場合のみ送信し、揃わない場合は警告してスキップする（レーンは継続、既存値は保持）。
+    # review_notes.txt はリポジトリ同梱で常に存在する前提（欠けていたら設定破損なので即失敗させる）。
     notes_path = File.expand_path("review_notes.txt", __dir__)
     raise "review_notes.txt が見つかりません: #{notes_path}" unless File.exist?(notes_path)
     required_envs = %w[ASC_DEMO_PASSWORD ASC_CONTACT_FIRST_NAME ASC_CONTACT_LAST_NAME ASC_CONTACT_PHONE ASC_CONTACT_EMAIL]
@@ -35,6 +37,7 @@ platform :ios do
     else
       review_info = nil
       UI.important("レビュー情報の更新をスキップ: Secret 未設定 → #{missing.join(', ')}")
+      UI.important("（審査ノート review_notes.txt の変更も ASC には反映されません。全 Secret 登録後に再実行してください）")
     end
 
     deliver(

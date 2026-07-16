@@ -85,18 +85,8 @@ def test_pool_id優先でHS256secretを無視する(monkeypatch):
 
 def test_aud不一致のトークンは拒否される(monkeypatch):
     """別アプリクライアント向け(aud/client_id 不一致)のトークンを拒否する。"""
-    import app.auth as auth
-
+    auth = _fake_jwks(monkeypatch)
     monkeypatch.setenv("NOSHI_COGNITO_CLIENT_ID", "client-allowed")
-
-    class FakeKey:
-        key = "k"
-
-    class FakeJwks:
-        def get_signing_key_from_jwt(self, token):
-            return FakeKey()
-
-    auth._jwks_client = FakeJwks()
     monkeypatch.setattr(
         jwt, "decode", lambda *a, **k: {"sub": "u1", "token_use": "id", "aud": "client-other"}
     )
@@ -108,10 +98,10 @@ def test_aud不一致のトークンは拒否される(monkeypatch):
     )
     claims = auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
     assert claims["sub"] == "u1"
-    auth._jwks_client = None  # 後始末
 
 
 def _fake_jwks(monkeypatch):
+    """JWKS 取得をフェイクに差し替える（monkeypatch で自動復元）。"""
     import app.auth as auth
 
     class FakeKey:
@@ -121,7 +111,7 @@ def _fake_jwks(monkeypatch):
         def get_signing_key_from_jwt(self, token):
             return FakeKey()
 
-    auth._jwks_client = FakeJwks()
+    monkeypatch.setattr(auth, "_jwks_client", FakeJwks())
     return auth
 
 
@@ -136,7 +126,6 @@ def test_アクセストークンは拒否される(monkeypatch):
     )
     with pytest.raises(AuthError):
         auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
-    auth._jwks_client = None
 
 
 def test_token_useの無いトークンは拒否される(monkeypatch):
@@ -146,4 +135,3 @@ def test_token_useの無いトークンは拒否される(monkeypatch):
     monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-allowed"})
     with pytest.raises(AuthError):
         auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
-    auth._jwks_client = None

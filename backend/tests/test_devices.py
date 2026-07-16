@@ -122,3 +122,24 @@ def test_APIでプッシュ通知をオフにできる() -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["push"] is False and body["email"] is True
+
+
+def test_オーナー引き継ぎで通知設定が保持される():
+    """世帯オーナー脱退時、後継者の notify_email/notify_push 設定がリセットされないことを検証する（#205）。"""
+    from app.ports import GiftCatalogMock, OcrLlmMock
+    from app.repository import InMemoryRepository
+    from app.services import NoshiService
+
+    repo = InMemoryRepository()
+    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc.resolve_household("owner1", email="o@example.com")
+    h = svc.household_view("owner1")
+    svc.resolve_household("member1", email="m@example.com")
+    svc.join_household("member1", h["invite_code"], email="m@example.com")
+    svc.set_notification_prefs("member1", False, False)  # 後継者は通知オフ
+
+    svc.leave_household("owner1")  # オーナー脱退 → member1 が owner に昇格
+
+    m = repo.get_membership("member1")
+    assert m is not None and m.role == "owner"
+    assert m.notify_email is False and m.notify_push is False

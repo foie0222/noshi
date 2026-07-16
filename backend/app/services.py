@@ -11,6 +11,7 @@ import base64
 import datetime
 import logging
 import time
+from dataclasses import replace as dc_replace
 from typing import Any
 
 from app.account import canonical_sub
@@ -221,15 +222,8 @@ class NoshiService:
             if remaining:
                 # 最古参メンバーに owner を引き継ぐ
                 heir = remaining[0]
-                self.repo.put_membership(
-                    Membership(
-                        user_id=heir.user_id,
-                        household_id=old_hid,
-                        role="owner",
-                        email=heir.email,
-                        joined_at=heir.joined_at,
-                    )
-                )
+                # 通知設定（notify_email/notify_push）等は heir の値を保持したまま role だけ昇格
+                self.repo.put_membership(dc_replace(heir, role="owner"))
                 self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
             else:
                 # 単独だったので旧世帯ごと purge（孤児化防止）

@@ -58,9 +58,9 @@ class NotificationPrefsIn(BaseModel):
 
 class DeviceTokenIn(BaseModel):
     # iOS プッシュ通知（APNs）のデバイストークン登録（#205）。
-    token: str
-    platform: str = "ios"
-    env: str = "prod"  # prod / sandbox
+    token: str = Field(min_length=1, max_length=200)
+    platform: str = Field(default="ios", pattern="^ios$")  # 将来 android を足すまで ios のみ
+    env: str = Field(default="prod", pattern="^(prod|sandbox)$")
 
 
 class RelationshipIn(BaseModel):

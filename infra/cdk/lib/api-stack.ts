@@ -8,15 +8,7 @@ import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { backendLambdaCode } from "./lambda-code";
-
-// 許可オリジン（#72/#103/#194）。API Gateway の CORS と FastAPI 側 CORS の両方で使う。
-// - noshi.me: 本番フロント / - cloudfront: 旧ドメイン移行期の併用
-// - https://localhost: iOS（Capacitor 内包）WebView のオリジン（iosScheme=https）
-export const ALLOWED_ORIGINS = [
-  "https://noshi.me",
-  "https://d1u0sgslky88ja.cloudfront.net",
-  "https://localhost",
-] as const;
+import { ALLOWED_ORIGINS } from "./origins";
 
 interface ApiStackProps extends StackProps {
   table: dynamodb.Table;

@@ -3,6 +3,7 @@ import { Construct } from "constructs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as kms from "aws-cdk-lib/aws-kms";
+import { ALLOWED_ORIGINS } from "./origins";
 
 /**
  * DataStack — ステートフル資源（infrastructure-design.md / deployment-architecture.md）。
@@ -52,8 +53,9 @@ export class DataStack extends Stack {
       cors: [
         {
           // POST: サイズ上限つき署名付き POST（#100）。GET/HEAD: 署名付き表示。
+          // オリジンは本番＋iOS WebView に限定（#105。アクセス制御は署名が担い、CORS は多層防御）。
           allowedMethods: [s3.HttpMethods.POST, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
-          allowedOrigins: ["*"],
+          allowedOrigins: [...ALLOWED_ORIGINS],
           allowedHeaders: ["*"],
           maxAge: 3000,
         },

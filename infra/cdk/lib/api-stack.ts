@@ -97,6 +97,18 @@ export class ApiStack extends Stack {
       integration: new HttpLambdaIntegration("BffIntegration", apiFn),
     });
 
+    // ステージ既定スロットリング（#107）。認証済みユーザーの大量リクエストによる
+    // コスト暴走（OCR/S3/DynamoDB）と DoS を抑制する。家族向け小規模アプリのため
+    // 全ユーザー合算で 25 req/s・バースト 50 あれば十分（超過は 429）。
+    // 注: L2 の HttpStage(throttle) も存在するが、それを使うには createDefaultStage: false で
+    // ステージを作り直す必要があり、稼働中の $default ステージが CFN 置換（同名 create が先行して
+    // 衝突）になるため、既存ステージを in-place 変更できる CfnStage エスケープハッチを使う。
+    const defaultStage = api.defaultStage!.node.defaultChild as apigw.CfnStage;
+    defaultStage.defaultRouteSettings = {
+      throttlingRateLimit: 25,
+      throttlingBurstLimit: 50,
+    };
+
     this.apiUrl = api.apiEndpoint;
     new CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
   }

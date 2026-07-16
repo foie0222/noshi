@@ -47,6 +47,7 @@ import {
 import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } from "./lib/ledger";
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { isNativePlatform } from "./lib/platform";
+import { enablePush, onPushTap, pushSupported, refreshPushToken } from "./lib/push";
 import { filterReturnRecords, isValidReturnAmount } from "./lib/return";
 import { reviewMessage } from "./lib/review";
 import { priceLine } from "./lib/suggestion";
@@ -177,6 +178,7 @@ export function App() {
     () => localStorage.getItem("noshi-font") === "large",
   );
   const [notifyEmail, setNotifyEmail] = useState<boolean>(true); // お返し期限のメール通知(#178)
+  const [notifyPush, setNotifyPush] = useState<boolean>(true); // お返し期限の iOS プッシュ通知(#205)
   const [celebrate, setCelebrate] = useState<boolean>(false); // 水引の完了演出
   const [capturedImage, setCapturedImage] = useState<string>(""); // 撮影/選択した画像(dataURL)
   const [captureDirection, setCaptureDirection] = useState<Direction>("received"); // 撮影時の種類（もらった/あげた）
@@ -397,6 +399,27 @@ export function App() {
     }
   }
 
+  // お返し期限の iOS プッシュ通知 オン/オフ（#205）。オンにする時だけ OS の許可を求め、
+  // 許可されたらトークンを登録する（拒否時は設定アプリへの導線を案内）。
+  async function togglePushNotify() {
+    const next = !notifyPush;
+    if (next) {
+      const ok = await enablePush(api.registerDevice);
+      if (!ok) {
+        notify("通知が許可されていません。iOS の設定アプリからも変更できます。");
+        return;
+      }
+    }
+    setNotifyPush(next);
+    try {
+      await api.setNotifications(notifyEmail, next);
+      notify(next ? "お返し時期にプッシュ通知でお知らせします" : "プッシュ通知をオフにしました");
+    } catch (e) {
+      setNotifyPush(!next);
+      handleErr(e);
+    }
+  }
+
   async function loadHome() {
     setHome(await api.home());
   }
@@ -455,6 +478,11 @@ export function App() {
       setScreen(s ?? pickInitialScreen(authEnabled(), isLoggedIn()));
     };
     window.addEventListener("popstate", onPop);
+    // iOS: 通知許可済みなら APNs トークンを最新化し、通知タップでホーム（お返し予定）へ（#205）。
+    if (authEnabled() && isLoggedIn()) {
+      refreshPushToken(api.registerDevice).catch(() => {});
+    }
+    onPushTap(() => go("home")).catch(() => {});
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
@@ -486,7 +514,10 @@ export function App() {
       if (authEnabled()) {
         api
           .notifications()
-          .then((r) => setNotifyEmail(r.email))
+          .then((r) => {
+            setNotifyEmail(r.email);
+            setNotifyPush(r.push);
+          })
           .catch(handleErr);
       }
     }
@@ -2606,8 +2637,24 @@ export function App() {
                     <span className="knob" />
                   </button>
                 </div>
+                {pushSupported() && (
+                  <div className="between note-top">
+                    <span>お返し時期をプッシュ通知で知らせる</span>
+                    <button
+                      type="button"
+                      className={`toggle${notifyPush ? " on" : ""}`}
+                      role="switch"
+                      aria-checked={notifyPush}
+                      aria-label="お返し時期をプッシュ通知で知らせる"
+                      onClick={togglePushNotify}
+                    >
+                      <span className="knob" />
+                    </button>
+                  </div>
+                )}
                 <div className="muted note-top">
-                  お返しの目安が近づいたら、登録のメールにそっとお知らせします。
+                  お返しの目安が近づいたら、登録のメール
+                  {pushSupported() ? "やこの端末" : ""}にそっとお知らせします。
                 </div>
               </div>
             </>

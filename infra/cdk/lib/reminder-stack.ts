@@ -23,6 +23,8 @@ interface ReminderStackProps extends StackProps {
  * 送信元は AuthStack と同じ no-reply@noshi.me（DKIM/SPF/DMARC 整備済み）。
  */
 export class ReminderStack extends Stack {
+  public readonly reminderFn: lambda.Function; // 監視（#124）から参照
+
   constructor(scope: Construct, id: string, props: ReminderStackProps) {
     super(scope, id, props);
 
@@ -59,5 +61,6 @@ export class ReminderStack extends Stack {
       schedule: events.Schedule.cron({ minute: "0", hour: "23" }),
       targets: [new targets.LambdaFunction(fn)],
     });
+    this.reminderFn = fn;
   }
 }

@@ -118,7 +118,7 @@ jobs:
         working-directory: infra/cdk
         run: >
           npx cdk deploy
-          NoshiDataStack NoshiAuthStack NoshiMessagingStack NoshiApiStack NoshiWorkerStack NoshiCatalogBatchStack NoshiCostStack NoshiReminderStack
+          NoshiDataStack NoshiAuthStack NoshiMessagingStack NoshiApiStack NoshiWorkerStack NoshiCatalogBatchStack NoshiCostStack NoshiReminderStack NoshiMonitoringStack
           --require-approval never
           --outputs-file cdk-outputs.json
       - name: build frontend (point at deployed API + Cognito)

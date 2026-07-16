@@ -25,6 +25,8 @@ interface ApiStackProps extends StackProps {
  */
 export class ApiStack extends Stack {
   public readonly apiUrl: string;
+  public readonly apiFn: lambda.Function; // 監視（#124）から参照
+  public readonly httpApi: apigw.HttpApi; // 監視（#124）から参照
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -110,6 +112,8 @@ export class ApiStack extends Stack {
     };
 
     this.apiUrl = api.apiEndpoint;
+    this.apiFn = apiFn;
+    this.httpApi = api;
     new CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
   }
 }

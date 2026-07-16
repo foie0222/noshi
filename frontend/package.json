@@ -20,7 +20,7 @@
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
     "@capacitor/push-notifications": "^8.1.2",
-    "@capgo/capacitor-social-login": "^8.3.30",
+    "@capgo/capacitor-social-login": "^8.3.37",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

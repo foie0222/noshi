@@ -33,6 +33,10 @@ SUBJECT = "noshi｜お返しの時期が近づいています"
 # 送信コールバック: (to, subject, html) を受け取り1通送る。テストでは差し替える。
 SendFn = Callable[[str, str, str], None]
 
+# プッシュ送信コールバック（#205）: (device_token, body) を送り "ok" | "gone" を返す。
+# "gone" は宛先無効（APNs 410 / SNS EndpointDisabled 相当）で、呼び出し側がトークンを削除する。
+PushFn = Callable[[str, str], str]
+
 
 @dataclass
 class DueReminder:
@@ -79,29 +83,59 @@ def collect_household_due(repo: Repository, scope: str, today: datetime.date) ->
     return out
 
 
-def run_reminders(repo: Repository, today: datetime.date, send: SendFn) -> int:
+def run_reminders(
+    repo: Repository, today: datetime.date, send: SendFn, push: PushFn | None = None
+) -> int:
     """全世帯を走査し、対象メンバーへリマインドを送る。送った通数を返す。
 
-    同日・同イベントの重複は送らない。送信に成功したイベントだけを送信済みに記録する。
+    同日・同イベントの重複は送らない（メール/プッシュはチャネル別マーカーで独立に冪等、#205）。
     """
     day = today.isoformat()
     sent_count = 0
     for h in repo.list_all_households():
         scope = h.id
         dues = collect_household_due(repo, scope, today)
+        # --- メール ---
         fresh = [d for d in dues if not repo.reminder_marked(scope, d.event_id, day)]
-        if not fresh:
+        if fresh:
+            members = [m for m in repo.list_members(scope) if m.email and m.notify_email]
+            if members:
+                subject, html = render_reminder_email(fresh, today)
+                for m in members:
+                    send(m.email, subject, html)
+                    sent_count += 1
+                for d in fresh:
+                    repo.mark_reminder(scope, d.event_id, day)
+        # --- iOS プッシュ（#205）---
+        if push is None:
             continue
-        members = [m for m in repo.list_members(scope) if m.email and m.notify_email]
-        if not members:
+        fresh_p = [d for d in dues if not repo.reminder_marked(scope, d.event_id, day, "push")]
+        if not fresh_p:
             continue
-        subject, html = render_reminder_email(fresh, today)
-        for m in members:
-            send(m.email, subject, html)
-            sent_count += 1
-        for d in fresh:
-            repo.mark_reminder(scope, d.event_id, day)
+        push_members = [m for m in repo.list_members(scope) if m.notify_push]
+        if not push_members:
+            continue
+        body = render_push_body(fresh_p)
+        delivered = False
+        for m in push_members:
+            for t in repo.list_device_tokens(m.user_id):
+                if push(t.token, body) == "gone":
+                    repo.delete_device_token(m.user_id, t.token)  # 無効トークンの自動削除
+                else:
+                    delivered = True
+                    sent_count += 1
+        if delivered:
+            for d in fresh_p:
+                repo.mark_reminder(scope, d.event_id, day, "push")
     return sent_count
+
+
+def render_push_body(reminders: list[DueReminder]) -> str:
+    """プッシュ通知の本文。メールと同じ急かさないトーンで、1件なら具体名・複数は件数で。"""
+    if len(reminders) == 1:
+        d = reminders[0]
+        return f"{d.party_name} 様へのお返し、{_due_phrase(d.days_left)}。"
+    return f"お返しの目安が近い記録が{len(reminders)}件あります。折を見てご準備を。"
 
 
 # --- メール本文（デザインシステム準拠 HTML） --------------------------------
@@ -215,8 +249,12 @@ def handler(event: object, context: object) -> dict[str, object]:
 
     repo = DynamoRepository()
     from_email = os.environ["NOSHI_FROM_EMAIL"]
+    # APNs プッシュ（#205）。プラットフォームアプリ未設定（鍵未発行）ならメールのみ。
+    app_arn = os.environ.get("NOSHI_APNS_PLATFORM_APP_ARN", "")
     today = datetime.date.today()
-    sent = run_reminders(repo, today, _ses_sender(from_email))
+    sent = run_reminders(
+        repo, today, _ses_sender(from_email), push=_sns_pusher(app_arn) if app_arn else None
+    )
     return {"sent": sent, "date": today.isoformat()}
 
 
@@ -237,3 +275,40 @@ def _ses_sender(from_email: str) -> SendFn:
         )
 
     return send
+
+
+def _sns_pusher(platform_app_arn: str) -> PushFn:
+    """SNS(APNS プラットフォームアプリ) 経由で APNs プッシュを送る送信関数を返す（#205）。
+
+    デバイストークンごとにエンドポイントを作成（既存トークンなら同じ ARN が返り冪等）して
+    publish する。宛先無効（EndpointDisabled / 該当 InvalidParameter）は "gone" を返し、
+    呼び出し側でトークンを削除する。
+    """
+    import json
+
+    import boto3
+
+    sns = boto3.client("sns")
+
+    def push(token: str, body: str) -> str:
+        try:
+            ep = sns.create_platform_endpoint(PlatformApplicationArn=platform_app_arn, Token=token)[
+                "EndpointArn"
+            ]
+            # 過去に無効化されたエンドポイントは再有効化してから送る（トークン再登録時）。
+            sns.set_endpoint_attributes(
+                EndpointArn=ep, Attributes={"Enabled": "true", "Token": token}
+            )
+            payload = {"aps": {"alert": {"title": SUBJECT, "body": body}, "sound": "default"}}
+            sns.publish(
+                TargetArn=ep,
+                MessageStructure="json",
+                Message=json.dumps({"APNS": json.dumps(payload), "default": body}),
+            )
+            return "ok"
+        except sns.exceptions.EndpointDisabledException:
+            return "gone"
+        except sns.exceptions.InvalidParameterException:
+            return "gone"  # 無効トークン（フォーマット不正・失効）も宛先から外す
+
+    return push

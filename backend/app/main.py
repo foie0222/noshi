@@ -7,6 +7,7 @@ DI で Repository/ポートを差し替え可能（MVP は InMemory + モック�
 
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 from typing import Any
 
@@ -75,8 +76,6 @@ def _default_repository() -> Repository:
 
 
 def create_app(service: NoshiService | None = None) -> FastAPI:
-    import os
-
     app = FastAPI(title="noshi API", version="0.1.0")
     # CORS は API Gateway が本番オリジンに限定しているが、Lambda 直叩きでも
     # `*` を返さないよう多層防御としてここでも限定する（#103）。本番は CDK が

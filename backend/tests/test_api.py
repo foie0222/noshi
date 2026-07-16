@@ -644,8 +644,9 @@ def test_CORSはワイルドカードを返さない(monkeypatch):
     assert r2.headers.get("access-control-allow-origin") != "https://evil.example"
 
 
-def test_CORSの既定はローカル開発オリジン():
+def test_CORSの既定はローカル開発オリジン(monkeypatch):
     """NOSHI_ALLOWED_ORIGINS 未設定時は開発用オリジン（vite/iOS WebView）のみ許可されることを検証する（#103）。"""
+    monkeypatch.delenv("NOSHI_ALLOWED_ORIGINS", raising=False)
     c = TestClient(create_app())
     r = c.options(
         "/api/ledger",

@@ -97,11 +97,53 @@ def test_aud不一致のトークンは拒否される(monkeypatch):
             return FakeKey()
 
     auth._jwks_client = FakeJwks()
-    monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-other"})
+    monkeypatch.setattr(
+        jwt, "decode", lambda *a, **k: {"sub": "u1", "token_use": "id", "aud": "client-other"}
+    )
     with pytest.raises(AuthError):
         auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
     # 一致すれば通る
-    monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-allowed"})
+    monkeypatch.setattr(
+        jwt, "decode", lambda *a, **k: {"sub": "u1", "token_use": "id", "aud": "client-allowed"}
+    )
     claims = auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
     assert claims["sub"] == "u1"
     auth._jwks_client = None  # 後始末
+
+
+def _fake_jwks(monkeypatch):
+    import app.auth as auth
+
+    class FakeKey:
+        key = "k"
+
+    class FakeJwks:
+        def get_signing_key_from_jwt(self, token):
+            return FakeKey()
+
+    auth._jwks_client = FakeJwks()
+    return auth
+
+
+def test_アクセストークンは拒否される(monkeypatch):
+    """token_use=access のトークンを拒否し、ID トークンのみ受理する（#104, A07）。"""
+    auth = _fake_jwks(monkeypatch)
+    monkeypatch.setenv("NOSHI_COGNITO_CLIENT_ID", "client-allowed")
+    monkeypatch.setattr(
+        jwt,
+        "decode",
+        lambda *a, **k: {"sub": "u1", "token_use": "access", "client_id": "client-allowed"},
+    )
+    with pytest.raises(AuthError):
+        auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
+    auth._jwks_client = None
+
+
+def test_token_useの無いトークンは拒否される(monkeypatch):
+    """token_use クレームを欠くトークンを拒否する（#104, A07）。"""
+    auth = _fake_jwks(monkeypatch)
+    monkeypatch.setenv("NOSHI_COGNITO_CLIENT_ID", "client-allowed")
+    monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-allowed"})
+    with pytest.raises(AuthError):
+        auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
+    auth._jwks_client = None

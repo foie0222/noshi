@@ -85,9 +85,24 @@ def test_pool_id優先でHS256secretを無視する(monkeypatch):
 
 def test_aud不一致のトークンは拒否される(monkeypatch):
     """別アプリクライアント向け(aud/client_id 不一致)のトークンを拒否する。"""
-    import app.auth as auth
-
+    auth = _fake_jwks(monkeypatch)
     monkeypatch.setenv("NOSHI_COGNITO_CLIENT_ID", "client-allowed")
+    monkeypatch.setattr(
+        jwt, "decode", lambda *a, **k: {"sub": "u1", "token_use": "id", "aud": "client-other"}
+    )
+    with pytest.raises(AuthError):
+        auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
+    # 一致すれば通る
+    monkeypatch.setattr(
+        jwt, "decode", lambda *a, **k: {"sub": "u1", "token_use": "id", "aud": "client-allowed"}
+    )
+    claims = auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
+    assert claims["sub"] == "u1"
+
+
+def _fake_jwks(monkeypatch):
+    """JWKS 取得をフェイクに差し替える（monkeypatch で自動復元）。"""
+    import app.auth as auth
 
     class FakeKey:
         key = "k"
@@ -96,12 +111,27 @@ def test_aud不一致のトークンは拒否される(monkeypatch):
         def get_signing_key_from_jwt(self, token):
             return FakeKey()
 
-    auth._jwks_client = FakeJwks()
-    monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-other"})
+    monkeypatch.setattr(auth, "_jwks_client", FakeJwks())
+    return auth
+
+
+def test_アクセストークンは拒否される(monkeypatch):
+    """token_use=access のトークンを拒否し、ID トークンのみ受理する（#104, A07）。"""
+    auth = _fake_jwks(monkeypatch)
+    monkeypatch.setenv("NOSHI_COGNITO_CLIENT_ID", "client-allowed")
+    monkeypatch.setattr(
+        jwt,
+        "decode",
+        lambda *a, **k: {"sub": "u1", "token_use": "access", "client_id": "client-allowed"},
+    )
     with pytest.raises(AuthError):
         auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
-    # 一致すれば通る
+
+
+def test_token_useの無いトークンは拒否される(monkeypatch):
+    """token_use クレームを欠くトークンを拒否する（#104, A07）。"""
+    auth = _fake_jwks(monkeypatch)
+    monkeypatch.setenv("NOSHI_COGNITO_CLIENT_ID", "client-allowed")
     monkeypatch.setattr(jwt, "decode", lambda *a, **k: {"sub": "u1", "aud": "client-allowed"})
-    claims = auth._verify_cognito("tok", "pool-x", "ap-northeast-1")
-    assert claims["sub"] == "u1"
-    auth._jwks_client = None  # 後始末
+    with pytest.raises(AuthError):
+        auth._verify_cognito("tok", "pool-x", "ap-northeast-1")

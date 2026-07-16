@@ -60,17 +60,16 @@ def _verify_cognito(token: str, pool_id: str, region: str) -> dict[str, Any]:
         )
     except jwt.PyJWTError as e:
         raise AuthError(f"invalid token: {e}") from e
-    # アクセストークン/IDトークンのみ受理（A07）
-    if claims.get("token_use") not in (None, "id", "access"):
+    # ID トークンのみ受理（#104, A07）。フロントは ID トークンを送る設計のため、
+    # アクセストークンや token_use を欠く想定外トークンの受理面を閉じる。
+    if claims.get("token_use") != "id":
         raise AuthError("unexpected token_use")
     # 想定アプリクライアント以外のトークンを拒否（同一プールの別クライアントなりすまし防止）。
-    # ID トークンは aud、アクセストークンは client_id にクライアントIDが入る。
-    # NOSHI_COGNITO_CLIENT_ID 未設定時は検証しない（後方互換）。
+    # ID トークンのクライアントIDは aud に入る。NOSHI_COGNITO_CLIENT_ID 未設定時は
+    # 検証しない（ローカル検証用の後方互換。本番は CDK が常に注入する）。
     allowed_client = os.environ.get("NOSHI_COGNITO_CLIENT_ID")
-    if allowed_client:
-        token_client = claims.get("aud") or claims.get("client_id")
-        if token_client != allowed_client:
-            raise AuthError("unexpected audience")
+    if allowed_client and claims.get("aud") != allowed_client:
+        raise AuthError("unexpected audience")
     return claims
 
 

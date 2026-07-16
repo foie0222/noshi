@@ -27,7 +27,7 @@ export class MonitoringStack extends Stack {
   constructor(scope: Construct, id: string, props: MonitoringStackProps) {
     super(scope, id, props);
 
-    const topic = new sns.Topic(this, "AlertTopic", { topicName: "noshi-alerts" });
+    const topic = new sns.Topic(this, "AlertTopic"); // 物理名は CDK 生成（再作成時の同名衝突回避）
     topic.addSubscription(new subs.EmailSubscription(props.email));
     const notify = new cwActions.SnsAction(topic);
 
@@ -46,18 +46,18 @@ export class MonitoringStack extends Stack {
     };
 
     // Lambda エラー（5分間に1件以上）
-    const fnError = (fn: lambda.IFunction) =>
+    const fnError = (fn: lambda.IFunction): cw.Metric =>
       fn.metricErrors({ period: Duration.minutes(5), statistic: "Sum" });
-    alarm("ApiFnErrors", fnError(props.apiFn) as cw.Metric, "API(BFF) Lambda でエラーが発生");
-    alarm("WorkerFnErrors", fnError(props.workerFn) as cw.Metric, "OCR worker Lambda でエラーが発生");
+    alarm("ApiFnErrors", fnError(props.apiFn), "API(BFF) Lambda でエラーが発生");
+    alarm("WorkerFnErrors", fnError(props.workerFn), "OCR worker Lambda でエラーが発生");
     alarm(
       "ReminderFnErrors",
-      fnError(props.reminderFn) as cw.Metric,
+      fnError(props.reminderFn),
       "お返し期限リマインド Lambda でエラーが発生",
     );
     alarm(
       "CatalogFnErrors",
-      fnError(props.catalogFn) as cw.Metric,
+      fnError(props.catalogFn),
       "カタログ日次バッチ Lambda でエラーが発生",
     );
 
@@ -80,7 +80,7 @@ export class MonitoringStack extends Stack {
       props.deadLetterQueue.metricApproximateNumberOfMessagesVisible({
         period: Duration.minutes(5),
         statistic: "Maximum",
-      }) as cw.Metric,
+      }),
       "OCR 抽出ジョブが DLQ に滞留（3回失敗）",
     );
   }

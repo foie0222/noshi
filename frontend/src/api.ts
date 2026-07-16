@@ -150,13 +150,16 @@ export const api = {
   giftTax: () => req<GiftTax>("/gift-tax"),
   annual: (year?: number) => req<AnnualSummary>(`/annual${year ? `?year=${year}` : ""}`),
   household: () => req<{ household: Household }>("/household"),
-  // お返し期限のメール通知 設定（#178）
-  notifications: () => req<{ email: boolean }>("/notifications"),
-  setNotifications: (email: boolean) =>
-    req<{ email: boolean }>("/notifications", {
+  // お返し期限の通知設定（メール #178 / iOS プッシュ #205）
+  notifications: () => req<{ email: boolean; push: boolean }>("/notifications"),
+  setNotifications: (email: boolean, push?: boolean) =>
+    req<{ email: boolean; push: boolean }>("/notifications", {
       method: "PUT",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(push === undefined ? { email } : { email, push }),
     }),
+  // iOS プッシュ通知の宛先デバイストークン（#205）
+  registerDevice: (token: string) =>
+    req<{ ok: boolean }>("/devices", { method: "POST", body: JSON.stringify({ token }) }),
   joinHousehold: (code: string) =>
     req<{ household: Household }>("/household/join", {
       method: "POST",

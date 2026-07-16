@@ -19,6 +19,7 @@
     "@capacitor/camera": "^8.2.0",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
+    "@capacitor/push-notifications": "^8.1.2",
     "@capgo/capacitor-social-login": "^8.3.30",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

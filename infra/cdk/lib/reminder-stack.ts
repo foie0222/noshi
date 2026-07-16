@@ -30,6 +30,13 @@ export class ReminderStack extends Stack {
 
     const fromEmail = `no-reply@${props.domainName}`;
 
+    // iOS プッシュ通知（#205）。APNs 鍵は CFN に載せず、SNS プラットフォームアプリは
+    // 一度だけ CLI で作成し ARN を context で渡す（未設定ならメールのみ＝段階導入可能）:
+    //   aws sns create-platform-application --name noshi-ios --platform APNS \
+    //     --attributes PlatformCredential="$(aws ssm get-parameter --name /noshi/apns/signing-key \
+    //       --with-decryption --query Parameter.Value --output text)",PlatformPrincipal=<KeyID>,ApplePlatformTeamID=<TeamID>,ApplePlatformBundleID=me.noshi.app
+    const apnsAppArn = (this.node.tryGetContext("apnsPlatformAppArn") as string) ?? "";
+
     const fn = new lambda.Function(this, "ReturnReminder", {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: "app.reminders.handler", // backend/app/reminders.py
@@ -40,6 +47,7 @@ export class ReminderStack extends Stack {
         NOSHI_TABLE: props.table.tableName,
         NOSHI_USE_DYNAMO: "1",
         NOSHI_FROM_EMAIL: fromEmail,
+        ...(apnsAppArn ? { NOSHI_APNS_PLATFORM_APP_ARN: apnsAppArn } : {}),
       },
     });
 
@@ -55,6 +63,24 @@ export class ReminderStack extends Stack {
         ],
       }),
     );
+
+    // APNs プッシュ送信（#205）。エンドポイント作成・publish・属性更新を許可。
+    // publish の対象はプラットフォームアプリ配下のエンドポイント（endpoint/APNS/...）。
+    if (apnsAppArn) {
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "sns:CreatePlatformEndpoint",
+            "sns:Publish",
+            "sns:SetEndpointAttributes",
+          ],
+          resources: [
+            apnsAppArn,
+            `arn:aws:sns:${this.region}:${this.account}:endpoint/APNS/*`,
+          ],
+        }),
+      );
+    }
 
     // 毎日 08:00 JST（23:00 UTC）に実行。朝の落ち着いた時間にそっと届ける。
     new events.Rule(this, "DailyReminderSchedule", {

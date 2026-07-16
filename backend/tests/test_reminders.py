@@ -106,3 +106,62 @@ def test_通知オフのメンバーには送らない():
     sent: list[str] = []
     assert run_reminders(repo, TODAY, lambda to, subject, html: sent.append(to)) == 0
     assert sent == []
+
+
+# --- プッシュ通知チャネル（#205）---
+
+
+def _push_setup():
+    """世帯＋期限当日イベント＋デバイストークン2つを仕込む。"""
+    from app.domain.entities import DeviceToken
+
+    repo = InMemoryRepository()
+    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    scope = _seed(svc, repo)
+    _due_event(svc, "u1", scope, party="高橋", due_offset=0)
+    repo.put_device_token(DeviceToken(user_id="u1", token="tok-1", platform="ios", env="prod"))
+    repo.put_device_token(DeviceToken(user_id="u1", token="tok-2", platform="ios", env="prod"))
+    return repo, svc, scope
+
+
+def test_プッシュは通知オンのメンバーの全デバイスへ送られる():
+    """notify_push オンのメンバーが持つ全デバイストークンへ 1 回ずつ送ることを検証する（#205）。"""
+    repo, svc, scope = _push_setup()
+    sent: list[str] = []
+    emails: list[str] = []
+    run_reminders(
+        repo,
+        TODAY,
+        lambda to, s, h: emails.append(to),
+        push=lambda token, body: (sent.append(token), "ok")[1],
+    )
+    assert sorted(sent) == ["tok-1", "tok-2"]
+    assert emails  # メールも従来どおり送られる
+
+
+def test_プッシュはチャネル別に冪等で同日再実行しても再送しない():
+    """同日再実行でプッシュを重複送信しない（メールと独立のマーカー）ことを検証する（#205）。"""
+    repo, svc, scope = _push_setup()
+    sent: list[str] = []
+    push = lambda token, body: (sent.append(token), "ok")[1]  # noqa: E731
+    run_reminders(repo, TODAY, lambda *a: None, push=push)
+    run_reminders(repo, TODAY, lambda *a: None, push=push)
+    assert sorted(sent) == ["tok-1", "tok-2"]
+
+
+def test_無効トークンは自動削除される():
+    """送信結果 gone（410/EndpointDisabled 相当）のトークンを削除することを検証する（#205）。"""
+    repo, svc, scope = _push_setup()
+    run_reminders(repo, TODAY, lambda *a: None, push=lambda token, body: "gone")
+    assert repo.list_device_tokens("u1") == []
+
+
+def test_notify_pushオフのメンバーには送らない():
+    """マイページでプッシュをオフにしたメンバーへ送らないことを検証する（#205）。"""
+    repo, svc, scope = _push_setup()
+    svc.set_notification_prefs("u1", True, False)
+    sent: list[str] = []
+    run_reminders(
+        repo, TODAY, lambda *a: None, push=lambda token, body: (sent.append(token), "ok")[1]
+    )
+    assert sent == []

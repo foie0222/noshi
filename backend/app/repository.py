@@ -53,8 +53,12 @@ class Repository(Protocol):
     def delete_device_tokens(self, user_id: str) -> int: ...
     # --- お返し期限リマインド（#178）。バッチが全世帯を走査し、送信済みを冪等に記録する ---
     def list_all_households(self) -> list[Household]: ...
-    def reminder_marked(self, scope: str, event_id: str, day: str) -> bool: ...
-    def mark_reminder(self, scope: str, event_id: str, day: str) -> None: ...
+    def reminder_marked(
+        self, scope: str, event_id: str, day: str, channel: str = "email"
+    ) -> bool: ...
+    def mark_reminder(
+        self, scope: str, event_id: str, day: str, channel: str = "email"
+    ) -> None: ...
     # --- 世帯独自の続柄マスタ（#1）---
     def add_household_relationship(self, household_id: str, name: str) -> None: ...
     def list_household_relationships(self, household_id: str) -> list[str]: ...
@@ -94,7 +98,9 @@ class InMemoryRepository:
         self._relationships: dict[str, list[str]] = {}  # household_id -> 続柄（追加順）
         self._purposes: dict[str, list[str]] = {}  # household_id -> 用途（追加順）
         self._parties: dict[str, dict[str, Party]] = {}  # household_id -> {party_id: Party}
-        self._reminders: set[tuple[str, str, str]] = set()  # (scope, event_id, day) 送信済み(#178)
+        self._reminders: set[tuple[str, str, str, str]] = (
+            set()
+        )  # (scope, event_id, day, channel) 送信済み(#178/#205)
         self._account_links: dict[str, AccountLink] = {}  # alias_sub -> AccountLink
         self._email_primary: dict[str, str] = {}  # email(小文字) -> primary_sub
         self._device_tokens: dict[
@@ -202,11 +208,11 @@ class InMemoryRepository:
     def list_all_households(self) -> list[Household]:
         return list(self._households.values())
 
-    def reminder_marked(self, scope: str, event_id: str, day: str) -> bool:
-        return (scope, event_id, day) in self._reminders
+    def reminder_marked(self, scope: str, event_id: str, day: str, channel: str = "email") -> bool:
+        return (scope, event_id, day, channel) in self._reminders
 
-    def mark_reminder(self, scope: str, event_id: str, day: str) -> None:
-        self._reminders.add((scope, event_id, day))
+    def mark_reminder(self, scope: str, event_id: str, day: str, channel: str = "email") -> None:
+        self._reminders.add((scope, event_id, day, channel))
 
     # --- 世帯独自の続柄マスタ ---
     def add_household_relationship(self, household_id: str, name: str) -> None:
@@ -500,15 +506,18 @@ class DynamoRepository:
             kwargs["ExclusiveStartKey"] = last
         return [h for it in items if (h := self._hydrate(Household, it)) is not None]
 
-    def reminder_marked(self, scope: str, event_id: str, day: str) -> bool:
-        key = {"PK": self._pk(scope), "SK": f"REMINDER#{event_id}#{day}"}
+    def reminder_marked(self, scope: str, event_id: str, day: str, channel: str = "email") -> bool:
+        # email は従来のキー形式を維持（デプロイ済みマーカーとの互換、#205）
+        suffix = "" if channel == "email" else f"#{channel}"
+        key = {"PK": self._pk(scope), "SK": f"REMINDER#{event_id}#{day}{suffix}"}
         return self.table.get_item(Key=key).get("Item") is not None
 
-    def mark_reminder(self, scope: str, event_id: str, day: str) -> None:
+    def mark_reminder(self, scope: str, event_id: str, day: str, channel: str = "email") -> None:
+        suffix = "" if channel == "email" else f"#{channel}"
         self.table.put_item(
             Item={
                 "PK": self._pk(scope),
-                "SK": f"REMINDER#{event_id}#{day}",
+                "SK": f"REMINDER#{event_id}#{day}{suffix}",
                 "type": "reminder",
                 "day": day,
             }

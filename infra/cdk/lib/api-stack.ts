@@ -9,6 +9,15 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { backendLambdaCode } from "./lambda-code";
 
+// 許可オリジン（#72/#103/#194）。API Gateway の CORS と FastAPI 側 CORS の両方で使う。
+// - noshi.me: 本番フロント / - cloudfront: 旧ドメイン移行期の併用
+// - https://localhost: iOS（Capacitor 内包）WebView のオリジン（iosScheme=https）
+export const ALLOWED_ORIGINS = [
+  "https://noshi.me",
+  "https://d1u0sgslky88ja.cloudfront.net",
+  "https://localhost",
+] as const;
+
 interface ApiStackProps extends StackProps {
   table: dynamodb.Table;
   queue: sqs.Queue;
@@ -42,6 +51,8 @@ export class ApiStack extends Stack {
         EXTRACTION_QUEUE_URL: props.queue.queueUrl, // capture の抽出ジョブ enqueue 先
         NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName, // #35: 撮影画像のS3バケット
         NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
+        // FastAPI 側 CORS も本番オリジンに限定（#103、API GW と同一リスト。多層防御）
+        NOSHI_ALLOWED_ORIGINS: ALLOWED_ORIGINS.join(","),
         // 既定で Cognito 認証を強制（安全側、#101）。POOL_ID 注入で JWT(RS256/JWKS) 検証が有効になる。
         // デモ/ローカル等でスタブ認証(X-User-Id)を使う場合のみ context `allowStubAuth=true` を指定する。
         ...(this.node.tryGetContext("allowStubAuth")
@@ -83,11 +94,7 @@ export class ApiStack extends Stack {
         // iOS（Capacitor 内包）の WebView オリジンも許可（#194）。
         // capacitor.config.ts で iosScheme=https にしているためオリジンは https://localhost。
         // （capacitor:// は API Gateway が「不正な形式」として受け付けない）。
-        allowOrigins: [
-          "https://noshi.me",
-          "https://d1u0sgslky88ja.cloudfront.net",
-          "https://localhost",
-        ],
+        allowOrigins: [...ALLOWED_ORIGINS],
         allowMethods: [apigw.CorsHttpMethod.ANY],
         allowHeaders: ["authorization", "content-type"],
       },

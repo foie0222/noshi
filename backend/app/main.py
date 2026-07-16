@@ -7,6 +7,7 @@ DI で Repository/ポートを差し替え可能（MVP は InMemory + モック�
 
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 from typing import Any
 
@@ -76,9 +77,19 @@ def _default_repository() -> Repository:
 
 def create_app(service: NoshiService | None = None) -> FastAPI:
     app = FastAPI(title="noshi API", version="0.1.0")
+    # CORS は API Gateway が本番オリジンに限定しているが、Lambda 直叩きでも
+    # `*` を返さないよう多層防御としてここでも限定する（#103）。本番は CDK が
+    # NOSHI_ALLOWED_ORIGINS を注入し、未設定時はローカル開発（vite / iOS WebView）のみ。
+    allowed_origins = [
+        o.strip()
+        for o in os.environ.get(
+            "NOSHI_ALLOWED_ORIGINS", "http://localhost:5173,https://localhost"
+        ).split(",")
+        if o.strip()
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )

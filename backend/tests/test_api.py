@@ -625,3 +625,31 @@ def test_suggestionsはcategoriesも返す():
     body = r.json()
     assert "suggestions" in body
     assert body["categories"] == []  # モック catalog は品目タブを持たない
+
+
+def test_CORSはワイルドカードを返さない(monkeypatch):
+    """許可オリジン一覧にあるオリジンにはそのオリジンを、無いものには CORS ヘッダを返さないことを検証する（#103, OWASP多層防御）。"""
+    monkeypatch.setenv("NOSHI_ALLOWED_ORIGINS", "https://noshi.me,https://localhost")
+    c = TestClient(create_app())
+    r = c.options(
+        "/api/ledger",
+        headers={"Origin": "https://noshi.me", "Access-Control-Request-Method": "GET"},
+    )
+    assert r.headers.get("access-control-allow-origin") == "https://noshi.me"
+    r2 = c.options(
+        "/api/ledger",
+        headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"},
+    )
+    assert r2.headers.get("access-control-allow-origin") != "*"
+    assert r2.headers.get("access-control-allow-origin") != "https://evil.example"
+
+
+def test_CORSの既定はローカル開発オリジン(monkeypatch):
+    """NOSHI_ALLOWED_ORIGINS 未設定時は開発用オリジン（vite/iOS WebView）のみ許可されることを検証する（#103）。"""
+    monkeypatch.delenv("NOSHI_ALLOWED_ORIGINS", raising=False)
+    c = TestClient(create_app())
+    r = c.options(
+        "/api/ledger",
+        headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"},
+    )
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:5173"

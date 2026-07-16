@@ -11,6 +11,7 @@ import base64
 import datetime
 import logging
 import time
+from dataclasses import replace as dc_replace
 from typing import Any
 
 from app.account import canonical_sub
@@ -18,6 +19,7 @@ from app.adapters import parse_data_url
 from app.domain import rules
 from app.domain.entities import (
     AuditEntry,
+    DeviceToken,
     ExtractionJob,
     GiftEvent,
     GiftRecord,
@@ -156,21 +158,45 @@ class NoshiService:
         """世帯への招待コード（家族に伝えて参加してもらう）。"""
         return self.resolve_household(user_id).invite_code
 
-    # --- お返し期限のメール通知 設定（#178）---
+    # --- お返し期限の通知 設定（メール #178 / プッシュ #205）---
     def notification_prefs(self, user_id: str) -> dict[str, Any]:
-        """メール通知の受け取り設定を返す（既定オン）。"""
+        """お返し期限通知の受け取り設定を返す（メール/プッシュとも既定オン）。"""
         self.resolve_household(user_id)  # メンバーシップを確実に用意する
         m = self.repo.get_membership(user_id)
-        return {"email": m.notify_email if m is not None else True}
+        return {
+            "email": m.notify_email if m is not None else True,
+            "push": m.notify_push if m is not None else True,
+        }
 
-    def set_notification_prefs(self, user_id: str, email_on: bool) -> dict[str, Any]:
-        """メール通知の受け取り可否を切り替える。"""
+    def set_notification_prefs(
+        self, user_id: str, email_on: bool, push_on: bool | None = None
+    ) -> dict[str, Any]:
+        """通知の受け取り可否を切り替える。push_on=None ならプッシュ設定は据え置く。"""
         self.resolve_household(user_id)
         m = self.repo.get_membership(user_id)
         if m is not None:
             m.notify_email = email_on
+            if push_on is not None:
+                m.notify_push = push_on
             self.repo.put_membership(m)
-        return {"email": email_on}
+        return self.notification_prefs(user_id)
+
+    # --- デバイストークン（iOS プッシュ通知の宛先 #205）---
+    def register_device_token(
+        self, user_id: str, token: str, platform: str = "ios", env: str = "prod"
+    ) -> DeviceToken:
+        """端末の APNs デバイストークンを登録する（同一トークンは upsert）。"""
+        return self.repo.put_device_token(
+            DeviceToken(user_id=user_id, token=token, platform=platform, env=env)
+        )
+
+    def list_device_tokens(self, user_id: str) -> list[DeviceToken]:
+        """本人のデバイストークン一覧（プッシュ送信の宛先）。"""
+        return self.repo.list_device_tokens(user_id)
+
+    def unregister_device_token(self, user_id: str, token: str) -> bool:
+        """ログアウトや無効トークン（410/Unregistered）でトークンを削除する。"""
+        return self.repo.delete_device_token(user_id, token)
 
     def household_view(self, user_id: str) -> dict[str, Any]:
         h = self.resolve_household(user_id)
@@ -196,15 +222,8 @@ class NoshiService:
             if remaining:
                 # 最古参メンバーに owner を引き継ぐ
                 heir = remaining[0]
-                self.repo.put_membership(
-                    Membership(
-                        user_id=heir.user_id,
-                        household_id=old_hid,
-                        role="owner",
-                        email=heir.email,
-                        joined_at=heir.joined_at,
-                    )
-                )
+                # 通知設定（notify_email/notify_push）等は heir の値を保持したまま role だけ昇格
+                self.repo.put_membership(dc_replace(heir, role="owner"))
                 self._audit(user_id, "transfer_ownership", heir.user_id)  # A09
             else:
                 # 単独だったので旧世帯ごと purge（孤児化防止）
@@ -261,6 +280,8 @@ class NoshiService:
         戻り値: 削除対象の全 sub（代表＋別名。Cognito 削除に使う）。"""
         aliases = self.repo.list_aliases(user_id)
         subs = [user_id, *aliases]
+        for s_ in subs:  # iOS プッシュの宛先も消す（#205/#198。別名分も含めて掃除）
+            self.repo.delete_device_tokens(s_)
         m = self.repo.get_membership(user_id)
         hid = m.household_id if m else ""
         if m:

@@ -47,7 +47,23 @@ class Membership:
     role: str = "member"  # owner / member
     email: str = ""  # confidential
     notify_email: bool = True  # お返し期限のメール通知を受け取るか（既定オン、#178）
+    notify_push: bool = True  # お返し期限の iOS プッシュ通知を受け取るか（既定オン、#205）
     joined_at: float = field(default_factory=_now)
+
+
+@dataclass
+class DeviceToken:
+    """iOS プッシュ通知（APNs）の宛先デバイストークン（#205）。
+
+    1 ユーザーが複数端末を持てる。token は端末ごとに一意で upsert の鍵になる。
+    env は APNs 環境（prod / sandbox）。TestFlight は本番 APNs。
+    """
+
+    user_id: str
+    token: str  # APNs デバイストークン（iOS は16進）。confidential
+    platform: str = "ios"
+    env: str = "prod"  # prod / sandbox
+    updated_at: float = field(default_factory=_now)
 
 
 @dataclass

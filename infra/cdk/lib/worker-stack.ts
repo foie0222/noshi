@@ -24,6 +24,8 @@ interface WorkerStackProps extends StackProps {
  * （timeout 余裕あり）。Bedrock(Claude) を boto3 で呼ぶ。
  */
 export class WorkerStack extends Stack {
+  public readonly workerFn: lambda.DockerImageFunction; // 監視（#124）から参照
+
   constructor(scope: Construct, id: string, props: WorkerStackProps) {
     super(scope, id, props);
     const worker = new lambda.DockerImageFunction(this, "ExtractionWorker", {
@@ -60,5 +62,6 @@ export class WorkerStack extends Stack {
     worker.addEventSource(
       new SqsEventSource(props.queue, { batchSize: 1, reportBatchItemFailures: true }),
     );
+    this.workerFn = worker;
   }
 }

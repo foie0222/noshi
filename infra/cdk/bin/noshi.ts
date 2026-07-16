@@ -12,6 +12,7 @@ import { CatalogBatchStack } from "../lib/catalog-batch-stack";
 import { CostStack } from "../lib/cost-stack";
 import { MailStack } from "../lib/mail-stack";
 import { ReminderStack } from "../lib/reminder-stack";
+import { MonitoringStack } from "../lib/monitoring-stack";
 
 // noshi インフラ（infrastructure-design.md / deployment-architecture.md）。リージョン ap-northeast-1。
 const app = new App();
@@ -34,12 +35,25 @@ const auth = new AuthStack(app, "NoshiAuthStack", {
   hostedZoneId: HOSTED_ZONE_ID,
   hostedZoneName: DOMAIN,
 });
-new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId, userPoolClientId: auth.userPoolClient.userPoolClientId, catalogTable: data.catalogTable });
-new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket });
+const api = new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId, userPoolClientId: auth.userPoolClient.userPoolClientId, catalogTable: data.catalogTable });
+const worker = new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket });
 
 // お返し期限のリマインド（#178）。日次バッチ→SES でメール送信。
-new ReminderStack(app, "NoshiReminderStack", { env, table: data.table, domainName: DOMAIN });
-new CatalogBatchStack(app, "NoshiCatalogBatchStack", { env, catalogTable: data.catalogTable });
+const reminder = new ReminderStack(app, "NoshiReminderStack", { env, table: data.table, domainName: DOMAIN });
+const catalogBatch = new CatalogBatchStack(app, "NoshiCatalogBatchStack", { env, catalogTable: data.catalogTable });
+
+// 障害アラート（#124）。エラー系アラーム＋メール通知（課金は CostStack #122）。
+const alertEmail = (app.node.tryGetContext("alertEmail") as string) ?? "daikinoue0222@gmail.com";
+new MonitoringStack(app, "NoshiMonitoringStack", {
+  env,
+  email: alertEmail,
+  httpApi: api.httpApi,
+  apiFn: api.apiFn,
+  workerFn: worker.workerFn,
+  reminderFn: reminder.reminderFn,
+  catalogFn: catalogBatch.catalogFn,
+  deadLetterQueue: messaging.deadLetterQueue,
+});
 
 // コスト予算アラート（#122）。通知先は context budgetEmail で上書き可。
 const budgetEmail = (app.node.tryGetContext("budgetEmail") as string) ?? "daikinoue0222@gmail.com";

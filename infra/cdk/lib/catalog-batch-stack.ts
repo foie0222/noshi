@@ -23,6 +23,8 @@ interface CatalogBatchStackProps extends StackProps {
  * 確保できないため使わない（最低 Unreserved 10 を割るとデプロイ不可）。
  */
 export class CatalogBatchStack extends Stack {
+  public readonly catalogFn: lambda.DockerImageFunction; // 監視（#124）から参照
+
   constructor(scope: Construct, id: string, props: CatalogBatchStackProps) {
     super(scope, id, props);
     const fn = new lambda.DockerImageFunction(this, "CatalogJob", {
@@ -75,5 +77,6 @@ export class CatalogBatchStack extends Stack {
         ],
       });
     }
+    this.catalogFn = fn;
   }
 }

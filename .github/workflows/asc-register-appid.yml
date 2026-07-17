@@ -2,7 +2,7 @@ name: ASC Register App ID
 
 # App Store Connect API で App ID(me.noshi.app) を登録し Sign in with Apple capability を
 # 有効化する（#210/#204）。UI ログイン不要で実施できる Apple 側作業の自動化。
-# push 起動にしているため main マージ前に一度だけ走らせられる。冪等（再実行安全）。
+# workflow_dispatch のため、手動で必要な時だけ実行する。冪等（再実行安全）。
 
 on:
   workflow_dispatch:
@@ -26,5 +26,4 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: python scripts/asc/register_appid.py

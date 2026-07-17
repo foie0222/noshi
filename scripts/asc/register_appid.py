@@ -5,10 +5,10 @@ UI ログインなしで実施できる Apple 側作業を自動化する。実�
 （ASC API キーは repo secrets）。冪等: 既に存在すれば作成/有効化をスキップする。
 
 必要な環境変数（secrets 由来）:
-  ASC_KEY_ID / ASC_ISSUER_ID / ASC_API_KEY_P8(生PEM) / APPLE_TEAM_ID
+  ASC_KEY_ID / ASC_ISSUER_ID / ASC_API_KEY_P8(生PEM)
 設定:
   BUNDLE_ID = me.noshi.app（capacitor.config・ios-release.yml と一致）
-  有効化 capability = SIGN_IN_WITH_APPLE（App.entitlements と一致。push は #205 未実装のため付けない）
+  有効化 capability = APPLE_ID_AUTH（ASC API 上の Sign in with Apple。App.entitlements と一致）
 """
 
 import json
@@ -62,7 +62,7 @@ def main() -> int:
     st, res = api(
         token,
         "GET",
-        f"/v1/bundleIds?filter[identifier]={BUNDLE_ID}&include=bundleIdCapabilities&limit=1",
+        f"/v1/bundleIds?filter[identifier]={BUNDLE_ID}&limit=1",  # capability は Step2 で個別取得
     )
     if st != 200:
         print(f"[ERROR] bundleIds 取得に失敗: HTTP {st} {json.dumps(res)}")

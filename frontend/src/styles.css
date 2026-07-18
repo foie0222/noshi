@@ -545,6 +545,9 @@ body {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: center;
+  /* sticky なグループ見出し（.relhdr/.usec/.msec = z-index:5）より上、
+     ドロップダウン/トースト（30〜100）より下に置く（#400）。 */
+  z-index: 10;
   /* 固定ナビを独立した合成レイヤーに分離し、一覧スクロール中の再描画を止める（#206 スクロール最適化）。
      現行 WKWebView では will-change だけで昇格するため translateZ(0) は使わない。 */
   will-change: transform;

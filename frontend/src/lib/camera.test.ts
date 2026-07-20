@@ -66,6 +66,12 @@ describe("captureNativePhoto（ネイティブ撮影）", () => {
     expect(getPhotoMock).not.toHaveBeenCalled();
   });
 
+  it("写真ライブラリ側が denied のとき photos 選択は CameraPermissionDeniedError を投げる", async () => {
+    grant("granted", "denied");
+    await expect(captureNativePhoto("photos")).rejects.toBeInstanceOf(CameraPermissionDeniedError);
+    expect(getPhotoMock).not.toHaveBeenCalled();
+  });
+
   it("撮影が権限エラーで失敗したら CameraPermissionDeniedError を投げる", async () => {
     grant("prompt", "prompt");
     getPhotoMock.mockRejectedValue(new Error("User denied access to camera"));

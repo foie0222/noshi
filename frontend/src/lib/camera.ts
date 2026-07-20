@@ -27,7 +27,7 @@ function looksLikePermissionError(message: string): boolean {
 /**
  * ネイティブのカメラ/フォトライブラリで1枚撮影（選択）し File を返す。
  * - キャンセル時は null（呼び出し側はエラー表示せず握る）。
- * - カメラ・写真の両権限が denied のとき、または撮影が権限エラーで失敗したときは
+ * - 選んだソースの権限が denied のとき、または撮影が権限エラーで失敗したときは
  *   CameraPermissionDeniedError を投げる（UI がフォールバックと設定誘導を出す）。
  *
  * 返す File は既存 onPickImage の検証（形式/サイズ）とダウンスケールにそのまま通る。

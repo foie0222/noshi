@@ -16,7 +16,7 @@ import { PartySelect } from "./components/PartySelect";
 import { PasswordInput } from "./components/PasswordInput";
 import { Select } from "./components/Select";
 import { LEGAL_DOCS, type LegalDocKey, legalDocFromPath } from "./legal";
-import { CameraPermissionDeniedError, captureNativePhoto } from "./lib/camera";
+import { CameraPermissionDeniedError, type CaptureSource, captureNativePhoto } from "./lib/camera";
 import { copyText } from "./lib/clipboard";
 import {
   authEnabled,
@@ -221,10 +221,10 @@ export function App() {
 
   // ネイティブ（iOS/Android）はカメラ/ライブラリをネイティブ起動し、得た画像を
   // 既存 onPickImage の検証→ダウンスケール→抽出パスへ合流させる（#203 / 4.2 対策 #197）。
-  async function onCaptureNative() {
+  async function onCaptureNative(source: CaptureSource) {
     if (extracting) return; // 読み取り中の撮り直しを禁止（抽出と画像の取り違え防止）
     try {
-      const file = await captureNativePhoto();
+      const file = await captureNativePhoto(source);
       // null はユーザーのキャンセル（＝意図的に無反応で正しい。撮り直しもタップで再開できる）。
       if (!file) return;
       await onPickImage(file);
@@ -235,7 +235,11 @@ export function App() {
           "設定アプリの「noshi」でカメラ／写真を許可してください。下の手入力でも記録できます。",
         );
       } else {
-        notify("カメラを起動できませんでした。下の手入力でも記録できます。");
+        notify(
+          source === "camera"
+            ? "カメラを起動できませんでした。下の手入力でも記録できます。"
+            : "写真を開けませんでした。下の手入力でも記録できます。",
+        );
       }
     }
   }
@@ -247,7 +251,9 @@ export function App() {
       <div className="dz-emoji" aria-hidden="true">
         <Icon name="camera" size={34} strokeWidth={1.8} />
       </div>
-      <div className="muted">タップして撮影 / 画像を選ぶ</div>
+      <div className="muted">
+        {nativeCamera ? "下のボタンから撮影 / 画像を選べます" : "タップして撮影 / 画像を選ぶ"}
+      </div>
     </>
   );
 
@@ -1476,16 +1482,33 @@ export function App() {
           </fieldset>
 
           {nativeCamera ? (
-            // ネイティブは @capacitor/camera を起動（label+input ではなく button）。
-            <button
-              type="button"
-              className="dropzone"
-              onClick={onCaptureNative}
-              disabled={extracting}
-              aria-label="写真を撮る・画像を選ぶ"
-            >
+            // OS のアクションシート（CameraSource.Prompt）は iPad で表示に失敗し
+            // 審査却下（2.1a）となったため、選択は自前の2ボタンで行う（#402）。
+            <div className="dropzone">
               {captureDropzoneInner}
-            </button>
+              {!capturedImage && (
+                <div style={{ display: "flex", gap: 8, marginTop: 12, width: "100%" }}>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    style={{ flex: 1 }}
+                    disabled={extracting}
+                    onClick={() => onCaptureNative("camera")}
+                  >
+                    写真を撮る
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    style={{ flex: 1 }}
+                    disabled={extracting}
+                    onClick={() => onCaptureNative("photos")}
+                  >
+                    ライブラリから選ぶ
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <label className="dropzone" htmlFor="noshi-camera" aria-label="写真を撮る・画像を選ぶ">
               {captureDropzoneInner}
@@ -1507,15 +1530,26 @@ export function App() {
 
           {capturedImage &&
             (nativeCamera ? (
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={onCaptureNative}
-                disabled={extracting}
-                style={{ marginTop: 8 }}
-              >
-                撮り直す / 別の画像
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ flex: 1 }}
+                  onClick={() => onCaptureNative("camera")}
+                  disabled={extracting}
+                >
+                  撮り直す
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ flex: 1 }}
+                  onClick={() => onCaptureNative("photos")}
+                  disabled={extracting}
+                >
+                  別の画像を選ぶ
+                </button>
+              </div>
             ) : (
               <label className="btn ghost" htmlFor="noshi-camera" style={{ marginTop: 8 }}>
                 撮り直す / 別の画像

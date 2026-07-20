@@ -5,6 +5,9 @@
 
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 
+/** 撮影ソース。UI 側の自前チューザー（#402）で選ばせ、OS のアクションシートは使わない。 */
+export type CaptureSource = "camera" | "photos";
+
 /** カメラ・写真ライブラリの両方が拒否され、撮影に進めない状態。UI は設定誘導を出す。 */
 export class CameraPermissionDeniedError extends Error {
   constructor() {
@@ -24,22 +27,26 @@ function looksLikePermissionError(message: string): boolean {
 /**
  * ネイティブのカメラ/フォトライブラリで1枚撮影（選択）し File を返す。
  * - キャンセル時は null（呼び出し側はエラー表示せず握る）。
- * - カメラ・写真の両権限が denied のとき、または撮影が権限エラーで失敗したときは
+ * - 選んだソースの権限が denied のとき、または撮影が権限エラーで失敗したときは
  *   CameraPermissionDeniedError を投げる（UI がフォールバックと設定誘導を出す）。
  *
  * 返す File は既存 onPickImage の検証（形式/サイズ）とダウンスケールにそのまま通る。
  */
-export async function captureNativePhoto(): Promise<File | null> {
-  // 既に両方とも拒否済みなら OS ダイアログは出ないため、ここで早期に設定誘導へ倒す。
+export async function captureNativePhoto(source: CaptureSource): Promise<File | null> {
+  // 選んだソースの権限が拒否済みなら OS ダイアログは出ないため、早期に設定誘導へ倒す。
   const perm = await Camera.checkPermissions();
-  if (perm.camera === "denied" && perm.photos === "denied") {
+  if (source === "camera" ? perm.camera === "denied" : perm.photos === "denied") {
     throw new CameraPermissionDeniedError();
   }
 
   let photo: Awaited<ReturnType<typeof Camera.getPhoto>>;
   try {
     photo = await Camera.getPhoto({
-      source: CameraSource.Prompt, // 撮影 or ライブラリをユーザーに選ばせる（撮影済み写真を選びたい場が多い）
+      // OS のアクションシート（CameraSource.Prompt）は iPad で popover 起点を解決できず
+      // 即例外になり審査却下の原因となった（#402 / Guideline 2.1(a)）。ソースは自前 UI で
+      // 選ばせ、ここでは Camera / Photos を直接指定する（どちらも全画面提示で iPad 安全）。
+      source: source === "camera" ? CameraSource.Camera : CameraSource.Photos,
+      presentationStyle: "fullscreen", // iPad でも popover に依存しない
       resultType: CameraResultType.Uri, // 巨大 Base64 をブリッジに通さずメモリを節約。fetch で blob 化する。
       quality: 80,
       width: 2048, // 長辺の上限。通信量・抽出コストを抑える（Web のダウンスケール仕様と整合）。

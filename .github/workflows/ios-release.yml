@@ -14,6 +14,11 @@ name: iOS Release (TestFlight)
 
 on:
   workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: "マーケティングバージョン（例: 1.1）。省略時は Xcode プロジェクトの既定値（1.0）のまま"
+        required: false
+        type: string
   push:
     tags:
       - "ios-v*"
@@ -91,10 +96,18 @@ jobs:
           printf '%s' "$ASC_API_KEY_P8" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
 
       - name: set build number (CI run number)
+        # 自由入力の marketing_version は run 内でテンプレート展開せず env 経由で渡す
+        # （スクリプトインジェクション対策。展開すると任意コマンドがシェルに渡り得る）。
+        env:
+          MARKETING_VERSION: ${{ inputs.marketing_version }}
         run: |
           cd ios/App
           # TestFlight はビルド番号の重複を許さないため CI 連番を使う。
           xcrun agvtool new-version -all "${{ github.run_number }}"
+          # ASC の新バージョン（例: 1.1）へ提出するビルドは CFBundleShortVersionString の一致が必要（#417）。
+          if [ -n "$MARKETING_VERSION" ]; then
+            xcrun agvtool new-marketing-version "$MARKETING_VERSION"
+          fi
 
       - name: archive (auto-sign via ASC API key)
         env:

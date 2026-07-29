@@ -40,6 +40,11 @@ platform :ios do
       UI.important("（審査ノート review_notes.txt の変更も ASC には反映されません。全 Secret 登録後に再実行してください）")
     end
 
+    # 公開後は名前/サブタイトル/キーワードが「編集可能なバージョン」にしか書けないため、
+    # ASC_APP_VERSION（例: 1.1）指定時はそのバージョンを作成/選択してメタデータを反映する（#417 ASO）。
+    # 未指定時は従来どおり（ライブ版のみだと deliver が編集不可項目の更新で失敗するので、
+    # メタデータ変更時は必ず指定すること）。
+    app_version = ENV["ASC_APP_VERSION"].to_s.strip
     deliver(
       api_key: api_key,
       app_identifier: APP_ID,
@@ -49,6 +54,7 @@ platform :ios do
       submit_for_review: false,
       force: true, # HTML プレビュー確認を省略（CI）
       app_rating_config_path: File.expand_path("rating.json", __dir__),
+      **(app_version.empty? ? {} : { app_version: app_version }),
       **(review_info ? { app_review_information: review_info } : {}),
     )
 

@@ -5,6 +5,11 @@ name: ASC Metadata
 
 on:
   workflow_dispatch:
+    inputs:
+      app_version:
+        description: "反映先バージョン（例: 1.1）。公開後に名前/サブタイトル/キーワードを変更する場合は必須（新バージョンを作成して反映する）"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -32,4 +37,5 @@ jobs:
           ASC_CONTACT_EMAIL: ${{ secrets.ASC_CONTACT_EMAIL }}
           FASTLANE_SKIP_UPDATE_CHECK: "1"
           BUNDLE_GEMFILE: fastlane/Gemfile
+          ASC_APP_VERSION: ${{ inputs.app_version }}
         run: bundle exec fastlane ios asc_metadata

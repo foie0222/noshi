@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="paperE" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF7EE"/>
+      <stop offset="1" stop-color="#F0E8D5"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#paperE)"/>
+
+  <!-- 蝶結び（大・紅白の二重線） -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M512,520 C412,324 142,366 228,538 C282,640 456,602 512,520" stroke="#B0392E" stroke-width="40"/>
+    <path d="M512,520 C612,324 882,366 796,538 C742,640 568,602 512,520" stroke="#B0392E" stroke-width="40"/>
+    <path d="M512,520 C496,662 428,748 328,830" stroke="#B0392E" stroke-width="40"/>
+    <path d="M512,520 C528,662 596,748 696,830" stroke="#B0392E" stroke-width="40"/>
+    <path d="M512,520 C412,324 142,366 228,538 C282,640 456,602 512,520" stroke="#FFFFFF" stroke-width="13"/>
+    <path d="M512,520 C612,324 882,366 796,538 C742,640 568,602 512,520" stroke="#FFFFFF" stroke-width="13"/>
+    <path d="M512,520 C496,662 428,748 328,830" stroke="#FFFFFF" stroke-width="13"/>
+    <path d="M512,520 C528,662 596,748 696,830" stroke="#FFFFFF" stroke-width="13"/>
+  </g>
+  <circle cx="512" cy="520" r="46" fill="#B0392E"/>
+  <circle cx="512" cy="520" r="14" fill="#FFFFFF"/>
+
+  <!-- 小さな金の熨斗（右上） -->
+  <g transform="translate(790,84) rotate(9)">
+    <polygon points="42,0 84,32 73,148 42,178 11,148 0,32" fill="#FFFFFF" stroke="#C9A227" stroke-width="8" stroke-linejoin="round"/>
+    <rect x="33" y="42" width="18" height="90" rx="4" fill="#B0392E"/>
+  </g>
+</svg>

@@ -3,6 +3,6 @@
 pytest==9.1.1
 httpx==0.28.1
 moto[dynamodb]==5.2.2  # DynamoRepository をモックでテスト
-ruff==0.15.22          # lint + format
+ruff==0.16.1          # lint + format
 mypy==2.3.0            # 型チェック（strict）
-pre-commit==4.6.0      # コミット前フック（ruff/mypy/biome）
+pre-commit==4.6.1      # コミット前フック（ruff/mypy/biome）

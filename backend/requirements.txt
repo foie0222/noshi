@@ -1,6 +1,6 @@
 fastapi==0.139.2
 uvicorn==0.51.0
 pydantic==2.13.4
-boto3==1.43.50
+boto3==1.43.63
 mangum==0.21.0
 pyjwt[crypto]==2.13.0  # Cognito JWT 検証（RS256/JWKS）・ローカルは HS256

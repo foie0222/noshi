@@ -9,7 +9,7 @@
     "build": "tsc"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.3.0",
     "aws-cdk": "^2.1132.0",
     "typescript": "^6.0.3"
   },

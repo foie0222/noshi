@@ -16,7 +16,7 @@ interface CatalogBatchStackProps extends StackProps {
 }
 
 /**
- * CatalogBatchStack — お返し品カタログの日次バッチ（スペック2026-06-11 §7 / 2026-06-17 改）。
+ * CatalogBatchStack — お返し品カタログの週次バッチ（2026-09 に日次から変更 #449）（スペック2026-06-11 §7 / 2026-06-17 改）。
  * 用途63バケツ @ JST 9:00 / 品目84バケツ @ JST 9:20 の2ジョブ分割（15分制約マージン確保）。
  * 二重実行ガード: DynamoDB 条件付き書き込みのジョブロック（job.handler 内）＋
  * 非同期リトライ0。reserved concurrency はアカウントの同時実行数上限が小さく
@@ -61,14 +61,15 @@ export class CatalogBatchStack extends Stack {
         ],
       }),
     );
-    // 15分制約のマージン確保のため用途/品目を別ジョブに分割（Haiku運用）。
-    // 用途63バケツ @ JST 9:00（UTC0:00）/ 品目84バケツ @ JST 9:20（UTC0:20）。別ロックIDで相互非ブロック。
+    // 15分制約のマージン確保のため用途/品目を別ジョブに分割。
+    // 週1回・月曜: 用途63バケツ @ JST 9:00（UTC0:00）/ 品目84バケツ @ JST 9:20（UTC0:20）。別ロックIDで相互非ブロック。
+    // 日次→週次は Bedrock コスト削減のため（#449）。カタログ TTL は store.py の _ITEM_TTL（15日）と対にする。
     for (const [name, minute, set] of [
       ["Purpose", "0", "purpose"],
       ["Item", "20", "item"],
     ] as const) {
       new events.Rule(this, `CatalogJob${name}`, {
-        schedule: events.Schedule.cron({ minute, hour: "0" }),
+        schedule: events.Schedule.cron({ minute, hour: "0", weekDay: "MON" }),
         targets: [
           new targets.LambdaFunction(fn, {
             retryAttempts: 0, // リトライ0（手動再実行のみ）

@@ -72,8 +72,8 @@ def test_バケツ書き込みは常に10スロット全部を更新する():
     assert puts[0]["Put"]["Item"]["PK"]["S"] == "BUCKET#baby#5000-9999"
     assert puts[0]["Put"]["Item"]["SK"]["S"] == "RANK#01"
     assert deletes[0]["Delete"]["Key"]["SK"]["S"] == "RANK#03"
-    # TTL 48h
-    assert int(puts[0]["Put"]["Item"]["expiresAt"]["N"]) == int(NOW.timestamp()) + 48 * 3600
+    # TTL 15日（週次バッチが1回失敗しても翌週まで在庫が消えない余裕）
+    assert int(puts[0]["Put"]["Item"]["expiresAt"]["N"]) == int(NOW.timestamp()) + 15 * 24 * 3600
 
 
 def test_読み取りは期限切れを除外するフィルタつきQuery():
@@ -252,8 +252,9 @@ def test_期限切れマニフェストは空を返す():
     store = CatalogStore(table_name="t", client=ddb)
     store.write_manifest("cele", "5000-9999", ["towel"], NOW)
     ddb._get_item_result = {"Item": ddb.puts[-1]["Item"]}
-    # 書き込み48h後より先の now で読むと期限切れ
-    assert store.read_manifest("cele", "5000-9999", NOW + timedelta(hours=49)) == []
+    # 週次バッチ前提: 14日後はまだ有効、15日を超えると期限切れ
+    assert store.read_manifest("cele", "5000-9999", NOW + timedelta(days=14)) == ["towel"]
+    assert store.read_manifest("cele", "5000-9999", NOW + timedelta(days=15, hours=1)) == []
 
 
 def test_マニフェスト未登録は空を返す():

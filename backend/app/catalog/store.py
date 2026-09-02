@@ -17,7 +17,7 @@ from typing import Any
 from app.catalog.buckets import bucket_pk
 
 _SLOTS = 10
-_ITEM_TTL = timedelta(hours=48)
+_ITEM_TTL = timedelta(days=15)  # 週次バッチ（1回失敗しても翌週まで在庫が残る余裕）
 _CLICK_TTL = timedelta(days=396)  # 13ヶ月
 
 

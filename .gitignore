@@ -1,5 +1,5 @@
 # Dependencies
-node_modules/
+node_modules
 .pnp
 .pnp.js
 
@@ -47,12 +47,12 @@ backend/**/__pycache__/
 backend/.pytest_cache/
 scripts/**/__pycache__/
 .pytest_cache/
-frontend/node_modules/
+frontend/node_modules
 frontend/dist/
 frontend/*.tsbuildinfo
 
 # CDK
-infra/cdk/node_modules/
+infra/cdk/node_modules
 infra/cdk/cdk.out/
 infra/cdk/cdk.out*/
 infra/cdk/dist/

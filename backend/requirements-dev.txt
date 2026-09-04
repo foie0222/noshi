@@ -2,7 +2,7 @@
 -r requirements-claude.txt  # ローカル/CI で OCR/キュレーションの実SDK経路も動かせるように
 pytest==9.1.1
 httpx==0.28.1
-moto[dynamodb]==5.2.2  # DynamoRepository をモックでテスト
-ruff==0.15.22          # lint + format
-mypy==2.3.0            # 型チェック（strict）
-pre-commit==4.6.0      # コミット前フック（ruff/mypy/biome）
+moto[dynamodb]==5.2.3  # DynamoRepository をモックでテスト
+ruff==0.16.5          # lint + format
+mypy==2.3.1            # 型チェック（strict）
+pre-commit==4.6.2      # コミット前フック（ruff/mypy/biome）

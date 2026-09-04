@@ -45,13 +45,13 @@ jobs:
         if: github.event.action != 'opened' || github.event.pull_request.user.login == 'dependabot[bot]'
         run: echo "再レビューしない（push もしくは Dependabot PR）。"
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event.action == 'opened' && github.event.pull_request.user.login != 'dependabot[bot]'
         with:
           fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
 
       # 公式 MCP インラインツールで、指摘を該当行に直接投稿（＝解決可能スレッド）。
-      - uses: anthropics/claude-code-action@1298632ce7736903d02a1435002705aa2a594a6c # v1.0.175
+      - uses: anthropics/claude-code-action@8251c103ac8c1d761882c86aba1412c7f583c844 # v1.0.213
         if: github.event.action == 'opened' && github.event.pull_request.user.login != 'dependabot[bot]'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

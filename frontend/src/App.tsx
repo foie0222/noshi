@@ -34,6 +34,7 @@ import {
   socialEnabled,
   socialSignIn,
 } from "./lib/cognito";
+import { isoDaysAgo } from "./lib/day";
 import { emptyManualDraft } from "./lib/draft";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
@@ -81,6 +82,7 @@ type Screen =
   | "ledger"
   | "half"
   | "suggest"
+  | "record"
   | "event"
   | "relations"
   | "mypage"
@@ -221,6 +223,9 @@ export function App() {
     occurred_at: string;
   } | null>(null);
   const [returnTried, setReturnTried] = useState<boolean>(false);
+  const [returnBusy, setReturnBusy] = useState<boolean>(false); // 記録の保存中（二重送信防止）
+  const [chosenGift, setChosenGift] = useState<string>(""); // 「品を選ぶ」で決めた品（記録画面の文脈表示）
+  const [recordBack, setRecordBack] = useState<Screen>("event"); // 記録画面の戻り先
 
   async function onPickImage(file: File | null) {
     if (extracting) return; // 読み取り中は撮り直し不可（抽出と画像の取り違え防止）
@@ -992,9 +997,32 @@ export function App() {
   }
   async function chooseSuggestion(s: Suggestion) {
     if (!event) return;
-    // お返し品を選んだら、そのまま完了に（礼状ステップは廃止、#40）。
+    // 品を選んだ時点ではまだ贈っていない。完了にせず「対応中」にして記録画面へ送る。
+    // 完了は実際に贈った記録が入ったときだけ（saveReturn）。
     await api.selectSuggestion(event.id, s);
-    await complete();
+    await api.setStatus(event.id, "considering");
+    await openRecord("suggest", s.title);
+  }
+
+  /** 「贈った記録」画面を開く。選んだ品・半返しの目安・今日の日付を初期値に入れる。 */
+  async function openRecord(back: Screen, gift = "") {
+    if (!event) return;
+    let r = range;
+    if (!r) {
+      // 品を選ばずに直接記録するときは、目安を出すためにここで取りにいく。
+      const h = await api.halfReturn(event.amount, event.purpose);
+      r = { ...h, amount: event.amount, purpose: event.purpose };
+      setRange(r);
+    }
+    setRecordBack(back);
+    setChosenGift(gift);
+    setReturnDraft({
+      item: gift,
+      amount: r.gift_unneeded ? "" : String(r.recommended),
+      occurred_at: isoDaysAgo(0),
+    });
+    setReturnTried(false);
+    go("record");
   }
   async function complete() {
     if (!event) return;
@@ -1006,12 +1034,13 @@ export function App() {
     }, 1600);
   }
   async function saveReturn() {
-    if (!event || !returnDraft) return;
+    if (!event || !returnDraft || returnBusy) return;
     if (!isValidReturnAmount(returnDraft.amount)) {
       setReturnTried(true);
       return;
     }
     const amount = Number(returnDraft.amount);
+    setReturnBusy(true);
     try {
       await api.createRecord({
         direction: "given",
@@ -1024,10 +1053,13 @@ export function App() {
       });
       setReturnDraft(null);
       setReturnTried(false);
-      await loadReturnRecords(event.record_id);
-      notify("お返しを記録しました");
+      setChosenGift("");
+      // 記録が入って初めて「完了」。ここまで来たら水引の演出を出す。
+      await complete();
     } catch (e) {
       notify(errMsg(e));
+    } finally {
+      setReturnBusy(false);
     }
   }
 
@@ -1965,6 +1997,9 @@ export function App() {
                 ? "お礼の品とマナーを見る"
                 : "お返しの品を選ぶ"}
           </button>
+          <button type="button" className="btn ghost" onClick={() => openRecord("half")}>
+            品は決まっている・もう贈った
+          </button>
         </div>
       )}
 
@@ -2146,6 +2181,117 @@ export function App() {
             <br />
             広告・アフィリエイトは掲載していません。
           </p>
+        </div>
+      )}
+
+      {screen === "record" && event && returnDraft && (
+        <div className={toneOf(event.purpose) === "mourning" ? "mourning" : ""}>
+          <Bar title="贈った記録" back={recordBack} />
+          <div className="reccard">
+            <div className="rec-who">
+              {event.party_name ? withHonor(event.party_name) : "お相手"}へ・{event.purpose}
+            </div>
+            {chosenGift && (
+              <div className="rec-chosen">
+                <Icon name="gift" size={16} />
+                <span>{chosenGift}</span>
+              </div>
+            )}
+            <p className="rec-lead">贈った内容を記録すると、このお返しは完了になります。</p>
+          </div>
+
+          <div className="field">
+            <label htmlFor="rec-amount">金額（円）</label>
+            <input
+              id="rec-amount"
+              className={`input${returnTried && !isValidReturnAmount(returnDraft.amount) ? " warn" : ""}`}
+              type="number"
+              inputMode="numeric"
+              value={returnDraft.amount}
+              onChange={(e) => setReturnDraft({ ...returnDraft, amount: e.target.value })}
+            />
+            {returnTried && !isValidReturnAmount(returnDraft.amount) && (
+              <span className="field-error">金額は1円以上で入力してください。</span>
+            )}
+          </div>
+
+          <div className="field">
+            <label htmlFor="rec-item">品物（任意）</label>
+            <input
+              id="rec-item"
+              className="input"
+              list="rec-item-suggestions"
+              placeholder="カタログギフト など"
+              value={returnDraft.item}
+              onChange={(e) => setReturnDraft({ ...returnDraft, item: e.target.value })}
+            />
+            <datalist id="rec-item-suggestions">
+              {ITEM_SUGGESTIONS.map((x) => (
+                <option key={x} value={x} />
+              ))}
+            </datalist>
+          </div>
+
+          <fieldset className="fieldset-reset">
+            <legend className="field-label">贈った日</legend>
+            <div className="chips">
+              {[
+                { label: "今日", days: 0 },
+                { label: "昨日", days: 1 },
+              ].map((c) => {
+                const iso = isoDaysAgo(c.days);
+                return (
+                  <button
+                    key={c.label}
+                    type="button"
+                    className={`chip${returnDraft.occurred_at === iso ? " on" : ""}`}
+                    onClick={() => setReturnDraft({ ...returnDraft, occurred_at: iso })}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              className="input"
+              type="date"
+              aria-label="贈った日を選ぶ"
+              value={returnDraft.occurred_at}
+              onChange={(e) => setReturnDraft({ ...returnDraft, occurred_at: e.target.value })}
+            />
+          </fieldset>
+
+          {/* 記録する意味がその場で見えるよう、保存後のおつきあいを先に見せる。 */}
+          <div className="recsum">
+            <div className="recsum-row">
+              <span>いただいた</span>
+              <b>{yen(event.amount)}</b>
+            </div>
+            <div className="recsum-row">
+              <span>お返し（この記録を含む）</span>
+              <b>
+                {yen(
+                  returnRecords.reduce((t, r) => t + r.amount, 0) +
+                    (isValidReturnAmount(returnDraft.amount) ? Number(returnDraft.amount) : 0),
+                )}
+              </b>
+            </div>
+          </div>
+
+          <button type="button" className="btn primary" onClick={saveReturn} disabled={returnBusy}>
+            {returnBusy ? "記録しています…" : "記録して完了にする"}
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              setReturnDraft(null);
+              setReturnTried(false);
+              go(recordBack);
+            }}
+          >
+            やめる
+          </button>
         </div>
       )}
 
@@ -2459,102 +2605,26 @@ export function App() {
                     className={mourning ? "btn" : "btn shu"}
                     onClick={() => startReturn(event)}
                   >
-                    {mourning ? "香典返しを進める" : "お返しを進める"}
+                    {mourning ? "香典返しを贈る" : "お返しを贈る"}
                   </button>
-                  <div className="section-label">お返し実績</div>
+                  <button type="button" className="btn ghost" onClick={() => openRecord("event")}>
+                    贈ったことを記録
+                  </button>
                   {returnRecords.length > 0 && (
-                    <div className="card">
-                      {returnRecords.map((r) => (
-                        <div key={r.id} className="between" style={{ padding: "4px 0" }}>
-                          <span>{r.item || "—"}</span>
-                          <span>
-                            {yen(r.amount)}
-                            {r.occurred_at ? `・${r.occurred_at}` : ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {returnDraft === null ? (
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      onClick={() => setReturnDraft({ item: "", amount: "", occurred_at: "" })}
-                    >
-                      お返しを記録する
-                    </button>
-                  ) : (
-                    <div className="card">
-                      <div className="h" style={{ fontSize: 14 }}>
-                        お返しを記録
+                    <>
+                      <div className="section-label">お返し実績</div>
+                      <div className="card">
+                        {returnRecords.map((r) => (
+                          <div key={r.id} className="between" style={{ padding: "4px 0" }}>
+                            <span>{r.item || "—"}</span>
+                            <span>
+                              {yen(r.amount)}
+                              {r.occurred_at ? `・${r.occurred_at}` : ""}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                      <div className="field">
-                        <label htmlFor="return-amount">金額（円）</label>
-                        <input
-                          id="return-amount"
-                          className={`input${returnTried && (!returnDraft.amount.trim() || Number(returnDraft.amount) <= 0) ? " warn" : ""}`}
-                          type="number"
-                          inputMode="numeric"
-                          value={returnDraft.amount}
-                          onChange={(e) =>
-                            setReturnDraft({ ...returnDraft, amount: e.target.value })
-                          }
-                        />
-                        {returnTried &&
-                          (!returnDraft.amount.trim() || Number(returnDraft.amount) <= 0) && (
-                            <span className="field-error">金額は1円以上で入力してください。</span>
-                          )}
-                      </div>
-                      <div className="field">
-                        <label htmlFor="return-item">品物（任意）</label>
-                        <input
-                          id="return-item"
-                          className="input"
-                          list="return-item-suggestions"
-                          placeholder="カタログギフト など"
-                          value={returnDraft.item}
-                          onChange={(e) => setReturnDraft({ ...returnDraft, item: e.target.value })}
-                        />
-                        <datalist id="return-item-suggestions">
-                          {ITEM_SUGGESTIONS.map((s) => (
-                            <option key={s} value={s} />
-                          ))}
-                        </datalist>
-                      </div>
-                      <div className="field">
-                        <label htmlFor="return-date">お返しした日（任意）</label>
-                        <input
-                          id="return-date"
-                          className="input"
-                          type="date"
-                          value={returnDraft.occurred_at}
-                          onChange={(e) =>
-                            setReturnDraft({ ...returnDraft, occurred_at: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          type="button"
-                          className="btn primary"
-                          style={{ flex: 1 }}
-                          onClick={saveReturn}
-                        >
-                          記録する
-                        </button>
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          style={{ flex: 1 }}
-                          onClick={() => {
-                            setReturnDraft(null);
-                            setReturnTried(false);
-                          }}
-                        >
-                          やめる
-                        </button>
-                      </div>
-                    </div>
+                    </>
                   )}
                 </>
               )}

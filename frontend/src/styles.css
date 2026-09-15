@@ -2135,6 +2135,61 @@ body {
 }
 
 
+/* ---- 贈った記録 ---------------------------------------------------------- */
+/* 「誰へ・何を」を先頭に置き、入力の前に文脈を確定させる。 */
+.reccard {
+  background: var(--surface-card-raised);
+  border: var(--bw-hairline) solid var(--border-default);
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius-lg);
+  padding: var(--gap-card-lg);
+  box-shadow: var(--shadow-card);
+}
+.rec-who {
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+}
+.rec-chosen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h3);
+  line-height: var(--lh-snug);
+}
+.rec-chosen svg {
+  flex: none;
+  color: var(--color-success);
+}
+.rec-lead {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.75;
+  color: var(--text-sub);
+}
+/* 保存するとおつきあいがどうなるかを、押す前に見せる。 */
+.recsum {
+  margin-top: var(--gap-stack);
+  padding: var(--space-3) var(--gap-card);
+  background: var(--bg-page-alt);
+  border-radius: var(--radius-md);
+}
+.recsum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+}
+.recsum-row b {
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- 読み込み中のプレースホルダ ------------------------------------------ */
 /* 一覧がだまって入れ替わらないよう、切替中は同じ形のグレーを見せる。 */
 .sugskel {

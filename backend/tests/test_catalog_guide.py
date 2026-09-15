@@ -49,6 +49,13 @@ def test_予算に合う品が先に並ぶ(guide: GiftGuide) -> None:
     assert head.low <= 2000 <= (head.high or 10**9)
 
 
+def test_価格の目安はその品自体の相場で切りのよい額に丸まる(guide: GiftGuide) -> None:
+    by_title = {i["title"]: i for i in guide.suggest(3000, "友人", "出産祝い", category="sweets")}
+    assert by_title["焼き菓子の詰合せ"]["price_hint"] == "¥1,000〜¥5,000"
+    top = {i["title"]: i for i in guide.suggest(50000, "友人", "出産祝い", category="sweets")}
+    assert top["老舗の高級菓子詰合せ"]["price_hint"] == "¥10,000〜"  # 上限なし
+
+
 def test_未知の品目カテゴリでも空にはならない(guide: GiftGuide) -> None:
     """カテゴリ在庫のずれ（古いタブ等）でも画面を空にしない。"""
     items = guide.suggest(budget=5000, relationship="友人", purpose="出産祝い", category="unknown")

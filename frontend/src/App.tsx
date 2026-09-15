@@ -47,7 +47,7 @@ import { filterSortRecords, LEDGER_DEFAULT, type LedgerSort, type LedgerView } f
 import { isValidChildAge, otoshidamaRange } from "./lib/otoshidama";
 import { isNativePlatform } from "./lib/platform";
 import { enablePush, onPushTap, pushSupported, refreshPushToken } from "./lib/push";
-import { filterReturnRecords, isValidReturnAmount } from "./lib/return";
+import { budgetLabel, filterReturnRecords, isValidReturnAmount } from "./lib/return";
 import { reviewMessage } from "./lib/review";
 import { hydrateToken } from "./lib/tokenStore";
 import { toneOf } from "./lib/tone";
@@ -187,6 +187,8 @@ export function App() {
   const [etiquette, setEtiquette] = useState<Etiquette | null>(null); // のし・時期の案内
   const [noshiOpen, setNoshiOpen] = useState<boolean>(false); // のし案内の開閉
   const [pendingSug, setPendingSug] = useState<string | null>(null); // 「決める」の確認中カード
+  const [sugLoading, setSugLoading] = useState<boolean>(false); // 品目の切替待ち
+  const [halfBusy, setHalfBusy] = useState<boolean>(false); // 「品を選ぶ」の遷移待ち
   const suggestCatReq = useRef(0);
   const captureReq = useRef(0); // 撮影→抽出の世代。古い完了が新しい操作を上書きしないよう破棄に使う
   const returnRecordsReq = useRef(0); // お返し実績ロードの世代。画面遷移後に古い応答が混入しないよう破棄に使う
@@ -944,13 +946,19 @@ export function App() {
     go("half");
   }
   async function loadSuggestions() {
-    if (!event || !range) return;
-    const r = await api.suggestions(
-      event.id,
-      range.recommended,
-      event.relationship || "",
-      range.purpose,
-    );
+    if (!event || !range || halfBusy) return;
+    setHalfBusy(true);
+    let r: Awaited<ReturnType<typeof api.suggestions>>;
+    try {
+      r = await api.suggestions(
+        event.id,
+        range.recommended,
+        event.relationship || "",
+        range.purpose,
+      );
+    } finally {
+      setHalfBusy(false);
+    }
     setSuggestions(r.suggestions);
     setSuggestCats(r.categories);
     setEtiquette(r.etiquette);
@@ -962,14 +970,20 @@ export function App() {
   async function selectSuggestCat(cat: string | null) {
     if (!event || !range) return;
     setActiveCat(cat);
+    setSugLoading(true);
     const reqId = ++suggestCatReq.current;
-    const r = await api.suggestions(
-      event.id,
-      range.recommended,
-      event.relationship || "",
-      range.purpose,
-      cat ?? undefined,
-    );
+    let r: Awaited<ReturnType<typeof api.suggestions>>;
+    try {
+      r = await api.suggestions(
+        event.id,
+        range.recommended,
+        event.relationship || "",
+        range.purpose,
+        cat ?? undefined,
+      );
+    } finally {
+      if (suggestCatReq.current === reqId) setSugLoading(false);
+    }
     if (suggestCatReq.current !== reqId) return; // 新しい切替が来ていれば古い応答は破棄
     setSuggestions(r.suggestions);
     setSuggestCats(r.categories);
@@ -1904,39 +1918,72 @@ export function App() {
         })()}
 
       {screen === "half" && range && (
-        <>
-          <Bar title="半返し" back="home" />
-          <div className="card">
-            <span className="muted">もらった額</span>
-            <div className="amount">{yen(range.amount)}</div>
-          </div>
-          <div className="card">
-            <span className="muted">推奨お返し額</span>
-            <div className="range">
-              {yen(range.low)}〜{yen(range.high)}
+        <div className={toneOf(range.purpose) === "mourning" ? "mourning" : ""}>
+          <Bar title="お返しの目安" back="home" />
+          <div className={`hrhero${range.gift_unneeded ? " none" : ""}`}>
+            <div className="hr-who">
+              {event?.party_name ? withHonor(event.party_name) : "お相手"}へ・{range.purpose}
             </div>
+            {range.gift_unneeded ? (
+              <>
+                <div className="hr-none-ttl">お返しは基本的に不要です</div>
+                <p className="hr-none-body">{range.rationale}</p>
+              </>
+            ) : (
+              <>
+                <div className="hr-k">お返しの目安</div>
+                <div className="hr-v">{budgetLabel(range.low, range.high)}</div>
+                {/* もらった額に対する比率を帯で示す。数字だけより「半分くらい」が直感で伝わる。 */}
+                <div className="hr-bar">
+                  <div
+                    className="hr-bar-fill"
+                    style={{ width: `${Math.min(100, Math.round(range.ratio * 100))}%` }}
+                  />
+                </div>
+                <div className="hr-bar-legend">
+                  <span>いただいた {yen(range.amount)}</span>
+                  <span>およそ {Math.round(range.ratio * 100)}%</span>
+                </div>
+              </>
+            )}
           </div>
-          <div className="card">
-            <span className="muted">根拠</span>
-            <div>{range.rationale}</div>
-          </div>
-          <button type="button" className="btn primary" onClick={loadSuggestions}>
-            次へ（お返し品）
+          {!range.gift_unneeded && (
+            <div className="card">
+              <span className="muted">この目安の根拠</span>
+              <div className="hr-reason">{range.rationale}</div>
+            </div>
+          )}
+          <button
+            type="button"
+            className="btn primary"
+            onClick={loadSuggestions}
+            disabled={halfBusy}
+          >
+            {halfBusy
+              ? "読み込んでいます…"
+              : range.gift_unneeded
+                ? "お礼の品とマナーを見る"
+                : "お返しの品を選ぶ"}
           </button>
-        </>
+        </div>
       )}
 
       {screen === "suggest" && (
-        <>
+        <div className={range && toneOf(range.purpose) === "mourning" ? "mourning" : ""}>
           <Bar title="お返し品を選ぶ" back="half" />
           {range && (
-            <div className="sugbudget">
-              <div className="sb-k">お返しの目安</div>
-              <div className="sb-v">
-                {yen(range.low)}
-                <span className="sb-sep">〜</span>
-                {yen(range.high)}
-              </div>
+            <div className={`sugbudget${range.gift_unneeded ? " none" : ""}`}>
+              {range.gift_unneeded ? (
+                <>
+                  <div className="sb-k">お返しは不要です</div>
+                  <div className="sb-none">贈るなら、気持ち程度の品を</div>
+                </>
+              ) : (
+                <>
+                  <div className="sb-k">お返しの目安</div>
+                  <div className="sb-v">{budgetLabel(range.low, range.high)}</div>
+                </>
+              )}
               <div className="sb-sub">
                 {event?.party_name ? withHonor(event.party_name) : "お相手"}へ・{range.purpose}
               </div>
@@ -2006,7 +2053,11 @@ export function App() {
                   role="tab"
                   aria-selected={activeCat === c.slug}
                   className={`chip sugtab${activeCat === c.slug ? " on" : ""}`}
-                  onClick={() => selectSuggestCat(c.slug)}
+                  onClick={(e) => {
+                    // 端の品目を押したとき見切れたままにならないよう、横スクロールを合わせる。
+                    e.currentTarget.scrollIntoView({ block: "nearest", inline: "center" });
+                    selectSuggestCat(c.slug);
+                  }}
                 >
                   {c.label}
                 </button>
@@ -2014,61 +2065,88 @@ export function App() {
             </div>
           )}
 
-          {suggestions.map((s) => (
-            <div className={`card sugcard${pendingSug === s.title ? " picked" : ""}`} key={s.title}>
-              <div className="sug-head">
-                <span className="sug-mark" aria-hidden="true">
-                  {CATEGORY_MARKS[s.category] ?? "品"}
-                </span>
-                <div className="sug-headtext">
-                  <div className="sug-title">{s.title}</div>
-                  <div className="sug-meta">
-                    {s.category_label}
-                    {s.price_band ? `・${s.price_band} が目安` : ""}
+          {sugLoading &&
+            [0, 1, 2].map((i) => (
+              <div className="card sugskel" key={`skel-${i}`} aria-hidden="true">
+                <div className="sug-head">
+                  <span className="sug-mark skelbox" />
+                  <div className="sug-headtext grow">
+                    <span className="skelline w70" />
+                    <span className="skelline w45" />
                   </div>
                 </div>
+                <span className="skelline w100" />
+                <span className="skelline w85" />
               </div>
-              {s.summary && <p className="sug-reason">{s.summary}</p>}
-              {s.tip && (
-                <p className="sug-tip">
-                  <Icon name="info" size={15} />
-                  <span>{s.tip}</span>
-                </p>
-              )}
-              {pendingSug === s.title ? (
-                <div className="sug-confirm">
-                  <p className="sug-confirm-q">この品でお返しを完了にします。よろしいですか？</p>
-                  <div className="row-inline">
-                    <button
-                      type="button"
-                      className="btn ghost compact"
-                      onClick={() => setPendingSug(null)}
-                    >
-                      やめる
-                    </button>
-                    <button
-                      type="button"
-                      className="btn primary compact grow"
-                      onClick={() => chooseSuggestion(s)}
-                    >
-                      決めて完了にする
-                    </button>
+            ))}
+          {sugLoading && (
+            <p className="visually-hidden" role="status">
+              品目を切り替えています
+            </p>
+          )}
+          {!sugLoading &&
+            suggestions.map((s) => (
+              <div
+                className={`card sugcard${pendingSug === s.title ? " picked" : ""}`}
+                key={s.title}
+              >
+                <div className="sug-head">
+                  <span className="sug-mark" aria-hidden="true">
+                    {CATEGORY_MARKS[s.category] ?? "品"}
+                  </span>
+                  <div className="sug-headtext">
+                    <div className="sug-title">{s.title}</div>
+                    <div className="sug-meta">
+                      {s.category_label}
+                      {s.price_hint ? `・相場 ${s.price_hint}` : ""}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <button type="button" className="btn ghost" onClick={() => setPendingSug(s.title)}>
-                  この品に決める
-                </button>
-              )}
-            </div>
-          ))}
+                {s.summary && <p className="sug-reason">{s.summary}</p>}
+                {s.tip && (
+                  <p className="sug-tip">
+                    <Icon name="info" size={15} />
+                    <span>{s.tip}</span>
+                  </p>
+                )}
+                {pendingSug === s.title ? (
+                  <div className="sug-confirm">
+                    <p className="sug-confirm-q">この品でお返しを完了にします。よろしいですか？</p>
+                    <div className="row-inline">
+                      <button
+                        type="button"
+                        className="btn ghost compact"
+                        onClick={() => setPendingSug(null)}
+                      >
+                        やめる
+                      </button>
+                      <button
+                        type="button"
+                        className="btn primary compact grow"
+                        onClick={() => chooseSuggestion(s)}
+                      >
+                        決めて完了にする
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => setPendingSug(s.title)}
+                  >
+                    この品に決める
+                  </button>
+                )}
+              </div>
+            ))}
 
           <p className="sug-foot">
             金額は一般的な相場の目安です。お店の表示や在庫が優先されます。
             <br />
             広告・アフィリエイトは掲載していません。
           </p>
-        </>
+        </div>
       )}
 
       {screen === "event" &&

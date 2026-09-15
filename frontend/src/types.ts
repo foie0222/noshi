@@ -112,7 +112,8 @@ export interface HalfReturn {
 export interface Suggestion {
   title: string;
   summary: string;
-  price_band: string;
+  price_band: string; // お返し予算の帯（選んだときに記録へ残す）
+  price_hint: string; // この品自体の相場（"¥3,000〜¥15,000"）
   category: string; // 品目カテゴリ slug（towel / sweets 等）
   category_label: string; // 品目カテゴリの表示名
   tip?: string; // 選ぶときのひとこと（任意）

@@ -606,11 +606,22 @@ class GiftGuide:
         return {
             "title": idea.title,
             "summary": idea.summary,
-            "price_band": band_label(band),
+            "price_band": band_label(band),  # リクエスト予算の帯（選択時に記録へ残す）
+            "price_hint": _price_hint(idea),  # この品自体の相場（カードの表示用）
             "category": idea.category,
             "category_label": ITEM_CATEGORY_LABELS.get(key, ""),
             "tip": idea.tip,
         }
+
+
+def _price_hint(idea: GiftIdea) -> str:
+    """この品が収まりやすい価格帯の表示（"¥3,000〜¥15,000" / 上限なしは "¥25,000〜"）。
+
+    high は X,999 で持つので +1 して切りのよい額に見せる。
+    """
+    if idea.high is None:
+        return f"¥{idea.low:,}〜"
+    return f"¥{idea.low:,}〜¥{idea.high + 1:,}"
 
 
 def _budget_distance(idea: GiftIdea, budget: int) -> int:

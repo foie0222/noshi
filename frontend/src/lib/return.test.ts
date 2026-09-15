@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GiftRecord } from "../types";
-import { filterReturnRecords, isValidReturnAmount } from "./return";
+import { budgetLabel, filterReturnRecords, isValidReturnAmount } from "./return";
 
 function rec(p: Partial<GiftRecord>): GiftRecord {
   return {
@@ -58,5 +58,14 @@ describe("filterReturnRecords — loadReturnRecords / saveReturn 後の returnRe
       rec({ id: "r2" }), // return_for_id なし
     ];
     expect(filterReturnRecords(records, "target-1")).toHaveLength(1);
+  });
+});
+
+describe("budgetLabel（お返し予算の表示）", () => {
+  it("下限と上限が違えばレンジで表示する", () => {
+    expect(budgetLabel(10000, 15000)).toBe("¥10,000〜¥15,000");
+  });
+  it("下限と上限が同じなら1つの金額にまとめる", () => {
+    expect(budgetLabel(5000, 5000)).toBe("¥5,000");
   });
 });

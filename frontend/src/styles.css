@@ -1310,6 +1310,76 @@ body {
   border-top: 1px solid var(--border-default);
 }
 
+/* ---- お返しの目安（半返し画面） ------------------------------------------ */
+/* 数字を主役に据え、いただいた額に対する比率を帯で見せる。 */
+.hrhero {
+  background: var(--surface-card-raised);
+  border: var(--bw-hairline) solid var(--border-default);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  padding: var(--gap-card-lg);
+  box-shadow: var(--shadow-card);
+}
+.hrhero.none {
+  border-left-color: var(--color-success);
+}
+.hr-who {
+  font-size: var(--fs-sm);
+  color: var(--text-sub);
+}
+.hr-k {
+  margin-top: var(--space-4);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-wide);
+  color: var(--text-muted);
+}
+.hr-v {
+  font-family: var(--font-display);
+  font-weight: var(--fw-heavy);
+  font-size: var(--fs-display);
+  line-height: 1.2;
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  word-break: keep-all;
+}
+.hr-bar {
+  margin-top: var(--space-4);
+  height: 8px;
+  border-radius: var(--radius-round);
+  background: var(--bg-page);
+  overflow: hidden;
+}
+.hr-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-round);
+  background: var(--color-accent);
+}
+.hr-bar-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.hr-none-ttl {
+  margin-top: var(--space-3);
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h3);
+  color: var(--color-success);
+}
+.hr-none-body {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.8;
+  color: var(--text-sub);
+}
+.hr-reason {
+  margin-top: var(--space-1);
+  line-height: 1.8;
+}
+
 /* ---- お返し品ガイド ------------------------------------------------------ */
 /* 予算のサマリー。画面に入った瞬間に「誰に・いくらぐらい」が分かるようにする。 */
 .sugbudget {
@@ -1333,15 +1403,20 @@ body {
   margin-top: 2px;
   font-variant-numeric: tabular-nums;
 }
-.sugbudget .sb-sep {
-  padding: 0 2px;
-  opacity: 0.7;
-  font-size: var(--fs-body);
-}
 .sugbudget .sb-sub {
   margin-top: var(--space-1);
   font-size: var(--fs-sm);
   opacity: 0.82;
+}
+.sugbudget .sb-none {
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h3);
+  line-height: 1.35;
+  margin-top: 2px;
+}
+.sugbudget.none {
+  background: var(--color-success);
 }
 .mourning .sugbudget {
   background: var(--surface-dark);
@@ -1511,8 +1586,9 @@ body {
   gap: var(--space-2);
   margin: var(--space-3) 0 0;
   padding: var(--space-2) var(--space-3);
-  background: var(--color-warning-tint);
-  border-radius: var(--radius-md);
+  background: var(--bg-page-alt);
+  border-left: 2px solid var(--color-warning);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   color: var(--text-sub);
   font-size: var(--fs-sm);
   line-height: 1.65;
@@ -2056,4 +2132,68 @@ body {
 .sugtab {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+
+/* ---- 読み込み中のプレースホルダ ------------------------------------------ */
+/* 一覧がだまって入れ替わらないよう、切替中は同じ形のグレーを見せる。 */
+.sugskel {
+  pointer-events: none;
+}
+.skelbox,
+.skelline {
+  display: block;
+  background: var(--border-faint);
+  border-radius: var(--radius-sm);
+  animation: skelpulse 1.4s var(--ease-soft) infinite;
+}
+.skelline {
+  height: 12px;
+  margin-top: var(--space-2);
+}
+.skelline.w100 {
+  width: 100%;
+}
+.skelline.w85 {
+  width: 85%;
+}
+.skelline.w70 {
+  width: 70%;
+}
+.skelline.w45 {
+  width: 45%;
+}
+@keyframes skelpulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skelbox,
+  .skelline {
+    animation: none;
+  }
+}
+
+/* ---- キーボード操作のフォーカス表示 -------------------------------------- */
+/* マウス/タップでは出さず、キーボード操作のときだけ輪郭を出す（a11y）。 */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.btn:focus-visible,
+.chip:focus-visible {
+  outline-offset: 3px;
+  border-radius: var(--radius-pill);
+}
+.input:focus-visible,
+.select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-radius: var(--radius-md);
 }

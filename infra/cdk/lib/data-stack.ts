@@ -14,7 +14,6 @@ export class DataStack extends Stack {
   public readonly table: dynamodb.Table;
   public readonly imageBucket: s3.Bucket;
   public readonly key: kms.Key;
-  public readonly catalogTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
@@ -62,19 +61,6 @@ export class DataStack extends Stack {
       ],
       lifecycleRules: [{ abortIncompleteMultipartUploadAfter: Duration.days(1) }],
       removalPolicy: RemovalPolicy.RETAIN,
-    });
-
-    // カタログテーブル（旧・楽天カタログのキャッシュ）。**削除予定**。
-    // アプリからの参照は無くなったが、NoshiApiStack / NoshiCatalogBatchStack が
-    // まだ Export を import しているため、ここで消すと Export 削除が拒否されて
-    // デプロイがロールバックする。CatalogBatchStack を destroy したあとに撤去する。
-    this.catalogTable = new dynamodb.Table(this, "NoshiCatalogTable", {
-      tableName: "noshi-catalog",
-      partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: "expiresAt", // 商品48h / クリック13ヶ月（書き込み側で設定）
-      removalPolicy: RemovalPolicy.DESTROY, // 再構築可能なキャッシュ
     });
   }
 }

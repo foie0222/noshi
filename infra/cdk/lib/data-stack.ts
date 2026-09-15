@@ -64,8 +64,10 @@ export class DataStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    // カタログテーブル（お返し品提案）。中身は楽天の公開商品データで
-    // 再構築可能なキャッシュ — ユーザーデータと分離し、CMK/PITR/RETAIN は適用しない。
+    // カタログテーブル（旧・楽天カタログのキャッシュ）。**削除予定**。
+    // アプリからの参照は無くなったが、NoshiApiStack / NoshiCatalogBatchStack が
+    // まだ Export を import しているため、ここで消すと Export 削除が拒否されて
+    // デプロイがロールバックする。CatalogBatchStack を destroy したあとに撤去する。
     this.catalogTable = new dynamodb.Table(this, "NoshiCatalogTable", {
       tableName: "noshi-catalog",
       partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },

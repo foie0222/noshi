@@ -1,8 +1,8 @@
 from scripts.operator.classify_merge import DEFAULT_POLICY, classify
 
 
-def test_アフィリエイトパスは人間マージ必須():
-    d = classify(["backend/app/catalog/rakuten.py"], 10, [])
+def test_お返しガイドのパスは人間マージ必須():
+    d = classify(["backend/app/catalog/guide.py"], 10, [])
     assert d.verdict == "human"
     assert "catalog" in d.reason
 

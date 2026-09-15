@@ -28,7 +28,7 @@
 ## 構成
 ```
 backend/   FastAPI + ドメインロジック（半返し/期限/トーン/贈与税/おつきあい/お年玉判定）
-           + Repository(InMemory/DynamoDB) + モックポート（OCR/LLM/カタログ）
+           + Repository(InMemory/DynamoDB) + OCR/LLM ポート + お返し品ガイド（オフライン）
 frontend/  React + TypeScript (Vite) — 和の意匠（生成り/水引/明朝）
 infra/cdk/ AWS CDK(TypeScript) — Data/Messaging/Api/Worker/Frontend スタック（cdk synth 検証済み）
 docker-compose.yml  ローカル開発（DynamoDB Local + LocalStack + backend + frontend）
@@ -78,8 +78,8 @@ export NOSHI_LLM_PROVIDER=bedrock          # 既定モデル jp.anthropic.claude
 
 本番(Lambda): OCR は **API Gateway の 30s 統合上限**を超え得るため**非同期**で実行する。
 `/api/capture` は画像を S3 に保存し SQS に積んで即 `pending` を返し、フロントが
-`GET /api/capture/{job_id}` をポーリングする。OCR/キュレーションを実行する
-**worker / catalog-batch** はコンテナ（`backend/Dockerfile.lambda`、Node + claude CLI 同梱）で動き、
+`GET /api/capture/{job_id}` をポーリングする。OCR を実行する
+**worker** はコンテナ（`backend/Dockerfile.lambda`、Node + claude CLI 同梱）で動き、
 `NOSHI_LLM_PROVIDER=claude_agent`。API 本体は OCR を呼ばないため軽量な zip のまま。
 OAuth トークンは **SSM SecureString `/noshi/claude/oauth-token`** から取得する。初回・ローテーション時に手動更新:
 ```bash

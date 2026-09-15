@@ -6,8 +6,8 @@ pending→completed の流れを検証する（ネットワーク不要）。
 
 import base64
 
+from app.catalog.guide import GiftGuide
 from app.main import create_app
-from app.ports import GiftCatalogMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService
 from app.worker import handler as worker_handler
@@ -69,14 +69,14 @@ class FakeOcr:
 
 def _svc(images, queue, ocr=None):
     return NoshiService(
-        InMemoryRepository(), ocr or FakeOcr(), GiftCatalogMock(), images=images, queue=queue
+        InMemoryRepository(), ocr or FakeOcr(), GiftGuide(), images=images, queue=queue
     )
 
 
 def test_async有効判定はqueueとimages両方必要():
     assert _svc(FakeImages(), FakeQueue()).async_extraction_enabled() is True
     assert (
-        NoshiService(InMemoryRepository(), FakeOcr(), GiftCatalogMock()).async_extraction_enabled()
+        NoshiService(InMemoryRepository(), FakeOcr(), GiftGuide()).async_extraction_enabled()
         is False
     )
 

@@ -3,8 +3,7 @@
 # 通常の zip バンドル（pip のみ）では動かない。Node + CLI を同梱する。
 #
 # CMD は CDK 側で上書きする:
-#   - API:   app.lambda_handler.handler
-#   - Batch: app.catalog.job.handler
+#   - API:    app.lambda_handler.handler
 FROM public.ecr.aws/lambda/python:3.12
 
 # Node.js 20（Amazon Linux 2023）と Claude Code CLI。

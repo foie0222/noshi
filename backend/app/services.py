@@ -746,6 +746,7 @@ class NoshiService:
         return {
             "suggestions": self.catalog.suggest(budget, relationship, purpose, category),
             "categories": self.catalog.available_categories(budget, purpose),
+            "etiquette": self.catalog.etiquette(purpose),
         }
 
     def select_suggestion(
@@ -756,23 +757,11 @@ class NoshiService:
             event_id=event_id,
             title=suggestion["title"],
             summary=suggestion.get("summary", ""),
-            external_ref=suggestion.get("external_ref", ""),
             price_band=suggestion.get("price_band", ""),
         )
         ev.suggestion_id = sug.id
         self.repo.put_event(ev)
         return sug
-
-    def log_suggestion_click(
-        self, user_id: str, item_code: str, bucket: str, position: int, rel_group: str
-    ) -> None:
-        """提案リンクのクリック計測（効果計測のMVP分）。
-
-        user_id は認可文脈の明示用に受け取るが catalog には渡さない（PIIなし）。
-        他のサービスメソッドとシグネチャの一貫性を保つため引数として維持。
-        rel_group は配信時に返した続柄グループの echo（グループ別CTR計測用）。
-        """
-        self.catalog.log_click(item_code, bucket, position, rel_group)
 
     # --- イベント状態 ---
     def set_event_status(self, user_id: str, event_id: str, status: str) -> GiftEvent:

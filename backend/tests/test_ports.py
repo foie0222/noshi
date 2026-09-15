@@ -1,6 +1,7 @@
-"""外部ポート（OCR/LLM・カタログ）のモック実装のテスト。"""
+"""外部ポート（OCR/LLM モック）とお返しガイドのテスト。"""
 
-from app.ports import GiftCatalogMock, OcrLlmMock
+from app.catalog.guide import GiftGuide
+from app.ports import OcrLlmMock
 
 
 def test_抽出モックは候補と信頼度を返す():
@@ -26,8 +27,8 @@ def test_抽出モックは決定論的():
     assert a == b
 
 
-def test_カタログモックは予算内の候補を返す():
-    """カタログモックが1件以上のお返し品候補を返すことを検証する（提案のみ）。"""
-    items = GiftCatalogMock().suggest(budget=12000, relationship="友人", purpose="出産祝い")
+def test_ガイドは予算内の候補を返す():
+    """お返しガイドが1件以上の候補を返すことを検証する（提案のみ・外部リンクなし）。"""
+    items = GiftGuide().suggest(budget=12000, relationship="友人", purpose="出産祝い")
     assert len(items) >= 1
-    assert "external_ref" in items[0]
+    assert "external_ref" not in items[0]

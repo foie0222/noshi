@@ -11,12 +11,12 @@ import os
 from dataclasses import replace
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.auth import Identity
-from app.ports import GiftCatalogMock, GiftCatalogPort, OcrLlmPort
+from app.ports import GiftCatalogPort, OcrLlmPort
 from app.repository import InMemoryRepository, Repository
 from app.schemas import (
     CaptureIn,
@@ -33,7 +33,6 @@ from app.schemas import (
     RelationshipIn,
     SelectSuggestionIn,
     StatusIn,
-    SuggestionClickIn,
 )
 from app.services import ForbiddenError, NoshiService, ValidationError
 
@@ -51,15 +50,10 @@ def _default_ocr() -> OcrLlmPort:
 
 
 def _default_catalog() -> GiftCatalogPort:
-    """カタログ実装を選ぶ。NOSHI_CATALOG_TABLE があれば本番(DynamoDB)、既定はモック。"""
-    import os
+    """お返し品ガイド（オフラインの編集コンテンツ）。外部APIも課金も発生しない。"""
+    from app.catalog.guide import GiftGuide
 
-    if os.environ.get("NOSHI_CATALOG_TABLE"):
-        from app.catalog.adapter import DynamoCatalogAdapter
-        from app.catalog.store import CatalogStore
-
-        return DynamoCatalogAdapter(store=CatalogStore(), fallback=GiftCatalogMock())
-    return GiftCatalogMock()
+    return GiftGuide()
 
 
 def _default_repository() -> Repository:
@@ -445,19 +439,6 @@ def create_app(service: NoshiService | None = None) -> FastAPI:
     ) -> dict[str, Any]:
         sug = svc.select_suggestion(uid, event_id, body.model_dump())
         return {"suggestion": vars(sug)}
-
-    @app.post("/api/suggestions/click", status_code=204)
-    def suggestion_click(body: SuggestionClickIn, uid: str = Depends(current_user)) -> Response:
-        # 計測はUXをブロックしない（失敗してもエラーを返さない）
-        try:
-            svc.log_suggestion_click(
-                uid, body.item_code, body.bucket, body.position, body.rel_group
-            )
-        except Exception:  # noqa: BLE001
-            import logging
-
-            logging.getLogger("noshi").exception("click logging failed")
-        return Response(status_code=204)
 
     @app.patch("/api/events/{event_id}")
     def set_status(

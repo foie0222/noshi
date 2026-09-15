@@ -6,7 +6,8 @@ SES 送信は差し替え可能な send コールバックで分離し、AWS な
 
 import datetime
 
-from app.ports import GiftCatalogMock, OcrLlmMock
+from app.catalog.guide import GiftGuide
+from app.ports import OcrLlmMock
 from app.reminders import collect_household_due, run_reminders
 from app.repository import InMemoryRepository
 from app.services import NoshiService
@@ -43,7 +44,7 @@ def _due_event(svc, user, scope, *, party, due_offset, direction="received", sta
 
 def test_期限1週間前と当日のイベントだけを抽出する():
     repo = InMemoryRepository()
-    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(repo, OcrLlmMock(), GiftGuide())
     scope = _seed(svc, repo)
     _due_event(svc, "u1", scope, party="1週間前さん", due_offset=7)
     _due_event(svc, "u1", scope, party="当日さん", due_offset=0)
@@ -58,7 +59,7 @@ def test_期限1週間前と当日のイベントだけを抽出する():
 
 def test_完了済みと贈った側は対象外():
     repo = InMemoryRepository()
-    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(repo, OcrLlmMock(), GiftGuide())
     scope = _seed(svc, repo)
     _due_event(svc, "u1", scope, party="完了さん", due_offset=0, status="done")
     _due_event(svc, "u1", scope, party="あげたさん", due_offset=0, direction="given")
@@ -67,7 +68,7 @@ def test_完了済みと贈った側は対象外():
 
 def test_対象メンバーへ1通送り重複送信しない():
     repo = InMemoryRepository()
-    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(repo, OcrLlmMock(), GiftGuide())
     _seed(svc, repo, email="a@example.com")
     _due_event(svc, "u1", repo.get_membership("u1").household_id, party="田中", due_offset=7)
 
@@ -84,7 +85,7 @@ def test_対象メンバーへ1通送り重複送信しない():
 
 def test_通知設定は既定オンで切替できる():
     repo = InMemoryRepository()
-    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(repo, OcrLlmMock(), GiftGuide())
     svc.resolve_household("u1", email="a@example.com")
     # メール/プッシュとも既定オン（push は #205 で追加）。
     assert svc.notification_prefs("u1") == {"email": True, "push": True}
@@ -96,7 +97,7 @@ def test_通知設定は既定オンで切替できる():
 
 def test_通知オフのメンバーには送らない():
     repo = InMemoryRepository()
-    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(repo, OcrLlmMock(), GiftGuide())
     _seed(svc, repo, email="a@example.com")
     m = repo.get_membership("u1")
     m.notify_email = False
@@ -116,7 +117,7 @@ def _push_setup():
     from app.domain.entities import DeviceToken
 
     repo = InMemoryRepository()
-    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(repo, OcrLlmMock(), GiftGuide())
     scope = _seed(svc, repo)
     _due_event(svc, "u1", scope, party="高橋", due_offset=0)
     repo.put_device_token(DeviceToken(user_id="u1", token="tok-1", platform="ios", env="prod"))

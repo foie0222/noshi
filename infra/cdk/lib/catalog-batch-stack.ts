@@ -16,7 +16,15 @@ interface CatalogBatchStackProps extends StackProps {
 }
 
 /**
- * CatalogBatchStack — お返し品カタログの週次バッチ（2026-09 に日次から変更 #449）（スペック2026-06-11 §7 / 2026-06-17 改）。
+ * CatalogBatchStack — **廃止済み・削除待ち**。
+ *
+ * 楽天アフィリエイトの撤去でカタログ配信は不要になり、ハンドラ（app.catalog.job）も削除済み。
+ * スケジュールは無効化してあるので実行されず、Lambda/Bedrock の費用は発生しない。
+ * スタック本体は `destroy-catalog-batch` ワークフロー（手動実行）で削除する。削除後に
+ * このファイル・bin/noshi.ts の生成・CI のデプロイ対象・DataStack のカタログテーブルを撤去する。
+ *
+ * 以下は削除までの参考（当時の仕様）:
+ * お返し品カタログの週次バッチ（2026-09 に日次から変更 #449）（スペック2026-06-11 §7 / 2026-06-17 改）。
  * 用途63バケツ @ JST 9:00 / 品目84バケツ @ JST 9:20 の2ジョブ分割（15分制約マージン確保）。
  * 二重実行ガード: DynamoDB 条件付き書き込みのジョブロック（job.handler 内）＋
  * 非同期リトライ0。reserved concurrency はアカウントの同時実行数上限が小さく
@@ -69,6 +77,7 @@ export class CatalogBatchStack extends Stack {
       ["Item", "20", "item"],
     ] as const) {
       new events.Rule(this, `CatalogJob${name}`, {
+        enabled: false, // 廃止済み。スタック削除までの間、実行させない
         schedule: events.Schedule.cron({ minute, hour: "0", weekDay: "MON" }),
         targets: [
           new targets.LambdaFunction(fn, {

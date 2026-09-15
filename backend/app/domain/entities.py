@@ -130,7 +130,6 @@ class ReturnSuggestion:
     event_id: str
     title: str
     summary: str
-    external_ref: str
     price_band: str
     id: str = field(default_factory=_id)
 

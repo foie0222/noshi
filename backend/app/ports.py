@@ -1,7 +1,8 @@
 """外部依存ポート（OCR/LLM・ギフトカタログ）。
 
 application-design/external-dependencies.md の OcrLlmPort / GiftCatalogPort に対応。
-本番は実プロバイダのアダプタ、MVP/テストはモック。送信データは最小化（OWASP）。
+OCR は実プロバイダのアダプタ、MVP/テストはモック。
+ギフトカタログは app.catalog.guide.GiftGuide（オフラインの編集コンテンツ）。
 """
 
 from __future__ import annotations
@@ -17,8 +18,8 @@ class GiftCatalogPort(Protocol):
     def suggest(
         self, budget: int, relationship: str, purpose: str, category: str | None = None
     ) -> list[dict[str, Any]]: ...
-    def log_click(self, item_code: str, bucket: str, position: int, rel_group: str) -> None: ...
     def available_categories(self, budget: int, purpose: str) -> list[dict[str, str]]: ...
+    def etiquette(self, purpose: str) -> dict[str, str]: ...
 
 
 class OcrLlmMock:
@@ -45,32 +46,3 @@ class OcrLlmMock:
             "field_confidence": field_confidence,
             "confidence": min(field_confidence.values()),  # 後方互換（全体の最低値）
         }
-
-
-class GiftCatalogMock:
-    """固定のお返し品候補（提案のみ・外部参照）。"""
-
-    def log_click(self, item_code: str, bucket: str, position: int, rel_group: str) -> None:
-        """モックは何もしない（クリック計測は本番アダプタのみ）。"""
-
-    def available_categories(self, budget: int, purpose: str) -> list[dict[str, str]]:
-        """モックは品目タブを持たない（画面は「おすすめ」だけで成立する）。"""
-        return []
-
-    def suggest(
-        self, budget: int, relationship: str, purpose: str, category: str | None = None
-    ) -> list[dict[str, Any]]:
-        base = [
-            ("上質な和茶の詰合せ", "茶葉アソート"),
-            ("今治タオルギフト", "上質タオルセット"),
-            ("選べるカタログギフト", "受け取り手が選べる"),
-        ]
-        return [
-            {
-                "title": t,
-                "summary": s,
-                "price_band": f"〜¥{budget:,}",
-                "external_ref": f"https://example.com/gift/{i}",
-            }
-            for i, (t, s) in enumerate(base)
-        ]

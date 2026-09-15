@@ -16,3 +16,12 @@ export function isValidReturnAmount(amountStr: string): boolean {
 export function filterReturnRecords(records: GiftRecord[], returnForId: string): GiftRecord[] {
   return records.filter((rec) => rec.return_for_id === returnForId);
 }
+
+/**
+ * お返し予算の表示文字列。下限＝上限のときに「¥5,000〜¥5,000」と出さず1つにまとめる。
+ * 半返し画面とお返し品ガイドで同じ見え方にするための共通化。
+ */
+export function budgetLabel(low: number, high: number): string {
+  const f = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
+  return low === high ? f(low) : `${f(low)}〜${f(high)}`;
+}

@@ -6,6 +6,7 @@ import { AuthStack } from "../lib/auth-stack";
 import { ApiStack } from "../lib/api-stack";
 import { WorkerStack } from "../lib/worker-stack";
 import { FrontendStack } from "../lib/frontend-stack";
+import { CatalogBatchStack } from "../lib/catalog-batch-stack";
 import { GithubOidcStack } from "../lib/github-oidc-stack";
 import { CertificateStack } from "../lib/certificate-stack";
 import { CostStack } from "../lib/cost-stack";
@@ -39,6 +40,9 @@ const worker = new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table
 
 // お返し期限のリマインド（#178）。日次バッチ→SES でメール送信。
 const reminder = new ReminderStack(app, "NoshiReminderStack", { env, table: data.table, domainName: DOMAIN });
+
+// 廃止済みの旧カタログバッチ。スケジュールは無効で、destroy-catalog-batch ワークフローで削除する。
+new CatalogBatchStack(app, "NoshiCatalogBatchStack", { env, catalogTable: data.catalogTable });
 
 // 障害アラート（#124）。エラー系アラーム＋メール通知（課金は CostStack #122）。
 const alertEmail = (app.node.tryGetContext("alertEmail") as string) ?? "daikinoue0222@gmail.com";

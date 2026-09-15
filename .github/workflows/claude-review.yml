@@ -64,7 +64,7 @@ jobs:
           classify_inline_comments: "false" # 分類を挟まず即投稿
           claude_args: |
             --max-turns 30
-            --allowedTools Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(cat:*),mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*)
+            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(cat:*),mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*)"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}

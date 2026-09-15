@@ -101,7 +101,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_args: |
             --max-turns 25
-            --allowedTools Read,Grep,Glob,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh pr list:*)
+            --allowedTools "Read,Grep,Glob,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh pr list:*)"
           prompt: |
             REPO: ${{ github.repository }}
 

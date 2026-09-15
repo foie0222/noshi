@@ -755,6 +755,7 @@ def test_delete_accountでowner単独の世帯が削除される():
 def test_returns_payloadはcategory素通しと品目タブを1回の認可で返す():
     class SpyCatalog(GiftGuide):
         def __init__(self):
+            super().__init__()  # 実商品カタログ（未生成なら空）の初期化
             self.last_category = "UNSET"
 
         def suggest(self, budget, relationship, purpose, category=None):

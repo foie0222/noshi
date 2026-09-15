@@ -1,0 +1,6 @@
+{
+  "Items": [
+    {"Item": {"itemCode": "shopA:10001", "rank": 3}},
+    {"Item": {"itemCode": "shopC:30003", "rank": 1}}
+  ]
+}

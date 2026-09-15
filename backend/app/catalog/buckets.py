@@ -105,3 +105,36 @@ def tone_slug(purpose: str) -> str:
 def item_category_key(tone: str, cat: str) -> str:
     """品目カテゴリの内部キー（ITEM_CATEGORY_LABELS の引き先）。"""
     return f"{tone}#{cat}"
+
+
+# --- 商品バケツ（品目 × 価格帯）。CI の build と実行時の読み出しで同じ関数を使う ---
+
+
+def bucket_key(tone: str, cat: str, band: str) -> str:
+    """商品バケツの内部キー（"cele#sweets@5000-9999"）。
+
+    build（CI）が書き、実行時（Lambda）が引く。両者でずれないよう1か所に置く。
+    """
+    return f"{item_category_key(tone, cat)}@{band}"
+
+
+def all_buckets() -> list[tuple[str, str, str]]:
+    """(tone, cat, band) の全組み合わせ。品目12 × 価格帯7 = 84。"""
+    return [
+        (tone, cat, band)
+        for tone, rows in ITEM_CATEGORIES.items()
+        for cat, _label in rows
+        for _low, _high, band in PRICE_BANDS
+    ]
+
+
+def band_range(band: str) -> tuple[int, int | None]:
+    """価格帯ラベル → (下限, 上限(含む))。上限なしは None。
+
+    未知のラベルは KeyError。綴り違いを黙って丸めると、意図と違う価格の商品を
+    集めたまま気づけないため。
+    """
+    for low, high, label in PRICE_BANDS:
+        if label == band:
+            return (low, high)
+    raise KeyError(band)

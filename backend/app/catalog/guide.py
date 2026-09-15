@@ -22,9 +22,11 @@ from app.catalog.buckets import (
     slug_of,
     tone_slug,
 )
+from app.catalog.products import ProductCatalog
 from app.catalog.relationships import group_of
 
 _MAX_ITEMS = 8
+_MAX_PRODUCTS = 3  # 1カードに並べる実商品の上限（読み疲れさせない）
 
 
 @dataclass(frozen=True)
@@ -567,7 +569,18 @@ ETIQUETTE: dict[str, dict[str, str]] = {
 
 
 class GiftGuide:
-    """GiftCatalogPort の実装。編集済みの定番リストから決定論的に提案する。"""
+    """GiftCatalogPort の実装。編集済みの定番リストから決定論的に提案する。
+
+    CI が生成した静的カタログ（ProductCatalog）を渡すと、各提案カードに
+    その品目・価格帯の実商品をぶら下げる。未生成でも編集コンテンツだけで成立する。
+    """
+
+    def __init__(self, products: ProductCatalog | None = None) -> None:
+        self._products = products if products is not None else ProductCatalog()
+
+    def catalog_generated_at(self) -> str:
+        """実商品リストを生成した日（鮮度の注記に使う）。未生成なら空文字。"""
+        return self._products.generated_at
 
     def suggest(
         self, budget: int, relationship: str, purpose: str, category: str | None = None
@@ -590,7 +603,9 @@ class GiftGuide:
             ),
         )
         band = band_of(budget)
-        return [self._to_suggestion(i, band) for i in ranked[:_MAX_ITEMS]]
+        # 同じ品目の提案が並んだとき同じ商品を繰り返さない（選ぶ意味が無くなるため）
+        seen: set[str] = set()
+        return [self._to_suggestion(i, band, seen) for i in ranked[:_MAX_ITEMS]]
 
     def available_categories(self, budget: int, purpose: str) -> list[dict[str, str]]:
         """その用途のトーンで選べる品目を、タブ表示順・表示名つきで返す。"""
@@ -601,7 +616,7 @@ class GiftGuide:
         """用途に応じた のし・水引・時期 の案内。未知の用途はトーンで振り分ける。"""
         return dict(ETIQUETTE[slug_of(purpose)])
 
-    def _to_suggestion(self, idea: GiftIdea, band: str) -> dict[str, Any]:
+    def _to_suggestion(self, idea: GiftIdea, band: str, seen: set[str]) -> dict[str, Any]:
         key = item_category_key(idea.tone, idea.category)
         return {
             "title": idea.title,
@@ -611,7 +626,19 @@ class GiftGuide:
             "category": idea.category,
             "category_label": ITEM_CATEGORY_LABELS.get(key, ""),
             "tip": idea.tip,
+            "products": self._pick_products(idea, band, seen),
         }
+
+    def _pick_products(self, idea: GiftIdea, band: str, seen: set[str]) -> list[dict[str, Any]]:
+        picked: list[dict[str, Any]] = []
+        for p in self._products.for_bucket(idea.tone, idea.category, band):
+            if p["url"] in seen:
+                continue
+            seen.add(p["url"])
+            picked.append(p)
+            if len(picked) == _MAX_PRODUCTS:
+                break
+        return picked
 
 
 def _price_hint(idea: GiftIdea) -> str:

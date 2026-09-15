@@ -747,6 +747,8 @@ class NoshiService:
             "suggestions": self.catalog.suggest(budget, relationship, purpose, category),
             "categories": self.catalog.available_categories(budget, purpose),
             "etiquette": self.catalog.etiquette(purpose),
+            # 実商品は週次生成なので、いつ時点のものかを画面に出せるようにする
+            "catalog_generated_at": self.catalog.catalog_generated_at(),
         }
 
     def select_suggestion(

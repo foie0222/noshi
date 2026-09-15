@@ -4,6 +4,12 @@
 状態: レビュー中（マルチエージェントレビュー反映済み v2）
 関連: backend/app/ports.py `GiftCatalogPort`、application-design/external-dependencies.md
 
+> [!IMPORTANT]
+> **この設計は 2026-09 に廃止されました（Issue #458）。** 楽天アフィリエイトと
+> カタログ週次バッチ（`NoshiCatalogBatchStack` / `noshi-catalog` テーブル）は撤去済みで、
+> 現行のお返し品提案は外部 API に依存しないオフラインの編集コンテンツ
+> `backend/app/catalog/guide.py` です。以下は当時の設計の記録であり、現行仕様ではありません。
+
 ## 1. 目的
 
 受け取った贈答（ご祝儀・香典等）に対する「お返し品」を、**本当に良い商品**として提案し、

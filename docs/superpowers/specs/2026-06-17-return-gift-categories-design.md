@@ -4,6 +4,12 @@
 対象機能: お返し品の提案画面（`frontend/src/App.tsx` の `suggest` 画面 + `backend/app/catalog/*`）
 関連: [[return-gift-suggestion-design]]（楽天アフィリエイト・日次バッチ厳選DBの正本設計）
 
+> [!IMPORTANT]
+> **この設計は 2026-09 に廃止されました（Issue #458）。** 楽天アフィリエイトと
+> カタログ週次バッチ（`NoshiCatalogBatchStack` / `noshi-catalog` テーブル）は撤去済みで、
+> 現行のお返し品提案は外部 API に依存しないオフラインの編集コンテンツ
+> `backend/app/catalog/guide.py` です。以下は当時の設計の記録であり、現行仕様ではありません。
+
 ## 背景と課題（見極め）
 
 ユーザーから3つの声が挙がった。

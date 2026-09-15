@@ -14,7 +14,6 @@ interface MonitoringStackProps extends StackProps {
   apiFn: lambda.IFunction;
   workerFn: lambda.IFunction;
   reminderFn: lambda.IFunction;
-  catalogFn: lambda.IFunction;
   deadLetterQueue: sqs.IQueue;
 }
 
@@ -55,12 +54,6 @@ export class MonitoringStack extends Stack {
       fnError(props.reminderFn),
       "お返し期限リマインド Lambda でエラーが発生",
     );
-    alarm(
-      "CatalogFnErrors",
-      fnError(props.catalogFn),
-      "カタログ日次バッチ Lambda でエラーが発生",
-    );
-
     // API Gateway 5xx（統合エラー等。4xx はスロットリング(429)含むため対象外）
     alarm(
       "Api5xx",

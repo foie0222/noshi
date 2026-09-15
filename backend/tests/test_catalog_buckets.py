@@ -1,18 +1,19 @@
-"""バケツ定義（カテゴリslug・価格帯・写像）のテスト。スペック§5に対応。"""
+"""分類軸（用途カテゴリslug・価格帯・品目カテゴリ）のテスト。"""
 
 from app.catalog.buckets import (
     CATEGORIES,
+    ITEM_CATEGORIES,
+    ITEM_CATEGORY_LABELS,
     PRICE_BANDS,
-    RAKUTEN_GENRE_BY_CATEGORY,
-    band_neighbors,
+    band_label,
     band_of,
-    bucket_pk,
+    item_category_key,
     slug_of,
+    tone_slug,
 )
 
 
 def test_カテゴリは9個でASCIIスラッグ():
-    assert len(CATEGORIES) == 9
     assert set(CATEGORIES) == {
         "baby",
         "wedding",
@@ -24,8 +25,6 @@ def test_カテゴリは9個でASCIIスラッグ():
         "oseibo",
         "general",
     }
-    # ジャンルID表のキーはカテゴリと常に一致させる
-    assert set(RAKUTEN_GENRE_BY_CATEGORY) == set(CATEGORIES)
 
 
 def test_既定用途はスラッグに写像される():
@@ -67,24 +66,13 @@ def test_1000円未満は最下帯に丸める():
     assert band_of(999) == "1000-2999"
 
 
-def test_隣接帯は下側優先で返る():
-    assert band_neighbors("5000-9999") == ["3000-4999", "10000-14999"]
-    assert band_neighbors("1000-2999") == ["3000-4999"]  # 下端: 上のみ
-    assert band_neighbors("50000-") == ["25000-49999"]  # 上端: 下のみ
+def test_価格帯ラベルは上限と下限で表記が変わる():
+    assert band_label("5000-9999") == "〜¥9,999"
+    assert band_label("50000-") == "¥50,000〜"
 
 
-def test_バケツPKの形式():
-    assert bucket_pk("baby", "5000-9999") == "BUCKET#baby#5000-9999"
-
-
-def test_品目タクソノミの派生テーブルがトーン別に揃う():
-    from app.catalog.buckets import (
-        ITEM_CATEGORIES,
-        ITEM_CATEGORY_KEYWORDS,
-        ITEM_CATEGORY_LABELS,
-    )
-
-    assert [c for c, _l, _k in ITEM_CATEGORIES["cele"]] == [
+def test_品目カテゴリはトーン別にタブ表示順で並ぶ():
+    assert [c for c, _l in ITEM_CATEGORIES["cele"]] == [
         "sweets",
         "gourmet",
         "drink",
@@ -93,27 +81,19 @@ def test_品目タクソノミの派生テーブルがトーン別に揃う():
         "sake",
         "catalog",
     ]
-    assert [c for c, _l, _k in ITEM_CATEGORIES["mourn"]] == [
+    assert [c for c, _l in ITEM_CATEGORIES["mourn"]] == [
         "drink",
         "food",
         "towel",
         "daily",
         "catalog",
     ]
-    # 派生テーブルは "tone#cat" をキーにする
-    assert ITEM_CATEGORY_KEYWORDS["cele#towel"] == "内祝い タオル ギフト"
+    # 表示名の逆引きは "tone#cat" をキーにする
     assert ITEM_CATEGORY_LABELS["mourn#daily"] == "洗剤・日用品"
-    assert len(ITEM_CATEGORY_KEYWORDS) == 12
-    # 広げたキーワードが反映されている（スペック2026-06-18 検索ヒット改善）
-    assert ITEM_CATEGORY_KEYWORDS["cele#drink"] == "内祝い コーヒー ギフト"
-    assert ITEM_CATEGORY_KEYWORDS["mourn#drink"] == "香典返し お茶 ギフト"
-    assert ITEM_CATEGORY_KEYWORDS["mourn#food"] == "香典返し グルメ"
-    assert ITEM_CATEGORY_KEYWORDS["mourn#daily"] == "香典返し 洗剤"
+    assert len(ITEM_CATEGORY_LABELS) == 12
 
 
-def test_tone_slug_と_item_bucket_slug():
-    from app.catalog.buckets import item_bucket_slug, tone_slug
-
+def test_tone_slug_と_item_category_key():
     assert tone_slug("出産祝い") == "cele"
     assert tone_slug("香典") == "mourn"
-    assert item_bucket_slug("cele", "towel") == "cele#towel"
+    assert item_category_key("cele", "towel") == "cele#towel"

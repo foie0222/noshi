@@ -2,13 +2,13 @@
 
 noshi（贈答とお返しの記録）の App Store Connect 提出に必要なメタデータ一式。コードではなく **App Store Connect 画面への転記用**。スクリーンショット(#211)以外は本ドキュメントの値をそのまま入力すればよい。
 
-最終更新: 2026-06-16 / 対象ビルド: TestFlight #17 以降
+最終更新: 2026-09-15 / 対象ビルド: TestFlight #17 以降
 
 ---
 
 ## 1. App Privacy（プライバシー栄養ラベル）#199
 
-App Store Connect → App Privacy で入力。**前提（コードで確認済み）**: サードパーティ解析/広告 SDK なし・IDFA 不使用・クロスアプリ追跡なし。アフィリエイトは Safari への外部リンクのみ（noshi 側で利用者を追跡しない）。
+App Store Connect → App Privacy で入力。**前提（コードで確認済み）**: サードパーティ解析/広告 SDK なし・IDFA 不使用・クロスアプリ追跡なし。広告・アフィリエイトも掲載しない。
 
 ### Data Collection: **Yes**（データを収集する）
 
@@ -21,7 +21,7 @@ App Store Connect → App Privacy で入力。**前提（コードで確認済�
 
 - 上記以外（位置情報・連絡先・ブラウズ履歴・購入履歴・診断・広告データ等）は **収集しない**。
 - **Tracking**: 「**Data Not Used to Track You**」を選択（noshi はクロスアプリ/ブローカー共有の追跡をしない）。
-- 補足（楽天アフィリエイト）: お返し提案の「商品を見る」は Safari で楽天市場を開く外部リンク。noshi は利用者データを楽天に共有しない（URL にアフィリエイトIDを付与するのみ）。楽天サイト上の Cookie 等は楽天の責任範囲でプライバシーポリシーに明記済み。Apple の "Tracking" 定義には該当しない判断。
+- 補足: お返し提案は自前の編集コンテンツ（品目の提案と のし のマナー）のみ。外部ストアへの商品リンク・アフィリエイトは掲載しない（2026-09 に楽天アフィリエイトを廃止）。
 
 > 入力のコツ: 各データ種別で「Used for Tracking? → No」「Linked to the user's identity? → Yes」「Purposes → App Functionality」。
 
@@ -45,7 +45,7 @@ App Store Connect → Age Rating の質問票はすべて **None / No** → 結�
 | Contests | None |
 | **Unrestricted Web Access** | **No** |
 
-- Unrestricted Web Access を **No** とする根拠: アプリ内ブラウザで任意の Web を開く機能はない。お返し提案のリンクは**特定の楽天市場商品ページ**を**システムの Safari**で開くのみ（アプリ内に汎用ブラウザを内包しない）。
+- Unrestricted Web Access を **No** とする根拠: アプリ内ブラウザで任意の Web を開く機能はない。外部サイトを開くのは**サインイン（Cognito Hosted UI）**のみで、アプリ内に汎用ブラウザを内包しない。
 - 結果の推定レーティング: **4+**。
 
 ---
@@ -75,9 +75,10 @@ ACCOUNT DELETION (Guideline 5.1.1(v)) — fully in-app:
   → confirm dialog → (for Sign in with Apple accounts) the native Apple re-authentication sheet appears
   → deletion completes inside the app. For Apple accounts we also revoke the Apple token via Apple's REST API.
 
-EXTERNAL PURCHASE LINKS:
-  Return-gift suggestions link out to Rakuten (rakuten.co.jp) in Safari via the Rakuten affiliate program.
-  These are physical goods purchased on an external website, so no In-App Purchase is used (Guideline 3.1.1).
+EXTERNAL PURCHASE LINKS: none.
+  Return-gift suggestions are editorial guidance only (gift categories and "noshi" etiquette).
+  The app contains no product links, no advertising and no affiliate program, and sells nothing,
+  so no In-App Purchase is used (Guideline 3.1.1).
 
 All text/UI is in Japanese.
 ```

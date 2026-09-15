@@ -129,15 +129,13 @@ def test_ClaudeAgent抽出はマークダウン括りのJSONも解釈する():
     assert out["candidates"]["amount"] == 10000
 
 
-def test_GiftCatalogMockは品目引数と空カテゴリに対応する():
-    from app.ports import GiftCatalogMock
+def test_GiftGuideは品目を指定しても候補と品目タブを返す():
+    from app.catalog.guide import GiftGuide
 
-    m = GiftCatalogMock()
-    # category を渡しても落ちない（フォールバックは従来の固定候補）
+    m = GiftGuide()
     out = m.suggest(5000, "友人", "出産祝い", category="towel")
-    assert len(out) == 3
-    # モックは品目タブを持たない
-    assert m.available_categories(5000, "出産祝い") == []
+    assert out and {i["category"] for i in out} == {"towel"}
+    assert [c["slug"] for c in m.available_categories(5000, "出産祝い")][0] == "sweets"
 
 
 def test_extract_jsonはJSONが無ければValueError():

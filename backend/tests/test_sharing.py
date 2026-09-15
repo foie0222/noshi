@@ -4,13 +4,14 @@
 別世帯には見えない。初回アクセスで世帯が自動作成され、招待コードで参加できる。
 """
 
-from app.ports import GiftCatalogMock, OcrLlmMock
+from app.catalog.guide import GiftGuide
+from app.ports import OcrLlmMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService
 
 
 def make():
-    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide())
 
 
 def test_初回アクセスで世帯が自動作成され本人が管理者():

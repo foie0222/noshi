@@ -1,8 +1,9 @@
 """API（BFF/FastAPI）のテスト。主要エンドポイントと本人スコープを検証する。"""
 
 import pytest
+from app.catalog.guide import GiftGuide
 from app.main import create_app
-from app.ports import GiftCatalogMock, OcrLlmMock
+from app.ports import OcrLlmMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService
 from fastapi.testclient import TestClient
@@ -435,80 +436,6 @@ def test_あげた記録もタップで詳細が取れる():
     assert ev["direction"] == "given" and ev["id"] == "" and ev["record_id"] == rid
 
 
-def test_クリック計測は204を返す(client):
-    r = client.post(
-        "/api/suggestions/click",
-        json={"item_code": "shop:1", "bucket": "BUCKET#baby#5000-9999", "position": 1},
-        headers={"X-User-Id": "demo-user"},
-    )
-    assert r.status_code == 204
-
-
-def test_クリック計測は不正なバケツ形式を拒否する(client):
-    r = client.post(
-        "/api/suggestions/click",
-        json={"item_code": "shop:1", "bucket": "DROP TABLE", "position": 1},
-        headers={"X-User-Id": "demo-user"},
-    )
-    assert r.status_code == 422
-
-
-def test_クリック計測は未認証を拒否する(client):
-    r = client.post(
-        "/api/suggestions/click",
-        json={"item_code": "shop:1", "bucket": "BUCKET#baby#5000-9999", "position": 1},
-    )
-    assert r.status_code == 401
-
-
-def test_クリック計測はカタログの失敗でも204を返す():
-    """計測の失敗がUXをブロックしない（log_click が例外でも 204）ことを検証する。"""
-    from app.ports import GiftCatalogMock, OcrLlmMock
-    from app.repository import InMemoryRepository
-    from app.services import NoshiService
-
-    class FailingCatalog(GiftCatalogMock):
-        def log_click(self, item_code: str, bucket: str, position: int, rel_group: str) -> None:
-            raise RuntimeError("boom")
-
-    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), FailingCatalog())
-    c = TestClient(create_app(service=svc))
-    r = c.post(
-        "/api/suggestions/click",
-        json={"item_code": "shop:1", "bucket": "BUCKET#baby#5000-9999", "position": 1},
-        headers=_h(),
-    )
-    assert r.status_code == 204
-
-
-def test_クリック計測はrel_groupつきで204を返す(client):
-    r = client.post(
-        "/api/suggestions/click",
-        json={
-            "item_code": "shop:1",
-            "bucket": "BUCKET#baby#5000-9999",
-            "position": 1,
-            "rel_group": "family",
-        },
-        headers={"X-User-Id": "demo-user"},
-    )
-    assert r.status_code == 204
-
-
-def test_クリック計測は不正なrel_groupを拒否する(client):
-    r = client.post(
-        "/api/suggestions/click",
-        json={
-            "item_code": "shop:1",
-            "bucket": "BUCKET#baby#5000-9999",
-            "position": 1,
-            "rel_group": "boss",
-        },
-        headers={"X-User-Id": "demo-user"},
-    )
-    assert r.status_code == 422
-
-
 def test_相手APIで同名でも別人を作り集計が分離する():
     """POST /api/parties で同名の別人を作り、記録を紐付けるとおつきあいが別エントリになることを検証する（#47）。"""
     c = TestClient(create_app())
@@ -537,7 +464,7 @@ def test_相手APIで同名でも別人を作り集計が分離する():
 
 
 def test_別名subのリクエストは代表の世帯に解決される():
-    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide())
     c = TestClient(create_app(svc))
     svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
     svc.repo.put_account_link("aliasY", "primaryX", email="a@x.com")
@@ -547,7 +474,7 @@ def test_別名subのリクエストは代表の世帯に解決される():
 
 
 def test_別名subの通知設定変更が代表の設定に反映される():
-    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide())
     c = TestClient(create_app(svc))
     svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
     svc.set_notification_prefs("primaryX", False)
@@ -563,7 +490,7 @@ def test_delete_info_はapple連携有無を返す(monkeypatch):
     import app.auth as auth
     import app.cognito_admin as ca
 
-    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide())
     svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
     svc.repo.put_account_link("aliasApple", "primaryX")
     monkeypatch.setattr(ca, "any_apple_sub", lambda pool, subs: "aliasApple" in subs)
@@ -588,7 +515,7 @@ def test_delete_account_はrevokeと全sub削除を呼ぶ(monkeypatch):
     )
     monkeypatch.setattr(auth, "auth_configured", lambda: False)  # X-User-Id スタブを維持
     monkeypatch.setenv("NOSHI_COGNITO_POOL_ID", "pool-1")
-    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide())
     svc.resolve_household("primaryX", email="a@x.com", email_verified=True)
     svc.repo.put_account_link("aliasA", "primaryX")
     c = TestClient(create_app(svc))
@@ -603,7 +530,7 @@ def test_delete_account_はrevokeと全sub削除を呼ぶ(monkeypatch):
     assert set(calls["deleted"]) == {"primaryX", "aliasA"}
 
 
-def test_suggestionsはcategoriesも返す():
+def test_suggestionsはcategoriesとのし案内も返す():
     c = TestClient(create_app())
     rec = c.post(
         "/api/records",
@@ -623,8 +550,9 @@ def test_suggestionsはcategoriesも返す():
     )
     assert r.status_code == 200
     body = r.json()
-    assert "suggestions" in body
-    assert body["categories"] == []  # モック catalog は品目タブを持たない
+    assert body["suggestions"]  # オフラインガイドは必ず候補を返す
+    assert [c["slug"] for c in body["categories"]][:2] == ["sweets", "gourmet"]
+    assert body["etiquette"]["omotegaki"] == "内祝"
 
 
 def test_CORSはワイルドカードを返さない(monkeypatch):

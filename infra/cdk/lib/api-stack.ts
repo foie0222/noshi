@@ -16,7 +16,6 @@ interface ApiStackProps extends StackProps {
   imageBucket: s3.Bucket;
   userPoolId: string; // Cognito 世帯認証（JWT を RS256/JWKS で検証）
   userPoolClientId: string; // aud 検証（想定アプリクライアント以外のトークンを拒否）
-  catalogTable: dynamodb.Table;
 }
 
 /**
@@ -44,7 +43,6 @@ export class ApiStack extends Stack {
         NOSHI_USE_DYNAMO: "1",                   // 本番は DynamoDB 永続化（必須）
         EXTRACTION_QUEUE_URL: props.queue.queueUrl, // capture の抽出ジョブ enqueue 先
         NOSHI_IMAGE_BUCKET: props.imageBucket.bucketName, // #35: 撮影画像のS3バケット
-        NOSHI_CATALOG_TABLE: props.catalogTable.tableName,
         // FastAPI 側 CORS も本番オリジンに限定（#103、API GW と同一リスト。多層防御）
         NOSHI_ALLOWED_ORIGINS: ALLOWED_ORIGINS.join(","),
         // 既定で Cognito 認証を強制（安全側、#101）。POOL_ID 注入で JWT(RS256/JWKS) 検証が有効になる。
@@ -62,10 +60,6 @@ export class ApiStack extends Stack {
     props.table.grantReadWriteData(apiFn);
     props.queue.grantSendMessages(apiFn);
     props.imageBucket.grantReadWrite(apiFn);
-    props.catalogTable.grantReadData(apiFn); // カタログ読み取り
-    // クリック記録（CLICK# への put）。テーブルは公開データ専用なので write 許容
-    // （ユーザーテーブルとは分離済み。スペック§8 の IAM 分離）
-    props.catalogTable.grantWriteData(apiFn);
     // 注: OCR/LLM は worker(SQS) に移したため、API には Claude(SSM)/Bedrock 権限は不要。
     // アカウント削除（#118）: 本人の Cognito ユーザーを削除する。
     // ListUsers は sub→Username 解決に使用（#198: Apple revoke フロー）。

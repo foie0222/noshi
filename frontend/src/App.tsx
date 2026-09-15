@@ -35,7 +35,6 @@ import {
   socialSignIn,
 } from "./lib/cognito";
 import { emptyManualDraft } from "./lib/draft";
-import { openExternalUrl } from "./lib/external";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
 import {
@@ -50,7 +49,6 @@ import { isNativePlatform } from "./lib/platform";
 import { enablePush, onPushTap, pushSupported, refreshPushToken } from "./lib/push";
 import { filterReturnRecords, isValidReturnAmount } from "./lib/return";
 import { reviewMessage } from "./lib/review";
-import { priceLine } from "./lib/suggestion";
 import { hydrateToken } from "./lib/tokenStore";
 import { toneOf } from "./lib/tone";
 import { hasErrors, recordErrors } from "./lib/validate";
@@ -60,6 +58,7 @@ import {
   type Direction,
   type Draft,
   type EditDraft,
+  type Etiquette,
   type EventView,
   errMsg,
   type GiftRecord,
@@ -109,6 +108,20 @@ const RETURN_HINTS = [
   "お返しを贈ると、おつきあいがまた一巡します。",
 ];
 const HOME_HINT = RETURN_HINTS[Math.floor(Math.random() * RETURN_HINTS.length)];
+
+// お返し品カードの品目マーク。和の意匠として1文字の漢字を小さな印に見立てる。
+// キーは backend の品目カテゴリ slug（app/catalog/buckets.py の ITEM_CATEGORIES）。
+const CATEGORY_MARKS: Record<string, string> = {
+  sweets: "菓",
+  gourmet: "膳",
+  drink: "茶",
+  towel: "布",
+  tableware: "器",
+  sake: "酒",
+  catalog: "選",
+  food: "膳",
+  daily: "日",
+};
 
 // 台帳の並べ替え選択肢（デザインシステム準拠の自前 Select で表示）。
 const LEDGER_SORT_OPTIONS: { value: LedgerSort; label: string }[] = [
@@ -171,6 +184,9 @@ export function App() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestCats, setSuggestCats] = useState<SuggestCategory[]>([]);
   const [activeCat, setActiveCat] = useState<string | null>(null); // null = おすすめ
+  const [etiquette, setEtiquette] = useState<Etiquette | null>(null); // のし・時期の案内
+  const [noshiOpen, setNoshiOpen] = useState<boolean>(false); // のし案内の開閉
+  const [pendingSug, setPendingSug] = useState<string | null>(null); // 「決める」の確認中カード
   const suggestCatReq = useRef(0);
   const captureReq = useRef(0); // 撮影→抽出の世代。古い完了が新しい操作を上書きしないよう破棄に使う
   const returnRecordsReq = useRef(0); // お返し実績ロードの世代。画面遷移後に古い応答が混入しないよう破棄に使う
@@ -937,7 +953,10 @@ export function App() {
     );
     setSuggestions(r.suggestions);
     setSuggestCats(r.categories);
+    setEtiquette(r.etiquette);
     setActiveCat(null);
+    setNoshiOpen(false);
+    setPendingSug(null);
     go("suggest");
   }
   async function selectSuggestCat(cat: string | null) {
@@ -953,7 +972,9 @@ export function App() {
     );
     if (suggestCatReq.current !== reqId) return; // 新しい切替が来ていれば古い応答は破棄
     setSuggestions(r.suggestions);
-    setSuggestCats(r.categories); // タブ一覧も最新に保つ（在庫変動への追従）
+    setSuggestCats(r.categories);
+    setEtiquette(r.etiquette);
+    setPendingSug(null); // 一覧が入れ替わるので確認中の選択は解除する
   }
   async function chooseSuggestion(s: Suggestion) {
     if (!event) return;
@@ -1907,14 +1928,66 @@ export function App() {
 
       {screen === "suggest" && (
         <>
-          <Bar title="お返し品の提案" back="half" />
-          <p className="muted" style={{ marginTop: 6 }}>
-            気に入った品は「この品に決める」で、このお返しを完了にできます。
-          </p>
-          <div className="ad-disclosure">
-            <Icon name="info" size={15} />
-            以下の商品リンクはアフィリエイト広告です。
-          </div>
+          <Bar title="お返し品を選ぶ" back="half" />
+          {range && (
+            <div className="sugbudget">
+              <div className="sb-k">お返しの目安</div>
+              <div className="sb-v">
+                {yen(range.low)}
+                <span className="sb-sep">〜</span>
+                {yen(range.high)}
+              </div>
+              <div className="sb-sub">
+                {event?.party_name ? withHonor(event.party_name) : "お相手"}へ・{range.purpose}
+              </div>
+            </div>
+          )}
+
+          {etiquette && (
+            <div className="noshi">
+              <button
+                type="button"
+                className="noshi-head"
+                aria-expanded={noshiOpen}
+                onClick={() => setNoshiOpen((v) => !v)}
+              >
+                <span className="noshi-seal" aria-hidden="true">
+                  熨
+                </span>
+                <span className="noshi-ttl">
+                  {etiquette.title}
+                  <span className="noshi-sub">表書き・水引・贈る時期</span>
+                </span>
+                <span className="noshi-chev" data-open={noshiOpen}>
+                  <Icon name="chevronDown" size={18} />
+                </span>
+              </button>
+              {noshiOpen && (
+                <div className="noshi-body">
+                  <dl className="noshi-rows">
+                    <div className="noshi-row">
+                      <dt>表書き</dt>
+                      <dd className="noshi-omote">{etiquette.omotegaki}</dd>
+                    </div>
+                    <div className="noshi-row">
+                      <dt>水引</dt>
+                      <dd>{etiquette.mizuhiki}</dd>
+                    </div>
+                    <div className="noshi-row">
+                      <dt>名入れ</dt>
+                      <dd>{etiquette.name}</dd>
+                    </div>
+                    <div className="noshi-row">
+                      <dt>時期</dt>
+                      <dd>{etiquette.timing}</dd>
+                    </div>
+                  </dl>
+                  <p className="noshi-note">{etiquette.note}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {suggestCats.length > 0 && (
             <div className="sugtabs" role="tablist" aria-label="品目で絞り込み">
               <button
@@ -1940,46 +2013,60 @@ export function App() {
               ))}
             </div>
           )}
+
           {suggestions.map((s) => (
-            <div className="card" key={s.item_code ?? s.title}>
+            <div className={`card sugcard${pendingSug === s.title ? " picked" : ""}`} key={s.title}>
               <div className="sug-head">
-                {s.image_url && <img src={s.image_url} alt="" width={72} height={72} />}
+                <span className="sug-mark" aria-hidden="true">
+                  {CATEGORY_MARKS[s.category] ?? "品"}
+                </span>
                 <div className="sug-headtext">
                   <div className="sug-title">{s.title}</div>
                   <div className="sug-meta">
-                    {s.rating
-                      ? `★${s.rating}（${(s.review_count ?? 0).toLocaleString()}件）・`
-                      : ""}
-                    {priceLine(s)}
-                    {s.sale_note ? `・${s.sale_note}` : ""}
+                    {s.category_label}
+                    {s.price_band ? `・${s.price_band} が目安` : ""}
                   </div>
                 </div>
               </div>
               {s.summary && <p className="sug-reason">{s.summary}</p>}
-              {s.external_ref && (
-                <a
-                  className="btn primary"
-                  href={s.external_ref}
-                  target="_blank"
-                  rel="noopener sponsored"
-                  onClick={(e) => {
-                    api.clickSuggestion(s);
-                    // ネイティブは実ブラウザで開く（埋め込みWebViewの遷移失敗・計測取りこぼし回避, #230）。
-                    if (openExternalUrl(s.external_ref)) e.preventDefault();
-                  }}
-                >
-                  商品を見る ↗
-                </a>
+              {s.tip && (
+                <p className="sug-tip">
+                  <Icon name="info" size={15} />
+                  <span>{s.tip}</span>
+                </p>
               )}
-              <button type="button" className="btn ghost" onClick={() => chooseSuggestion(s)}>
-                この品に決める
-              </button>
+              {pendingSug === s.title ? (
+                <div className="sug-confirm">
+                  <p className="sug-confirm-q">この品でお返しを完了にします。よろしいですか？</p>
+                  <div className="row-inline">
+                    <button
+                      type="button"
+                      className="btn ghost compact"
+                      onClick={() => setPendingSug(null)}
+                    >
+                      やめる
+                    </button>
+                    <button
+                      type="button"
+                      className="btn primary compact grow"
+                      onClick={() => chooseSuggestion(s)}
+                    >
+                      決めて完了にする
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="btn ghost" onClick={() => setPendingSug(s.title)}>
+                  この品に決める
+                </button>
+              )}
             </div>
           ))}
-          <p className="muted" style={{ fontSize: 12 }}>
-            価格は変動します。購入時はストア側の表示が優先されます。
+
+          <p className="sug-foot">
+            金額は一般的な相場の目安です。お店の表示や在庫が優先されます。
             <br />
-            Supported by Rakuten Developers
+            広告・アフィリエイトは掲載していません。
           </p>
         </>
       )}

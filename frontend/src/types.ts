@@ -113,24 +113,24 @@ export interface Suggestion {
   title: string;
   summary: string;
   price_band: string;
-  external_ref: string;
-  // 楽天カタログ由来の拡張（バックエンドが規約24h−1hの23hマスク済みのものだけ送る）
-  price?: number;
-  price_fetched_at?: string;
-  sale_note?: string;
-  image_url?: string;
-  shop_name?: string;
-  rating?: number;
-  review_count?: number;
-  item_code?: string;
-  bucket?: string;
-  position?: number;
-  rel_group?: string; // 配信時の続柄グループ（クリック計測で echo する）
+  category: string; // 品目カテゴリ slug（towel / sweets 等）
+  category_label: string; // 品目カテゴリの表示名
+  tip?: string; // 選ぶときのひとこと（任意）
 }
 
 export interface SuggestCategory {
   slug: string;
   label: string;
+}
+
+/** のし・水引・時期のマナー案内（用途ごと）。 */
+export interface Etiquette {
+  title: string;
+  omotegaki: string;
+  mizuhiki: string;
+  name: string;
+  timing: string;
+  note: string;
 }
 
 export interface CaptureCandidates {

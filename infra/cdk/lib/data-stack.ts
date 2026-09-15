@@ -14,7 +14,6 @@ export class DataStack extends Stack {
   public readonly table: dynamodb.Table;
   public readonly imageBucket: s3.Bucket;
   public readonly key: kms.Key;
-  public readonly catalogTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
@@ -62,17 +61,6 @@ export class DataStack extends Stack {
       ],
       lifecycleRules: [{ abortIncompleteMultipartUploadAfter: Duration.days(1) }],
       removalPolicy: RemovalPolicy.RETAIN,
-    });
-
-    // カタログテーブル（お返し品提案）。中身は楽天の公開商品データで
-    // 再構築可能なキャッシュ — ユーザーデータと分離し、CMK/PITR/RETAIN は適用しない。
-    this.catalogTable = new dynamodb.Table(this, "NoshiCatalogTable", {
-      tableName: "noshi-catalog",
-      partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: "expiresAt", // 商品48h / クリック13ヶ月（書き込み側で設定）
-      removalPolicy: RemovalPolicy.DESTROY, // 再構築可能なキャッシュ
     });
   }
 }

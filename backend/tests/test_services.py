@@ -1,13 +1,14 @@
 """サービス層のテスト。中核ループと本人スコープ強制・監査を検証する。"""
 
 import pytest
-from app.ports import GiftCatalogMock, OcrLlmMock
+from app.catalog.guide import GiftGuide
+from app.ports import OcrLlmMock
 from app.repository import InMemoryRepository
 from app.services import ForbiddenError, NoshiService, ValidationError
 
 
 def make_service():
-    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide())
 
 
 def test_記録を作成すると台帳と受領イベントができる():
@@ -752,7 +753,7 @@ def test_delete_accountでowner単独の世帯が削除される():
 
 
 def test_returns_payloadはcategory素通しと品目タブを1回の認可で返す():
-    class SpyCatalog(GiftCatalogMock):
+    class SpyCatalog(GiftGuide):
         def __init__(self):
             self.last_category = "UNSET"
 
@@ -771,6 +772,7 @@ def test_returns_payloadはcategory素通しと品目タブを1回の認可で�
     assert svc.catalog.last_category == "towel"
     assert payload["categories"] == [{"slug": "towel", "label": "タオル・寝具"}]
     assert "suggestions" in payload
+    assert payload["etiquette"]["omotegaki"] == "内祝"  # のし案内も同じ認可で返す
 
 
 def test_お返しをgivenレコードで記録しreturn_for_idで紐付けられる():

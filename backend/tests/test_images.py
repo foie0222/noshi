@@ -1,15 +1,16 @@
 """撮影画像（S3・署名付きURL）のテスト（#35）。署名はローカルで行われるため moto 不要。"""
 
+from app.catalog.guide import GiftGuide
 from app.images import ImageStore
 from app.main import create_app
-from app.ports import GiftCatalogMock, OcrLlmMock
+from app.ports import OcrLlmMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService
 from fastapi.testclient import TestClient
 
 
 def make_service(bucket: str | None = None) -> NoshiService:
-    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock(), ImageStore(bucket))
+    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide(), ImageStore(bucket))
 
 
 def test_バケット未設定なら画像機能は無効():

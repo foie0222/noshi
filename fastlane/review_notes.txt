@@ -8,8 +8,9 @@ ACCOUNT DELETION (Guideline 5.1.1(v)) - fully in-app:
   -> confirm dialog -> (for Sign in with Apple accounts) the native Apple re-authentication sheet appears
   -> deletion completes inside the app. For Apple accounts we also revoke the Apple token via Apple's REST API.
 
-EXTERNAL PURCHASE LINKS:
-  Return-gift suggestions link out to Rakuten (rakuten.co.jp) in Safari via the Rakuten affiliate program.
-  These are physical goods purchased on an external website, so no In-App Purchase is used (Guideline 3.1.1).
+EXTERNAL PURCHASE LINKS: none.
+  Return-gift suggestions are editorial guidance only (gift categories and "noshi" etiquette).
+  The app contains no product links, no advertising and no affiliate program, and sells nothing,
+  so no In-App Purchase is used (Guideline 3.1.1).
 
 All text/UI is in Japanese.

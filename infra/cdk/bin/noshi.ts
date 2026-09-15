@@ -8,7 +8,6 @@ import { WorkerStack } from "../lib/worker-stack";
 import { FrontendStack } from "../lib/frontend-stack";
 import { GithubOidcStack } from "../lib/github-oidc-stack";
 import { CertificateStack } from "../lib/certificate-stack";
-import { CatalogBatchStack } from "../lib/catalog-batch-stack";
 import { CostStack } from "../lib/cost-stack";
 import { MailStack } from "../lib/mail-stack";
 import { ReminderStack } from "../lib/reminder-stack";
@@ -35,12 +34,11 @@ const auth = new AuthStack(app, "NoshiAuthStack", {
   hostedZoneId: HOSTED_ZONE_ID,
   hostedZoneName: DOMAIN,
 });
-const api = new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId, userPoolClientId: auth.userPoolClient.userPoolClientId, catalogTable: data.catalogTable });
+const api = new ApiStack(app, "NoshiApiStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket, userPoolId: auth.userPool.userPoolId, userPoolClientId: auth.userPoolClient.userPoolClientId });
 const worker = new WorkerStack(app, "NoshiWorkerStack", { env, table: data.table, queue: messaging.extractionQueue, imageBucket: data.imageBucket });
 
 // お返し期限のリマインド（#178）。日次バッチ→SES でメール送信。
 const reminder = new ReminderStack(app, "NoshiReminderStack", { env, table: data.table, domainName: DOMAIN });
-const catalogBatch = new CatalogBatchStack(app, "NoshiCatalogBatchStack", { env, catalogTable: data.catalogTable });
 
 // 障害アラート（#124）。エラー系アラーム＋メール通知（課金は CostStack #122）。
 const alertEmail = (app.node.tryGetContext("alertEmail") as string) ?? "daikinoue0222@gmail.com";
@@ -51,7 +49,6 @@ new MonitoringStack(app, "NoshiMonitoringStack", {
   apiFn: api.apiFn,
   workerFn: worker.workerFn,
   reminderFn: reminder.reminderFn,
-  catalogFn: catalogBatch.catalogFn,
   deadLetterQueue: messaging.deadLetterQueue,
 });
 

@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 def _service() -> Any:
     """worker 用の NoshiService を組み立てる（DynamoRepository + 実 OCR + ImageStore）。"""
     from app.adapters import default_ocr
+    from app.catalog.guide import GiftGuide
     from app.images import ImageStore
-    from app.ports import GiftCatalogMock
     from app.repository import DynamoRepository
     from app.services import NoshiService
 
-    return NoshiService(DynamoRepository(), default_ocr(), GiftCatalogMock(), images=ImageStore())
+    return NoshiService(DynamoRepository(), default_ocr(), GiftGuide(), images=ImageStore())
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:

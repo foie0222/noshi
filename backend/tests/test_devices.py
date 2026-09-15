@@ -5,16 +5,17 @@ APNs デバイストークンの登録/一覧/削除と本人スコープ、通�
 （送信方式 SNS/直APNs は未決のため）。
 """
 
+from app.catalog.guide import GiftGuide
 from app.domain.entities import DeviceToken
 from app.main import create_app
-from app.ports import GiftCatalogMock, OcrLlmMock
+from app.ports import OcrLlmMock
 from app.repository import InMemoryRepository
 from app.services import NoshiService
 from fastapi.testclient import TestClient
 
 
 def make() -> NoshiService:
-    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftCatalogMock())
+    return NoshiService(InMemoryRepository(), OcrLlmMock(), GiftGuide())
 
 
 def _h(uid: str = "u1") -> dict[str, str]:
@@ -126,12 +127,13 @@ def test_APIでプッシュ通知をオフにできる() -> None:
 
 def test_オーナー引き継ぎで通知設定が保持される():
     """世帯オーナー脱退時、後継者の notify_email/notify_push 設定がリセットされないことを検証する（#205）。"""
-    from app.ports import GiftCatalogMock, OcrLlmMock
+    from app.catalog.guide import GiftGuide
+    from app.ports import OcrLlmMock
     from app.repository import InMemoryRepository
     from app.services import NoshiService
 
     repo = InMemoryRepository()
-    svc = NoshiService(repo, OcrLlmMock(), GiftCatalogMock())
+    svc = NoshiService(repo, OcrLlmMock(), GiftGuide())
     svc.resolve_household("owner1", email="o@example.com")
     h = svc.household_view("owner1")
     svc.resolve_household("member1", email="m@example.com")

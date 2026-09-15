@@ -8,9 +8,25 @@ ACCOUNT DELETION (Guideline 5.1.1(v)) - fully in-app:
   -> confirm dialog -> (for Sign in with Apple accounts) the native Apple re-authentication sheet appears
   -> deletion completes inside the app. For Apple accounts we also revoke the Apple token via Apple's REST API.
 
-EXTERNAL PURCHASE LINKS: none.
-  Return-gift suggestions are editorial guidance only (gift categories and "noshi" etiquette).
-  The app contains no product links, no advertising and no affiliate program, and sells nothing,
-  so no In-App Purchase is used (Guideline 3.1.1).
+EXTERNAL LINKS TO PHYSICAL GOODS (Guideline 3.1.3(e) / 3.1.5(a)):
+  Return-gift suggestions are primarily editorial guidance (gift categories and "noshi" etiquette).
+  Under each suggestion we also list up to three real products from Rakuten Ichiba, a Japanese
+  online marketplace. These are clearly labeled "広告" (advertisement) next to the listing, and a
+  notice at the top of the list states that the section contains advertising links.
+
+  All listed items are PHYSICAL GOODS (towels, sweets, tea, tableware, detergent, catalog gift
+  booklets, sake) that are bought and shipped outside the app. The app sells nothing, offers no
+  digital content or subscriptions, and uses no In-App Purchase.
+
+  Tapping a product opens the Rakuten page in the system browser (SFSafariViewController via
+  @capacitor/browser). The app never loads external sites inside its own WebView, so there is no
+  in-app browsing of arbitrary web content.
+
+  We participate in the Rakuten affiliate program and may receive a referral fee when a purchase
+  is made through these links. No advertising or analytics SDK is embedded in the app, and no user
+  data is sent to Rakuten unless the user taps a link and leaves the app.
+
+ALCOHOL REFERENCE: one celebration gift category is Japanese sake, so a few product listings are
+  alcoholic drinks. The app does not sell alcohol and has no age-gated content of its own.
 
 All text/UI is in Japanese.

@@ -134,6 +134,14 @@ npx cdk deploy NoshiFrontendStack --require-approval never --outputs-file ./cdk-
 - **CD（自動デプロイ）**: `main` への push で、**CI 全通過後に AWS へ自動デプロイ**（backend 5 スタック → フロントを本番APIにビルド → FrontendStack）。
   - 認証は **GitHub OIDC**（長期キー不使用）。ロール `noshi-github-deploy` を `lib/github-oidc-stack.ts` で作成し、ARN を GitHub Secret `AWS_DEPLOY_ROLE_ARN` に登録。
   - OIDC スタックは自己参照のため自動デプロイ対象外。初回のみ手動: `npx cdk deploy NoshiGithubOidcStack`。
+- **お返し品カタログ（週次）**: `.github/workflows/catalog-build.yml` が楽天の検索API（無料）から
+  ランクを作り直し、差分があれば PR にする（`backend/app/catalog/data/items.json`）。AWS には何も置かず、
+  費用は Actions の実行時間だけ。実行時（Lambda）はこの JSON を読むだけでネットワークも LLM も使わない。
+  - 必要な GitHub Secret: `RAKUTEN_APP_ID` / `RAKUTEN_AFFILIATE_ID` / `RAKUTEN_ACCESS_KEY`。
+    楽天アプリ登録の **Allowed websites に `noshi.me` を入れておく**（無いと 403）。
+  - 手元で試す: `cd backend && RAKUTEN_APP_ID=... RAKUTEN_AFFILIATE_ID=... python -m tools.catalog.build`
+  - PR にするのは、**今週どの商品が入れ替わったかを diff で人間が見て止められる**ようにするため。
+    マージしなければ本番には出ない。
 
 ## テスト方針（TDD）
 backend=**pytest**（98）/ frontend=**vitest**（43）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。

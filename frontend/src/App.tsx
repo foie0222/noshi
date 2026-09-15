@@ -1051,13 +1051,25 @@ export function App() {
         occurred_at: returnDraft.occurred_at.trim(),
         return_for_id: event.record_id,
       });
-      setReturnDraft(null);
-      setReturnTried(false);
-      setChosenGift("");
+    } catch (e) {
+      // 記録が入らなかった。入力はそのまま残し、この画面でやり直せるようにする。
+      notify(errMsg(e));
+      setReturnBusy(false);
+      return;
+    }
+    setReturnDraft(null);
+    setReturnTried(false);
+    setChosenGift("");
+    try {
       // 記録が入って初めて「完了」。ここまで来たら水引の演出を出す。
       await complete();
     } catch (e) {
+      // 記録自体は残っている。完了にできなかっただけ。
+      // 下書きを消した後の記録画面は描画条件を満たさず戻るボタンごと消えるので、
+      // ここで必ずイベント詳細へ逃がす（残さないとリロード以外に脱出できない）。
       notify(errMsg(e));
+      await loadReturnRecords(event.record_id);
+      go("event");
     } finally {
       setReturnBusy(false);
     }

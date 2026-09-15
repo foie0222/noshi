@@ -88,5 +88,11 @@ export class CatalogBatchStack extends Stack {
       });
     }
     this.catalogFn = fn;
+    // 削除までの一時措置: 参照が無くなっても Export を残す。
+    // NoshiMonitoringStack はまだ本スタックの Export を import しており、CDK は
+    // CatalogBatch を Monitoring より先にデプロイするため、Export を落とすと
+    // 「Cannot delete export ... as it is in use」でロールバックする。
+    // スタックごと destroy すれば Export も消えるので、この行はそこまでの寿命。
+    this.exportValue(fn.functionName);
   }
 }

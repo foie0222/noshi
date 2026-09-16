@@ -61,3 +61,31 @@ def test_認証変種パスは人間マージ():
 def test_自己改変パスは人間マージ():
     for p in [".github/workflows/operator.yml", "scripts/operator/classify_merge.py"]:
         assert classify([p], 1, []).verdict == "human", p
+
+
+# --- 週次カタログ（生成データ）は常に自動マージ（#488） ---
+
+_CATALOG = "backend/app/catalog/data/items.json"
+
+
+def test_カタログの生成データだけの変更は自動マージ():
+    d = classify([_CATALOG], 8, [])
+    assert d.verdict == "auto"
+    assert "カタログ" in d.reason
+
+
+def test_カタログの生成データは行数が多くても自動マージ():
+    # rating / reviews が毎週動くので数百行になる。行数しきい値は適用しない
+    d = classify([_CATALOG], DEFAULT_POLICY.max_auto_lines * 10, [])
+    assert d.verdict == "auto"
+
+
+def test_カタログの生成データに他のファイルが混ざれば通常の判定():
+    # 生成データを隠れ蓑にコードを通させない。catalog/** はセンシティブなので human
+    d = classify([_CATALOG, "backend/app/catalog/guide.py"], 8, [])
+    assert d.verdict == "human"
+
+
+def test_カタログの生成データでも強制ラベルは優先():
+    d = classify([_CATALOG], 8, ["needs:po"])
+    assert d.verdict == "human"

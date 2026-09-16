@@ -24,6 +24,11 @@ def classify(
     if forced:
         return MergeDecision("human", f"ラベル {sorted(forced)} により人間マージ")
 
+    # 生成データだけの PR は行数もセンシティブ glob も見ない（#488）。
+    # 「だけ」が条件。他のファイルが混ざれば下の通常判定に落ちる。
+    if changed_files and all(f in policy.generated_data_paths for f in changed_files):
+        return MergeDecision("auto", "カタログの生成データのみ（週次の自動更新）")
+
     for path in changed_files:
         for glob in policy.sensitive_globs:
             if matches(path, glob):

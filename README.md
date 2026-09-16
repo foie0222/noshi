@@ -140,8 +140,9 @@ npx cdk deploy NoshiFrontendStack --require-approval never --outputs-file ./cdk-
   - 必要な GitHub Secret: `RAKUTEN_APP_ID` / `RAKUTEN_AFFILIATE_ID` / `RAKUTEN_ACCESS_KEY`。
     楽天アプリ登録の **Allowed websites に `noshi.me` を入れておく**（無いと 403）。
   - 手元で試す: `cd backend && RAKUTEN_APP_ID=... RAKUTEN_AFFILIATE_ID=... python -m tools.catalog.build`
-  - PR にするのは、**今週どの商品が入れ替わったかを diff で人間が見て止められる**ようにするため。
-    マージしなければ本番には出ない。
+  - PR は operator の classify-and-merge が**常に自動マージ**する（PO 判断、#488）。統制は生成時と
+    読み込み時の二重検証（レビュー数・評価・NG ワード・URL と画像ドメイン）。変な品が本番に出たら
+    その PR を revert する。diff は事後の監査用。
 
 ## テスト方針（TDD）
 backend=**pytest**（98）/ frontend=**vitest**（43）/ infra=**cdk synth**。各テストは「何を検証するか」を日本語一文で記載。

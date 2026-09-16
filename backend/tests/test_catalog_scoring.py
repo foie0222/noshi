@@ -140,3 +140,59 @@ def test_弔事品目スラッグでは弔事NGワードで弾く():
     # 慶事品目では祝い向け語は通り、弔事向け語を弾く
     assert passes_gate({**base, "title": "上質タオルセット"}, "cele#towel") is True
     assert passes_gate({**base, "title": "香典返し 緑茶"}, "cele#towel") is False
+
+
+# --- 弔事バケツの足切りは「弔事語を含む」の正の条件（#478） ---
+
+
+def _mourn(title):
+    return {
+        "review_count": 100,
+        "rating": 4.5,
+        "availability": 1,
+        "affiliate_url": "https://hb.afl.rakuten.co.jp/x",
+        "title": title,
+    }
+
+
+def test_弔事バケツは全用途を列挙した商品名でも弔事語があれば通す():
+    # 楽天の商品名は「出産内祝い 結婚内祝い 香典返し …」と全用途を並べるのが慣習。
+    # 「出産」「結婚」を NG にすると香典返しにも使える汎用ギフトがほぼ全部消える
+    title = "内祝い 出産内祝い 結婚内祝い 香典返し 今治タオル ギフトセット"
+    assert passes_gate(_mourn(title), "mourn#towel")
+    assert passes_gate(_mourn(title), "koden")
+
+
+def test_弔事バケツは弔事語を含まない商品を落とす():
+    # 検索語に「香典返し」を入れているのに商品名に弔事の用途が無い品は、慶事専用の可能性が高い
+    assert not passes_gate(_mourn("敬老の日 プレゼント 今治タオル ギフトセット"), "mourn#towel")
+
+
+def test_弔事語は香典返し以外の表記も通す():
+    for word in ("満中陰志", "粗供養", "法要", "法事", "仏事", "御供", "偲び草", "忌明け"):
+        assert passes_gate(_mourn(f"{word} 緑茶 詰合せ"), "mourn#drink"), word
+
+
+def test_単漢字の志は採用条件に使わない():
+    # 「志摩」「有志」など無関係な語に部分一致し、弔事と無関係な品が香典返しに混入する。
+    # 除外条件（慶事バケツ）で誤爆しても安全側だが、採用条件では逆なので使わない
+    for title in ("志摩 海産物 詰合せ", "有志 一同 ギフト", "志賀高原 りんごジュース"):
+        assert not passes_gate(_mourn(title), "mourn#food"), title
+
+
+def test_弔事バケツは品そのものが慶事用の語を落とす():
+    # 弔事語があっても、紅白（紅白まんじゅう・紅白饅頭）は香典返しに混ぜない
+    assert not passes_gate(_mourn("香典返し 紅白まんじゅう"), "mourn#food")
+
+
+def test_弔事バケツは用途の列挙を理由に落とさない():
+    # 売り手が「香典返し」と明記していれば、誕生日・出産祝いを併記していても香典返しとして売っている品。
+    # 用途の列挙で落とすとタオル 30 件中 20 件が消える（実測）
+    title = "出産祝い 結婚祝い 誕生日 クリスマス 香典返し 今治タオル ギフトセット"
+    assert passes_gate(_mourn(title), "mourn#towel")
+
+
+def test_慶事バケツの足切りは変えない():
+    cele = {**_mourn("上質タオルセット"), "title": "上質タオルセット"}
+    assert passes_gate(cele, "cele#towel")
+    assert not passes_gate({**cele, "title": "香典返し 緑茶"}, "cele#towel")

@@ -94,9 +94,12 @@ def test_商品名は制御文字を除いて保存する():
 
 
 def test_弔事バケツに祝い向け商品は入らない():
-    items = [_item(code="a", title="出産祝い 紅白まんじゅう"), _item(code="b", title="緑茶 詰合せ")]
+    items = [
+        _item(code="a", title="出産祝い 紅白まんじゅう"),
+        _item(code="b", title="香典返し 緑茶 詰合せ"),
+    ]
     got = rank_bucket(items, "mourn#food", ranking={}, mean=4.2, limit=10)
-    assert [p["title"] for p in got] == ["緑茶 詰合せ"]
+    assert [p["title"] for p in got] == ["香典返し 緑茶 詰合せ"]
 
 
 # --- 全体平均 ---

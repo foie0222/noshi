@@ -36,6 +36,7 @@ import {
 } from "./lib/cognito";
 import { isoDaysAgo } from "./lib/day";
 import { emptyManualDraft } from "./lib/draft";
+import { openExternal } from "./lib/external";
 import { daysLeftLabel, statusLabel, withHonor, yen } from "./lib/format";
 import { isSharing, memberDisplay } from "./lib/household";
 import {
@@ -187,6 +188,7 @@ export function App() {
   const [suggestCats, setSuggestCats] = useState<SuggestCategory[]>([]);
   const [activeCat, setActiveCat] = useState<string | null>(null); // null = おすすめ
   const [etiquette, setEtiquette] = useState<Etiquette | null>(null); // のし・時期の案内
+  const [catalogDate, setCatalogDate] = useState<string>(""); // 実商品リストの生成日
   const [noshiOpen, setNoshiOpen] = useState<boolean>(false); // のし案内の開閉
   const [pendingSug, setPendingSug] = useState<string | null>(null); // 「決める」の確認中カード
   const [sugLoading, setSugLoading] = useState<boolean>(false); // 品目の切替待ち
@@ -967,6 +969,7 @@ export function App() {
     setSuggestions(r.suggestions);
     setSuggestCats(r.categories);
     setEtiquette(r.etiquette);
+    setCatalogDate(r.catalog_generated_at);
     setActiveCat(null);
     setNoshiOpen(false);
     setPendingSug(null);
@@ -993,6 +996,7 @@ export function App() {
     setSuggestions(r.suggestions);
     setSuggestCats(r.categories);
     setEtiquette(r.etiquette);
+    setCatalogDate(r.catalog_generated_at);
     setPendingSug(null); // 一覧が入れ替わるので確認中の選択は解除する
   }
   async function chooseSuggestion(s: Suggestion) {
@@ -2112,6 +2116,18 @@ export function App() {
             </div>
           )}
 
+          {!sugLoading && suggestions.some((s) => s.products && s.products.length > 0) && (
+            // 景表法（ステマ規制）の広告表示。個々の商品の上にも「広告」を出すが、
+            // 画面に入った時点で分かるよう一覧の先頭にも置く。
+            <p className="sugad">
+              <Icon name="info" size={15} />
+              <span>
+                売れ筋の商品には楽天アフィリエイトの広告リンクを含みます。
+                {catalogDate ? `${catalogDate} 時点の情報です。` : ""}
+              </span>
+            </p>
+          )}
+
           {sugLoading &&
             [0, 1, 2].map((i) => (
               <div className="card sugskel" key={`skel-${i}`} aria-hidden="true">
@@ -2156,9 +2172,58 @@ export function App() {
                     <span>{s.tip}</span>
                   </p>
                 )}
+                {s.products && s.products.length > 0 && (
+                  <div className="sugprod">
+                    {/* 景表法（ステマ規制）: 広告であることを、広告のすぐそばで明示する */}
+                    <div className="sugprod-head">
+                      <span className="sugprod-ttl">この品目の売れ筋</span>
+                      <span className="sugprod-ad">広告</span>
+                    </div>
+                    <ul className="sugprod-list">
+                      {s.products.map((p) => (
+                        <li key={p.url}>
+                          <a
+                            className="sugprod-item"
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored nofollow"
+                            onClick={(e) => {
+                              // ネイティブはアプリ内 WebView に読み込ませず、
+                              // システムのブラウザで開く（戻れなくなるのを防ぐ）。
+                              if (!isNativePlatform()) return;
+                              e.preventDefault();
+                              void openExternal(p.url);
+                            }}
+                          >
+                            <img
+                              className="sugprod-img"
+                              src={p.image}
+                              alt=""
+                              loading="lazy"
+                              width={56}
+                              height={56}
+                            />
+                            <span className="sugprod-text">
+                              <span className="sugprod-name">{p.title}</span>
+                              <span className="sugprod-meta">
+                                {p.shop}
+                                {p.reviews > 0
+                                  ? `・★${p.rating.toFixed(1)}（${p.reviews.toLocaleString()}件）`
+                                  : ""}
+                              </span>
+                            </span>
+                            <Icon name="external" size={15} />
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {pendingSug === s.title ? (
                   <div className="sug-confirm">
-                    <p className="sug-confirm-q">この品でお返しを完了にします。よろしいですか？</p>
+                    <p className="sug-confirm-q">
+                      この品で記録に進みます。贈ったあとに完了になります。
+                    </p>
                     <div className="row-inline">
                       <button
                         type="button"
@@ -2172,7 +2237,7 @@ export function App() {
                         className="btn primary compact grow"
                         onClick={() => chooseSuggestion(s)}
                       >
-                        決めて完了にする
+                        決めて記録へ
                       </button>
                     </div>
                   </div>

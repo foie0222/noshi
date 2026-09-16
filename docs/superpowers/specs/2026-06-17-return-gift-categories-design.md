@@ -9,6 +9,12 @@
 > カタログ週次バッチ（`NoshiCatalogBatchStack` / `noshi-catalog` テーブル）は撤去済みで、
 > 現行のお返し品提案は外部 API に依存しないオフラインの編集コンテンツ
 > `backend/app/catalog/guide.py` です。以下は当時の設計の記録であり、現行仕様ではありません。
+>
+> **2026-09 追記（Issue #468）**: 楽天アフィリエイト自体はこの後に再開したが、
+> **この設計（AWS 常設バッチ）には戻していない**。現行は GitHub Actions が週次で
+> ランクを作って静的 JSON（`backend/app/catalog/data/items.json`）をコミットし、
+> 実行時はそれを読むだけ。専用 Lambda・EventBridge・ECR・DynamoDB テーブルは無く、
+> 推薦文の LLM 生成も行わない。生成は `backend/tools/catalog/build.py`。
 
 ## 背景と課題（見極め）
 

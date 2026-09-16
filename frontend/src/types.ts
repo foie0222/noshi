@@ -109,6 +109,17 @@ export interface HalfReturn {
   gift_unneeded: boolean;
 }
 
+/** 実商品（楽天アフィリエイト）。CI が週次で生成した静的 JSON から来る。
+ *  実売価格は持たない（相場は Suggestion.price_hint 側が担う）。 */
+export interface Product {
+  title: string;
+  shop: string;
+  url: string; // アフィリエイトリンク（hb.afl.rakuten.co.jp）
+  image: string; // thumbnail.image.rakuten.co.jp
+  rating: number;
+  reviews: number;
+}
+
 export interface Suggestion {
   title: string;
   summary: string;
@@ -117,6 +128,7 @@ export interface Suggestion {
   category: string; // 品目カテゴリ slug（towel / sweets 等）
   category_label: string; // 品目カテゴリの表示名
   tip?: string; // 選ぶときのひとこと（任意）
+  products?: Product[]; // その品目・価格帯の実商品（未生成なら空）
 }
 
 export interface SuggestCategory {

@@ -116,7 +116,12 @@ export const api = {
     purpose: string,
     category?: string,
   ) =>
-    req<{ suggestions: Suggestion[]; categories: SuggestCategory[]; etiquette: Etiquette }>(
+    req<{
+      suggestions: Suggestion[];
+      categories: SuggestCategory[];
+      etiquette: Etiquette;
+      catalog_generated_at: string; // 実商品リストの生成日（鮮度の注記に使う）
+    }>(
       `/events/${eventId}/suggestions?budget=${budget}&relationship=${encodeURIComponent(relationship)}&purpose=${encodeURIComponent(purpose)}${
         category ? `&category=${encodeURIComponent(category)}` : ""
       }`,

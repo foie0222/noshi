@@ -1,0 +1,41 @@
+{
+  "Items": [
+    {
+      "Item": {
+        "itemCode": "shopA:10001",
+        "itemName": "今治タオル ギフトセット 内祝い",
+        "itemPrice": 5400,
+        "itemUrl": "https://item.rakuten.co.jp/shopA/10001/",
+        "affiliateUrl": "https://hb.afl.rakuten.co.jp/hgc/abc123/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2FshopA%2F10001%2F",
+        "mediumImageUrls": [{"imageUrl": "https://thumbnail.image.rakuten.co.jp/@0_mall/shopA/10001.jpg?_ex=128x128"}],
+        "shopName": "タオル専門店A",
+        "reviewCount": 812,
+        "reviewAverage": 4.62,
+        "pointRate": 5,
+        "pointRateEndTime": "2026-06-15 09:59",
+        "availability": 1,
+        "giftFlag": 1,
+        "genreId": "208813"
+      }
+    },
+    {
+      "Item": {
+        "itemCode": "shopB:20002",
+        "itemName": "訳あり タオル まとめ売り",
+        "itemPrice": 2980,
+        "itemUrl": "https://item.rakuten.co.jp/shopB/20002/",
+        "affiliateUrl": "https://hb.afl.rakuten.co.jp/hgc/abc123/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2FshopB%2F20002%2F",
+        "mediumImageUrls": [],
+        "shopName": "ショップB",
+        "reviewCount": 3,
+        "reviewAverage": 4.8,
+        "pointRate": 1,
+        "pointRateEndTime": "",
+        "availability": 1,
+        "giftFlag": 0,
+        "genreId": "208813"
+      }
+    }
+  ],
+  "count": 2, "page": 1, "pageCount": 1
+}

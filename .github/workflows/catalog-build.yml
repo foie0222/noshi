@@ -90,7 +90,10 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          if git diff --quiet -- backend/app/catalog/data/items.json; then
+          # 先に add してから --cached で見る。git diff は未追跡ファイルを差分と見なさないので、
+          # items.json がまだ無い初回は「差分なし」と誤判定されて PR が作られなかった（#475）。
+          git add backend/app/catalog/data/items.json
+          if git diff --cached --quiet -- backend/app/catalog/data/items.json; then
             echo "差分なし。PR は作らない。"
             exit 0
           fi
@@ -98,7 +101,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add backend/app/catalog/data/items.json
           git commit -m "chore(catalog): お返し品カタログを更新する"
           git push -u origin "$branch"
           {

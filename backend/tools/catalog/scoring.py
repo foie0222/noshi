@@ -14,8 +14,16 @@ _AFFILIATE_PREFIX = "https://hb.afl.rakuten.co.jp/"
 _MIN_REVIEWS = 20
 _MIN_RATING = 4.0
 
-# 用途別NGワード（スペック§6①の初期リスト）
-_NG_KODEN = ("御祝", "お祝い", "出産", "結婚", "誕生日", "クリスマス", "紅白")
+# 弔事バケツは「弔事語を含む」の正の条件で足切りする（#478）。
+# 楽天の商品名は「内祝い 出産内祝い 結婚内祝い 香典返し …」と全用途を列挙するのが慣習で、
+# 「出産」「結婚」を NG にすると香典返しにも使える汎用ギフトがほぼ全部消えた
+# （実測: 洗剤 30件中 29件、タオル 30件中 29件が該当）。検索語に「香典返し」を入れている
+# のだから、商品名にも弔事の用途語がある品だけを通せば、汎用ギフトは通り慶事専用品は落ちる。
+_MOURNING_WORDS = ("香典返し", "香典", "満中陰志", "志", "法要", "仏事", "御供", "偲び草", "弔事")
+# 弔事語があっても混ぜない語。品そのものが慶事用と分かるものだけに絞る。
+# 「誕生日」「出産祝い」のような用途の列挙は不問にする。売り手が「香典返し」と明記している品を、
+# 他の用途も併記しているという理由で落とすと、タオル 30 件中 20 件が消える（実測）。
+_NG_KODEN = ("紅白",)
 # 「志」はのし表書きの『志』（弔事）対策。『志望』等の誤爆はあるが安全側に倒す
 _NG_CELEBRATION = ("御供", "仏事", "弔事", "香典", "法要", "志")
 _NG_COMMON = ("訳あり", "アウトレット", "中古")
@@ -40,11 +48,14 @@ def passes_gate(item: dict[str, Any], slug: str) -> bool:
     if not str(item.get("affiliate_url", "")).startswith(_AFFILIATE_PREFIX):
         return False
     title = item.get("title", "")
-    is_mourning = slug == "koden" or slug.startswith("mourn#")
-    ng = _NG_KODEN if is_mourning else _NG_CELEBRATION
-    if any(w in title for w in ng) or any(w in title for w in _NG_COMMON):
+    if any(w in title for w in _NG_COMMON):
         return False
-    return True
+    is_mourning = slug == "koden" or slug.startswith("mourn#")
+    if is_mourning:
+        if not any(w in title for w in _MOURNING_WORDS):
+            return False
+        return not any(w in title for w in _NG_KODEN)
+    return not any(w in title for w in _NG_CELEBRATION)
 
 
 def bayes_score(rating: float, count: int, global_mean: float, m: int = 20) -> float:

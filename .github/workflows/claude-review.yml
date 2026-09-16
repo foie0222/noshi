@@ -15,6 +15,12 @@ name: Claude Code Review
 # secrets.CLAUDE_CODE_OAUTH_TOKEN が空になり本レビューが必ず失敗 → 必須チェックが
 # 永久 FAILURE になるため。依存更新は CI（ruff/mypy/pytest 等）でゲートする。
 #
+# カタログ PR（catalog/refresh-*、Catalog Build が週次で作る）も同じく即パスする（#481）。
+# 差分が 250KB 超の items.json 1 ファイルで、Read/Grep しか無いレビューは turn を使い切って
+# 必ず失敗する。統制は #468 の設計どおり、ワークフロー内の生成物検証（URL・画像ドメイン・
+# 埋まったバケツ数）と、人間が diff を見て変な品を止めること。LLM に商品名 500 行を
+# 読ませる価値は無く、Max 枠も食う。
+#
 # 認証は Max サブスクの OAuth トークン（secret CLAUDE_CODE_OAUTH_TOKEN）。追加課金なし。
 # レビュー観点は repo 直下の REVIEW.md で定義。
 on:
@@ -38,21 +44,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20 # 青天井のハングを防ぐ
     steps:
-      # push（synchronize 等）と Dependabot PR では再レビューせず通過。
-      # 前者は PR 作成時のレビュー結果（スレッド）を維持。後者はトークン不在で本レビューが
-      # 不可能なため。この空通過で必須チェック「Claude review」が緑になり、永久 BLOCK を防ぐ。
-      - name: skip review (push / dependabot)
-        if: github.event.action != 'opened' || github.event.pull_request.user.login == 'dependabot[bot]'
-        run: echo "再レビューしない（push もしくは Dependabot PR）。"
+      # push（synchronize 等）・Dependabot PR・カタログ PR では再レビューせず通過。
+      # push は PR 作成時のレビュー結果（スレッド）を維持。Dependabot はトークン不在で本レビューが
+      # 不可能。カタログ PR はデータのみの巨大差分で本レビューが必ず失敗する（#481）。
+      # この空通過で必須チェック「Claude review」が緑になり、永久 BLOCK を防ぐ。
+      - name: skip review (push / dependabot / catalog)
+        if: >-
+          github.event.action != 'opened'
+          || github.event.pull_request.user.login == 'dependabot[bot]'
+          || startsWith(github.head_ref, 'catalog/refresh-')
+        run: echo "再レビューしない（push・Dependabot PR・カタログ PR のいずれか）。"
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        if: github.event.action == 'opened' && github.event.pull_request.user.login != 'dependabot[bot]'
+        if: >-
+          github.event.action == 'opened'
+          && github.event.pull_request.user.login != 'dependabot[bot]'
+          && !startsWith(github.head_ref, 'catalog/refresh-')
         with:
           fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
 
       # 公式 MCP インラインツールで、指摘を該当行に直接投稿（＝解決可能スレッド）。
       - uses: anthropics/claude-code-action@1298632ce7736903d02a1435002705aa2a594a6c # v1.0.175
-        if: github.event.action == 'opened' && github.event.pull_request.user.login != 'dependabot[bot]'
+        if: >-
+          github.event.action == 'opened'
+          && github.event.pull_request.user.login != 'dependabot[bot]'
+          && !startsWith(github.head_ref, 'catalog/refresh-')
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}

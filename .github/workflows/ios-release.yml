@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       marketing_version:
-        description: "マーケティングバージョン（例: 1.1）。省略時は Xcode プロジェクトの既定値（1.0）のまま"
+        description: "マーケティングバージョン（例: 1.2）。App Store で公開中のバージョンより高い値が必須。未指定だと Xcode プロジェクトの既定 1.0 のままで、公開後は必ず検証エラーになる（#495）。公開中の値は https://itunes.apple.com/lookup?bundleId=me.noshi.app&country=jp で確認できる"
         required: false
         type: string
   push:

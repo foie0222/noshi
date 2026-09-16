@@ -121,6 +121,9 @@ PR の変更ファイル・差分サイズ・ラベルから自動判定し、`m
 
 - 変更パス・差分サイズから `merge:auto` / `merge:human` を判定・ラベル付与。
 - `merge:auto` のみ squash 自動マージ（→ 既存 deploy が発火）。`merge:human` は通知のみ。
+  - 2026-09 追記（#491）: マージは operator App のトークンで行う。GITHUB_TOKEN で行った push は
+    ワークフローを起動しないため、6 月からの自動マージは deploy を発火しておらず、後続の人間の
+    push に便乗して本番に出ていた。App の push は起動する。
 
 ## 安全柵とコスト
 

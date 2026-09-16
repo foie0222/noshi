@@ -35,6 +35,7 @@ jobs:
           echo "number=$num" >> "$GITHUB_OUTPUT"
 
       - name: 分類してラベル付与
+        id: classify
         if: steps.pr.outputs.found == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -62,12 +63,35 @@ jobs:
             # 人間発行の低リスク PR は PO がマージ。レビュー指摘があれば未解決スレッドで自動マージは保留される。
             author=$(gh pr view "$PR" --json author -q '.author.login')
             if [ "$author" = "app/noshi-operator-foie0222" ] || [ "$author" = "noshi-operator-foie0222[bot]" ]; then
-              gh pr merge "$PR" --squash --auto
               gh pr comment "$PR" --body "merge:auto と判定（$reason）。operator PR のため CI緑+レビュー解決で自動マージします。"
+              echo "merge=true" >> "$GITHUB_OUTPUT"
             else
               gh pr comment "$PR" --body "merge:auto と判定（$reason）。人間発行 PR のため自動マージはスキップ（PO がマージしてください）。"
+              echo "merge=false" >> "$GITHUB_OUTPUT"
             fi
           else
             gh pr edit "$PR" --add-label merge:human --remove-label merge:auto
             gh pr comment "$PR" --body "merge:human と判定（$reason）。PO のマージが必要です。"
+            echo "merge=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # マージするときだけ、その直前に App トークンを発行する（最小権限。人間発行 PR や
+      # merge:human では発行しない）。マージを App で行う理由: GITHUB_TOKEN で行った push は
+      # ワークフローを起動しないため、自動マージしても ci.yml のデプロイが走らず、6 月から
+      # 本番に出ていなかった（#491）。App の push は起動する（#485 と同じパターン）。
+      # ルールセット main は bypass_actors が空なので、App でも必須チェックとスレッド解決は効く。
+      - name: GitHub App トークンを発行（マージ push で deploy を発火させる）
+        if: steps.classify.outputs.merge == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.OPERATOR_APP_ID }}
+          private-key: ${{ secrets.OPERATOR_APP_PRIVATE_KEY }}
+
+      - name: 自動マージ（App 名義・squash・head ブランチ削除）
+        if: steps.classify.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ steps.pr.outputs.number }}
+        # --delete-branch: 週次カタログの枝（catalog/refresh-<日付>）が溜まらないように
+        run: gh pr merge "$PR" --squash --auto --delete-branch

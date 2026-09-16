@@ -7,8 +7,10 @@ name: Catalog Build
 # 費用は Actions の実行時間だけ。実行時（Lambda）はこの JSON を読むだけで、
 # ネットワークも LLM も使わない。
 #
-# PR にする理由は、今週どの商品が入れ替わったかを diff で人間が見られるようにするため。
-# 変な品が混じったらマージしなければ本番に出ない。
+# PR にするのは CI とレビュー（data-only の空パス）を通してから main に入れるため。
+# マージは operator の classify-and-merge が自動で行う（PO 判断で常に自動、#488）。
+# 統制は生成時と読み込み時の二重検証（レビュー数・評価・NG ワード・URL と画像ドメイン）。
+# 変な品が混じったときは revert PR で戻す。diff は事後の監査用に残る。
 #
 # PR は operator の GitHub App 名義で作る（implement.yml と同じ）。GITHUB_TOKEN で作った PR は
 # 作者が github-actions[bot] になり、CI とレビューが action_required（人の承認待ち）で止まって
@@ -123,8 +125,9 @@ jobs:
             echo "★4.0以上・在庫あり・用途別NGワード）とスコア（ベイズ平均・トレンド・"
             echo "セール・ギフト加点）はすべて純粋関数で、LLM は使っていません。"
             echo
-            echo "**この diff で今週入れ替わった商品が見えます。** 用途に合わない品が"
-            echo "混じっていたらマージしないでください。マージしなければ本番には出ません。"
+            echo "この PR は CI とレビューが通れば自動でマージされます（#488）。"
+            echo "diff は今週入れ替わった商品の記録です。用途に合わない品が本番に出ていたら、"
+            echo "この PR を revert してください。"
             echo
             echo "実売価格とセール表記は保存していません（楽天の24時間ルールを避けるため）。"
             echo
@@ -137,5 +140,4 @@ jobs:
           gh pr create \
             --title "chore(catalog): お返し品カタログを更新する" \
             --body-file /tmp/catalog-pr-body.md \
-            --base main \
-            --label "merge:human"
+            --base main

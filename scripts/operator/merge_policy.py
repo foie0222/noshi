@@ -11,6 +11,9 @@ from dataclasses import dataclass
 class MergePolicy:
     sensitive_globs: tuple[str, ...]
     max_auto_lines: int
+    # 機械生成のデータ。これ「だけ」を変える PR はセンシティブ glob と行数を見ずに auto（#488）。
+    # 他のファイルが 1 つでも混ざれば通常の判定に戻る（生成データを隠れ蓑にコードを通させない）。
+    generated_data_paths: tuple[str, ...] = ()
 
 
 # カネ・認証/スコープ・インフラ・外向きコンテンツ・DBスキーマに触れるパス。
@@ -34,4 +37,10 @@ DEFAULT_POLICY = MergePolicy(
         "scripts/operator/**",
     ),
     max_auto_lines=150,
+    generated_data_paths=(
+        # 週次の Catalog Build が楽天から作り直すお返し品カタログ。PO 判断で常に自動マージ。
+        # 足切り（レビュー数・評価・NG ワード・URL と画像ドメイン）は生成時と読み込み時の
+        # 二重検証で担い、人の目は通さない。戻すときは revert PR。
+        "backend/app/catalog/data/items.json",
+    ),
 )

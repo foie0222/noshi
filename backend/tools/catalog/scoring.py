@@ -1,6 +1,7 @@
 """足切りゲート・線形スコア・saleNote 生成（スペック§6）。すべて純粋関数。
 
-商品名の整形は app.catalog.text.sanitize_name（実行時の読み込み側と共用）。
+足切りの条件（レビュー数・評価・NG ワード）は app.catalog.gate、商品名の整形は
+app.catalog.text にあり、どちらも実行時の読み込み側（products.py）と共用する。
 """
 
 from __future__ import annotations
@@ -10,37 +11,9 @@ import os
 from datetime import datetime
 from typing import Any
 
-_AFFILIATE_PREFIX = "https://hb.afl.rakuten.co.jp/"
-_MIN_REVIEWS = 20
-_MIN_RATING = 4.0
+from app.catalog.gate import is_mourning_slug, quality_ok, title_allowed
 
-# 弔事バケツは「弔事語を含む」の正の条件で足切りする（#478）。
-# 楽天の商品名は「内祝い 出産内祝い 結婚内祝い 香典返し …」と全用途を列挙するのが慣習で、
-# 「出産」「結婚」を NG にすると香典返しにも使える汎用ギフトがほぼ全部消えた
-# （実測: 洗剤 30件中 29件、タオル 30件中 29件が該当）。検索語に「香典返し」を入れている
-# のだから、商品名にも弔事の用途語がある品だけを通せば、汎用ギフトは通り慶事専用品は落ちる。
-# 単漢字の「志」は入れない。「志摩」「有志」に部分一致して無関係な品が混入する。除外条件（慶事側の
-# _NG_CELEBRATION）で誤爆しても安全側だが、採用条件では逆なので 2 文字以上の語に限る。
-_MOURNING_WORDS = (
-    "香典返し",
-    "香典",
-    "満中陰志",
-    "粗供養",
-    "法要",
-    "法事",
-    "仏事",
-    "御供",
-    "偲び草",
-    "忌明け",
-    "弔事",
-)
-# 弔事語があっても混ぜない語。品そのものが慶事用と分かるものだけに絞る。
-# 「誕生日」「出産祝い」のような用途の列挙は不問にする。売り手が「香典返し」と明記している品を、
-# 他の用途も併記しているという理由で落とすと、タオル 30 件中 20 件が消える（実測）。
-_NG_KODEN = ("紅白",)
-# 「志」はのし表書きの『志』（弔事）対策。『志望』等の誤爆はあるが安全側に倒す
-_NG_CELEBRATION = ("御供", "仏事", "弔事", "香典", "法要", "志")
-_NG_COMMON = ("訳あり", "アウトレット", "中古")
+_AFFILIATE_PREFIX = "https://hb.afl.rakuten.co.jp/"
 
 
 def _weight(name: str, default: float) -> float:
@@ -52,24 +25,14 @@ def _weight(name: str, default: float) -> float:
 
 
 def passes_gate(item: dict[str, Any], slug: str) -> bool:
-    """足切りゲート（スペック§6①）。"""
-    if item.get("review_count", 0) < _MIN_REVIEWS:
-        return False
-    if item.get("rating", 0.0) < _MIN_RATING:
+    """足切りゲート（スペック§6①）。条件の実体は app.catalog.gate（実行時と共用）。"""
+    if not quality_ok(float(item.get("rating", 0.0)), int(item.get("review_count", 0))):
         return False
     if item.get("availability", 0) != 1:
         return False
     if not str(item.get("affiliate_url", "")).startswith(_AFFILIATE_PREFIX):
         return False
-    title = item.get("title", "")
-    if any(w in title for w in _NG_COMMON):
-        return False
-    is_mourning = slug == "koden" or slug.startswith("mourn#")
-    if is_mourning:
-        if not any(w in title for w in _MOURNING_WORDS):
-            return False
-        return not any(w in title for w in _NG_KODEN)
-    return not any(w in title for w in _NG_CELEBRATION)
+    return title_allowed(str(item.get("title", "")), is_mourning_slug(slug))
 
 
 def bayes_score(rating: float, count: int, global_mean: float, m: int = 20) -> float:

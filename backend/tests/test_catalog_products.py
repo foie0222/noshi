@@ -103,3 +103,50 @@ def test_長すぎる商品名は読み込み時に切り詰める(tmp_path):
     data = {"generated_at": "x", "buckets": {"cele#sweets@5000-9999": [item]}}
     got = ProductCatalog(_write(tmp_path, data)).for_bucket("cele", "sweets", "5000-9999")
     assert len(got[0]["title"]) == 200
+
+
+# --- 読み込み時にも生成時と同じ足切りを適用する（#488: 自動マージの安全根拠） ---
+
+
+def _row(**over):
+    base = dict(_SAMPLE["buckets"]["cele#sweets@5000-9999"][0])
+    base.update(over)
+    return base
+
+
+def _bucket(tmp_path, key, rows):
+    return ProductCatalog(_write(tmp_path, {"generated_at": "x", "buckets": {key: rows}}))
+
+
+def test_レビュー数が足りない商品は読み込み時に捨てる(tmp_path):
+    cat = _bucket(tmp_path, "cele#sweets@5000-9999", [_row(reviews=19), _row(reviews=20)])
+    got = cat.for_bucket("cele", "sweets", "5000-9999")
+    assert [p["reviews"] for p in got] == [20]
+
+
+def test_評価が低い商品は読み込み時に捨てる(tmp_path):
+    cat = _bucket(tmp_path, "cele#sweets@5000-9999", [_row(rating=3.9), _row(rating=4.0)])
+    got = cat.for_bucket("cele", "sweets", "5000-9999")
+    assert [p["rating"] for p in got] == [4.0]
+
+
+def test_慶事バケツの弔事語つき商品は読み込み時に捨てる(tmp_path):
+    cat = _bucket(tmp_path, "cele#sweets@5000-9999", [_row(title="香典返し 焼き菓子")])
+    assert cat.for_bucket("cele", "sweets", "5000-9999") == []
+
+
+def test_弔事バケツは弔事語のある商品だけ読み込む(tmp_path):
+    rows = [
+        _row(title="敬老の日 タオル"),
+        _row(title="香典返し タオル"),
+        _row(title="香典返し 紅白饅頭"),
+    ]
+    cat = _bucket(tmp_path, "mourn#towel@3000-4999", rows)
+    assert [p["title"] for p in cat.for_bucket("mourn", "towel", "3000-4999")] == [
+        "香典返し タオル"
+    ]
+
+
+def test_共通NGワードの商品は読み込み時に捨てる(tmp_path):
+    cat = _bucket(tmp_path, "cele#sweets@5000-9999", [_row(title="訳あり 焼き菓子")])
+    assert cat.for_bucket("cele", "sweets", "5000-9999") == []

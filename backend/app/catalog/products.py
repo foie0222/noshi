@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from app.catalog.buckets import bucket_key
+from app.catalog.gate import is_mourning_slug, quality_ok, title_allowed
 from app.catalog.text import sanitize_name
 
 _DATA = Path(__file__).with_name("data") / "items.json"
@@ -25,23 +26,31 @@ _AFFILIATE_PREFIX = "https://hb.afl.rakuten.co.jp/"
 _IMAGE_PREFIX = "https://thumbnail.image.rakuten.co.jp/"
 
 
-def _clean(raw: Any) -> dict[str, Any] | None:
-    """1件を検証して整形。表示に使えないものは None（捨てる）。"""
+def _clean(raw: Any, is_mourning: bool) -> dict[str, Any] | None:
+    """1件を検証して整形。表示に使えないものは None（捨てる）。
+
+    生成側でも同じ足切りと整形を通しているが、差し替えられた JSON や、足切りを変えた後に
+    残った古い JSON を想定して読み込み側でも通す。週次カタログの PR は人の目を通さず
+    自動マージされる（#488）ので、ここが最後の防御になる。
+    """
     if not isinstance(raw, dict):
         return None
     url = str(raw.get("url", ""))
     image = str(raw.get("image", ""))
-    # 生成側でも整形済みだが、差し替えられた JSON を想定して読み込み側でも通す
     title = sanitize_name(str(raw.get("title", "")))
+    rating = float(raw.get("rating") or 0.0)
+    reviews = int(raw.get("reviews") or 0)
     if not title or not url.startswith(_AFFILIATE_PREFIX) or not image.startswith(_IMAGE_PREFIX):
+        return None
+    if not quality_ok(rating, reviews) or not title_allowed(title, is_mourning):
         return None
     return {
         "title": title,
         "shop": sanitize_name(str(raw.get("shop", ""))),
         "url": url,
         "image": image,
-        "rating": float(raw.get("rating") or 0.0),
-        "reviews": int(raw.get("reviews") or 0),
+        "rating": rating,
+        "reviews": reviews,
     }
 
 
@@ -67,7 +76,8 @@ class ProductCatalog:
         for key, rows in raw_buckets.items():
             if not isinstance(rows, list):
                 continue
-            cleaned = [c for c in (_clean(r) for r in rows) if c is not None]
+            mourning = is_mourning_slug(str(key).split("@", 1)[0])  # "mourn#food@3000-4999"
+            cleaned = [c for c in (_clean(r, mourning) for r in rows) if c is not None]
             if cleaned:
                 self._buckets[str(key)] = cleaned
 

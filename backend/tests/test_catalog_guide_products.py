@@ -64,9 +64,11 @@ def test_1カードあたりの商品は3件まで(tmp_path):
 
 
 def test_弔事の予算帯のバケツを引く(tmp_path):
-    guide = GiftGuide(_catalog(tmp_path, {"mourn#drink@3000-4999": [_product("緑茶詰合せ")]}))
+    # 弔事バケツは読み込み時にも弔事語を要求する（生成時の足切りと同じ条件）
+    rows = [_product("香典返し 緑茶詰合せ")]
+    guide = GiftGuide(_catalog(tmp_path, {"mourn#drink@3000-4999": rows}))
     got = guide.suggest(budget=3000, relationship="親族", purpose="香典", category="drink")
-    assert got[0]["products"][0]["title"] == "緑茶詰合せ"
+    assert got[0]["products"][0]["title"] == "香典返し 緑茶詰合せ"
 
 
 def test_生成日を返す(tmp_path):

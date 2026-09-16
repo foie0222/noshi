@@ -150,8 +150,25 @@ jobs:
         run: |
           IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)
           echo "uploading: $IPA"
-          xcrun altool --upload-app -f "$IPA" -t ios \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          # altool は検証エラー（例: CFBundleShortVersionString が承認済みより低い、train が閉鎖）でも
+          # 終了コード 0 を返し、bash -e では落ちない（#493: build 24・25 が緑のまま未配信だった）。
+          # 出力を JSON で受け、失敗はキー（product-errors）と実出力で確認済みの失敗文言で判定する。
+          # 成功文言は Xcode/altool の版や言語で変わり得るので、無くても落とさず警告に留める
+          # （正常なリリースを誤って止めない）。このワークフローは shell 未指定＝ bash -e {0} で
+          # pipefail が無いため、altool の終了コードは PIPESTATUS で取る。
+          set +e
+          xcrun altool --upload-app -f "$IPA" -t ios --output-format json \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/altool.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ] \
+             || grep -qE '"product-errors"|Failed to upload|Validation failed|ERROR ITMS' "$RUNNER_TEMP/altool.log"; then
+            echo "::error::TestFlight へのアップロードに失敗しました（altool rc=$rc）。上の出力を確認してください。"
+            exit 1
+          fi
+          if ! grep -qE '"success-message"|UPLOAD SUCCEEDED|No errors uploading' "$RUNNER_TEMP/altool.log"; then
+            echo "::warning::altool の出力に成功の印がありません。App Store Connect でビルドの到着を確認してください。"
+          fi
 
       - name: cleanup secrets
         if: always()

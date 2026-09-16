@@ -2,7 +2,11 @@
 
 noshi（贈答とお返しの記録）の App Store Connect 提出に必要なメタデータ一式。コードではなく **App Store Connect 画面への転記用**。スクリーンショット(#211)以外は本ドキュメントの値をそのまま入力すればよい。
 
-最終更新: 2026-09-15（#468 アフィリエイト再開を反映） / 対象ビルド: TestFlight #17 以降
+最終更新: 2026-09-16（#468 アフィリエイト再開を反映） / 対象ビルド: TestFlight build 26（1.2）以降
+
+> 公開中のバージョンは iTunes Lookup で認証なしに確認できる:
+> `https://itunes.apple.com/lookup?bundleId=me.noshi.app&country=jp`（2026-09-16 時点で 1.1）。
+> TestFlight に上げる新ビルドはそれより高いマーケティングバージョンが必須（#495）。
 
 ---
 

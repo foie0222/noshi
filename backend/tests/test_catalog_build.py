@@ -149,3 +149,41 @@ def test_APIコール上限に達したらビルドを中断する():
     # 握り潰して部分的な JSON をコミットすると、消えた商品の理由が追えなくなる
     with pytest.raises(RakutenBudgetExceeded):
         build(_FakeClient(budget_out=True), ranking={}, generated_at="2026-09-15")
+
+
+# --- 起動時のチェックと、ランキング取得の失敗 ---
+
+
+def test_必須の環境変数が無ければ生成せずに終わる(monkeypatch, tmp_path):
+    # 未設定のまま走らせると84バケツ全部が403で失敗してから落ちる。原因が分かるよう先に弾く
+    from tools.catalog.build import main
+
+    for name in ("RAKUTEN_APP_ID", "RAKUTEN_AFFILIATE_ID", "RAKUTEN_ACCESS_KEY"):
+        monkeypatch.setenv("RAKUTEN_APP_ID", "app")
+        monkeypatch.setenv("RAKUTEN_AFFILIATE_ID", "aff")
+        monkeypatch.setenv("RAKUTEN_ACCESS_KEY", "key")
+        monkeypatch.delenv(name)
+        out = tmp_path / "items.json"
+        assert main(["--out", str(out)]) == 2
+        assert not out.exists()
+
+
+def test_ランキングが取れなくてもビルドは続く():
+    # トレンドは加点要素にすぎず（圏外は0点）、週次ビルド全体を落とす理由にはならない
+    from tools.catalog.build import ranking_or_empty
+
+    class _Boom:
+        def ranking(self, genre_id):
+            raise RuntimeError("楽天APIエラー")
+
+    assert ranking_or_empty(_Boom()) == {}
+
+
+def test_ランキングが取れたらそのまま使う():
+    from tools.catalog.build import ranking_or_empty
+
+    class _Ok:
+        def ranking(self, genre_id):
+            return {"shop:1": 3}
+
+    assert ranking_or_empty(_Ok()) == {"shop:1": 3}

@@ -1,10 +1,12 @@
-"""足切りゲート・線形スコア・saleNote 生成（スペック§6）。すべて純粋関数。"""
+"""足切りゲート・線形スコア・saleNote 生成（スペック§6）。すべて純粋関数。
+
+商品名の整形は app.catalog.text.sanitize_name（実行時の読み込み側と共用）。
+"""
 
 from __future__ import annotations
 
 import math
 import os
-import re
 from datetime import datetime
 from typing import Any
 
@@ -25,12 +27,6 @@ def _weight(name: str, default: float) -> float:
         return float(os.environ.get(name, ""))
     except ValueError:
         return default
-
-
-def sanitize_name(name: str) -> str:
-    """制御文字除去＋200字制限（プロンプトインジェクション対策の前処理）。"""
-    cleaned = re.sub(r"[\x00-\x1f\x7f]", "", name or "")
-    return cleaned[:200]
 
 
 def passes_gate(item: dict[str, Any], slug: str) -> bool:

@@ -26,12 +26,14 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from app.catalog.buckets import all_buckets, band_range, bucket_key
+from app.catalog.text import sanitize_name
 
 from tools.catalog.keywords import keyword_for
 from tools.catalog.rakuten import RakutenBudgetExceeded, RakutenClient
-from tools.catalog.scoring import linear_score, passes_gate, sanitize_name
+from tools.catalog.scoring import linear_score, passes_gate
 
 _OUT = Path(__file__).resolve().parents[2] / "app" / "catalog" / "data" / "items.json"
+_REQUIRED_ENV = ("RAKUTEN_APP_ID", "RAKUTEN_AFFILIATE_ID", "RAKUTEN_ACCESS_KEY")
 _PER_BUCKET = 10
 _DEFAULT_MEAN = 4.2  # レビューが1件も取れなかったときのベイズ事前分布
 
@@ -40,6 +42,10 @@ class _Search(Protocol):
     def search_items(
         self, keyword: str, min_price: int, max_price: int | None, page: int
     ) -> list[dict[str, Any]]: ...
+
+
+class _Ranking(Protocol):
+    def ranking(self, genre_id: str | None) -> dict[str, int]: ...
 
 
 def global_mean(items: Iterable[dict[str, Any]]) -> float:
@@ -113,21 +119,39 @@ def build(client: _Search, ranking: dict[str, int], generated_at: str) -> dict[s
     return {"generated_at": generated_at, "buckets": buckets}
 
 
+def ranking_or_empty(client: _Ranking) -> dict[str, int]:
+    """総合ランキング（1回だけ）。取れなければ空で続ける。
+
+    トレンドはスコアの加点要素にすぎず、圏外は 0 点として扱われる。ランキングAPIの
+    一時的な不調で週次ビルド全体を落とす理由にはならない。
+    """
+    try:
+        return client.ranking(None)
+    except Exception as e:  # noqa: BLE001 - 加点が無いだけでビルドは成立する
+        print(
+            f"warn: ランキングを取得できませんでした（トレンド加点なしで続行）: {e}",
+            file=sys.stderr,
+        )
+        return {}
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="お返し品カタログ（items.json）を生成する")
     ap.add_argument("--out", type=Path, default=_OUT)
     args = ap.parse_args(argv)
 
-    app_id = os.environ.get("RAKUTEN_APP_ID", "")
-    affiliate_id = os.environ.get("RAKUTEN_AFFILIATE_ID", "")
-    access_key = os.environ.get("RAKUTEN_ACCESS_KEY", "")
-    if not app_id or not affiliate_id:
-        print("RAKUTEN_APP_ID と RAKUTEN_AFFILIATE_ID が必要です", file=sys.stderr)
+    # 新APIは applicationId と accessKey の両方が必須。1つでも欠けると全バケツが403になる。
+    # 84回ぶんの失敗ログを出してから落ちても原因が読み取れないので、ここで先に弾く。
+    env = {name: os.environ.get(name, "") for name in _REQUIRED_ENV}
+    missing = [name for name, value in env.items() if not value]
+    if missing:
+        print(f"環境変数が足りません: {', '.join(missing)}", file=sys.stderr)
         return 2
 
-    client = RakutenClient(app_id, affiliate_id, access_key)
-    ranking = client.ranking(None)  # 総合ランキング1回だけ（ジャンル別は使わない）
-    out = build(client, ranking, date.today().isoformat())
+    client = RakutenClient(
+        env["RAKUTEN_APP_ID"], env["RAKUTEN_AFFILIATE_ID"], env["RAKUTEN_ACCESS_KEY"]
+    )
+    out = build(client, ranking_or_empty(client), date.today().isoformat())
 
     total = sum(len(v) for v in out["buckets"].values())
     args.out.parent.mkdir(parents=True, exist_ok=True)

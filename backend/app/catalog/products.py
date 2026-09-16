@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from app.catalog.buckets import bucket_key
+from app.catalog.text import sanitize_name
 
 _DATA = Path(__file__).with_name("data") / "items.json"
 
@@ -30,12 +31,13 @@ def _clean(raw: Any) -> dict[str, Any] | None:
         return None
     url = str(raw.get("url", ""))
     image = str(raw.get("image", ""))
-    title = str(raw.get("title", ""))
+    # 生成側でも整形済みだが、差し替えられた JSON を想定して読み込み側でも通す
+    title = sanitize_name(str(raw.get("title", "")))
     if not title or not url.startswith(_AFFILIATE_PREFIX) or not image.startswith(_IMAGE_PREFIX):
         return None
     return {
         "title": title,
-        "shop": str(raw.get("shop", "")),
+        "shop": sanitize_name(str(raw.get("shop", ""))),
         "url": url,
         "image": image,
         "rating": float(raw.get("rating") or 0.0),

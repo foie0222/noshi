@@ -83,3 +83,23 @@ def test_価格は保存しないので商品に含まれない(tmp_path):
     # 楽天の24時間ルール回避。相場は編集コンテンツの price_hint が担う
     got = ProductCatalog(_write(tmp_path, _SAMPLE)).for_bucket("cele", "sweets", "5000-9999")
     assert "price" not in got[0]
+
+
+def test_商品名と店名の制御文字は読み込み時に除く(tmp_path):
+    # 生成側でも除いているが、JSON が差し替えられた場合に備えて読み込み側でも通す
+    item = {
+        **_SAMPLE["buckets"]["cele#sweets@5000-9999"][0],
+        "title": "焼き菓子\x1b[31m詰め合わせ",
+        "shop": "テスト\x00洋菓子店",
+    }
+    data = {"generated_at": "x", "buckets": {"cele#sweets@5000-9999": [item]}}
+    got = ProductCatalog(_write(tmp_path, data)).for_bucket("cele", "sweets", "5000-9999")
+    assert got[0]["title"] == "焼き菓子[31m詰め合わせ"
+    assert got[0]["shop"] == "テスト洋菓子店"
+
+
+def test_長すぎる商品名は読み込み時に切り詰める(tmp_path):
+    item = {**_SAMPLE["buckets"]["cele#sweets@5000-9999"][0], "title": "あ" * 300}
+    data = {"generated_at": "x", "buckets": {"cele#sweets@5000-9999": [item]}}
+    got = ProductCatalog(_write(tmp_path, data)).for_bucket("cele", "sweets", "5000-9999")
+    assert len(got[0]["title"]) == 200

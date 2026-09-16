@@ -1,13 +1,13 @@
 """足切りゲート・スコア合成・saleNote 生成のテスト。スペック§6に対応。"""
 
 import pytest
+from app.catalog.text import sanitize_name
 from tools.catalog.scoring import (
     bayes_score,
     linear_score,
     passes_gate,
     sale_note,
     sale_score,
-    sanitize_name,
     trend_score,
 )
 

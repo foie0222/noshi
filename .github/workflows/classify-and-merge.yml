@@ -75,7 +75,8 @@ jobs:
             author=$(gh pr view "$PR" --json author -q '.author.login')
             if [ "$author" = "app/noshi-operator-foie0222" ] || [ "$author" = "noshi-operator-foie0222[bot]" ]; then
               # マージだけ App トークン。GITHUB_TOKEN だと push が deploy を起動しない（#491）。
-              GH_TOKEN="$MERGE_TOKEN" gh pr merge "$PR" --squash --auto
+              # --delete-branch: 週次カタログの枝（catalog/refresh-<日付>）が溜まらないように
+              GH_TOKEN="$MERGE_TOKEN" gh pr merge "$PR" --squash --auto --delete-branch
               gh pr comment "$PR" --body "merge:auto と判定（$reason）。operator PR のため CI緑+レビュー解決で自動マージします。"
             else
               gh pr comment "$PR" --body "merge:auto と判定（$reason）。人間発行 PR のため自動マージはスキップ（PO がマージしてください）。"

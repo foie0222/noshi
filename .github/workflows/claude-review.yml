@@ -15,11 +15,16 @@ name: Claude Code Review
 # secrets.CLAUDE_CODE_OAUTH_TOKEN が空になり本レビューが必ず失敗 → 必須チェックが
 # 永久 FAILURE になるため。依存更新は CI（ruff/mypy/pytest 等）でゲートする。
 #
-# カタログ PR（catalog/refresh-*、Catalog Build が週次で作る）も同じく即パスする（#481）。
+# カタログ PR（Catalog Build が週次で作る）も同じく即パスする（#481）。
 # 差分が 250KB 超の items.json 1 ファイルで、Read/Grep しか無いレビューは turn を使い切って
 # 必ず失敗する。統制は #468 の設計どおり、ワークフロー内の生成物検証（URL・画像ドメイン・
 # 埋まったバケツ数）と、人間が diff を見て変な品を止めること。LLM に商品名 500 行を
 # 読ませる価値は無く、Max 枠も食う。
+#
+# 判定は「変更ファイルが backend/app/catalog/data/items.json の 1 つだけ」を GitHub API で
+# 実際の diff から求める。ブランチ名や作者名は PR 作成者が自由に付けられる値なので使わない
+# （ブランチ名で判定すると、catalog/refresh-* と名付けるだけで必須レビューを迂回できてしまう）。
+# API 呼び出しが失敗したときはジョブごと失敗させる（空パスに倒さない）。
 #
 # 認証は Max サブスクの OAuth トークン（secret CLAUDE_CODE_OAUTH_TOKEN）。追加課金なし。
 # レビュー観点は repo 直下の REVIEW.md で定義。
@@ -44,22 +49,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20 # 青天井のハングを防ぐ
     steps:
-      # push（synchronize 等）・Dependabot PR・カタログ PR では再レビューせず通過。
+      # カタログのデータだけの PR かを、実際の変更ファイル一覧から判定する（#481）。
+      # 偽装できない事実（diff）で決める。失敗時は set -e でジョブが落ち、空パスにはならない。
+      - name: classify (catalog data-only PR?)
+        id: kind
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          files=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --paginate --jq '.[].filename')
+          if [ "$files" = "backend/app/catalog/data/items.json" ]; then
+            echo "data_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "data_only=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "変更ファイル:"; echo "$files" | sed 's/^/  /'
+
+      # push（synchronize 等）・Dependabot PR・カタログのデータだけの PR では再レビューせず通過。
       # push は PR 作成時のレビュー結果（スレッド）を維持。Dependabot はトークン不在で本レビューが
       # 不可能。カタログ PR はデータのみの巨大差分で本レビューが必ず失敗する（#481）。
       # この空通過で必須チェック「Claude review」が緑になり、永久 BLOCK を防ぐ。
-      - name: skip review (push / dependabot / catalog)
+      - name: skip review (push / dependabot / catalog data-only)
         if: >-
           github.event.action != 'opened'
           || github.event.pull_request.user.login == 'dependabot[bot]'
-          || startsWith(github.head_ref, 'catalog/refresh-')
-        run: echo "再レビューしない（push・Dependabot PR・カタログ PR のいずれか）。"
+          || steps.kind.outputs.data_only == 'true'
+        run: echo "再レビューしない（push・Dependabot PR・カタログのデータだけの PR のいずれか）。"
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         if: >-
           github.event.action == 'opened'
           && github.event.pull_request.user.login != 'dependabot[bot]'
-          && !startsWith(github.head_ref, 'catalog/refresh-')
+          && steps.kind.outputs.data_only != 'true'
         with:
           fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
 
@@ -68,7 +90,7 @@ jobs:
         if: >-
           github.event.action == 'opened'
           && github.event.pull_request.user.login != 'dependabot[bot]'
-          && !startsWith(github.head_ref, 'catalog/refresh-')
+          && steps.kind.outputs.data_only != 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}

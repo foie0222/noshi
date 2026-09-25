@@ -77,7 +77,7 @@ jobs:
           || steps.kind.outputs.data_only == 'true'
         run: echo "再レビューしない（push・Dependabot PR・カタログのデータだけの PR のいずれか）。"
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: >-
           github.event.action == 'opened'
           && github.event.pull_request.user.login != 'dependabot[bot]'
@@ -86,7 +86,7 @@ jobs:
           fetch-depth: 0 # 差分の基点（main）を取るため全履歴を取得
 
       # 公式 MCP インラインツールで、指摘を該当行に直接投稿（＝解決可能スレッド）。
-      - uses: anthropics/claude-code-action@1298632ce7736903d02a1435002705aa2a594a6c # v1.0.175
+      - uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231
         if: >-
           github.event.action == 'opened'
           && github.event.pull_request.user.login != 'dependabot[bot]'
